@@ -61,6 +61,7 @@ def bundle() -> list[dict[str, Any]]:
     calibration = base("calibration", "cal") | {
         "scale": "arbitrary",
         "world_unit": "arbitrary",
+        "camera_status": "resolved",
         "ground_z": 0,
         "ground_status": "resolved",
         "source_revision": "fixture",

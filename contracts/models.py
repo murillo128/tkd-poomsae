@@ -340,8 +340,11 @@ class GroundFrame(StrictModel):
             raise ValueError("source_to_world must be homogeneous")
         basis = np.asarray(m, dtype=np.float64)[:3, :3]
         lengths = np.linalg.norm(basis, axis=1)
-        if (np.linalg.det(basis) <= 0 or not np.allclose(lengths, lengths[0])
-                or not np.allclose(basis @ basis.T, np.eye(3) * lengths[0]**2)):
+        if (
+            np.linalg.det(basis) <= 0
+            or not np.allclose(lengths, lengths[0])
+            or not np.allclose(basis @ basis.T, np.eye(3) * lengths[0] ** 2)
+        ):
             raise ValueError("source_to_world must preserve handedness and scale")
         if self.evidence_kind == "manual" and (
             not self.evidence_author or not self.evidence_reason
@@ -380,16 +383,30 @@ class Calibration(ArtifactBase):
     scale_evidence_ids: list[str] = Field(default_factory=list)
     scale_resolution: ScaleResolution | None = None
     source_revision: str | None = None
+    camera_status: Literal["resolved", "unresolved"] = "unresolved"
+    publication_status: Literal["complete", "partial"] = "partial"
+    excluded_cameras: dict[str, str] = Field(default_factory=dict)
+    quality_flags: list[str] = Field(default_factory=list)
+    projection_debug: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_links: list[str] = Field(default_factory=list)
     quality: Quality
 
     @model_validator(mode="after")
     def consistent_scale(self) -> Calibration:
+        if set(self.excluded_cameras) & {camera.camera_id for camera in self.cameras}:
+            raise ValueError("excluded cameras cannot also be retained")
         if (self.scale == "metric") != (self.world_unit == "m"):
             raise ValueError(
                 "metric scale requires metres; unresolved scale is arbitrary"
             )
         if (self.scale_status == "resolved") != (self.scale == "metric"):
             raise ValueError("scale status and units disagree")
+        if self.publication_status == "complete" and (
+            self.camera_status != "resolved"
+            or self.ground_status != "resolved"
+            or self.scale_status != "resolved"
+        ):
+            raise ValueError("complete calibration requires camera, ground and scale")
         if self.scale == "metric" and not self.scale_evidence_ids:
             raise ValueError("metric scale requires known-size evidence")
         if self.scale == "metric" and (
@@ -405,11 +422,15 @@ class Calibration(ArtifactBase):
         elif self.ground_frame is not None or self.ground_z is not None:
             raise ValueError("unresolved ground cannot claim a ground frame")
         if self.source_revision is not None:
-            if (self.ground_frame is not None
-                    and self.ground_frame.source_revision != self.source_revision):
+            if (
+                self.ground_frame is not None
+                and self.ground_frame.source_revision != self.source_revision
+            ):
                 raise ValueError("ground source revision mismatch")
-            if (self.scale_resolution is not None
-                    and self.scale_resolution.source_revision != self.source_revision):
+            if (
+                self.scale_resolution is not None
+                and self.scale_resolution.source_revision != self.source_revision
+            ):
                 raise ValueError("scale source revision mismatch")
         return self
 
@@ -1006,6 +1027,8 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 or item.scale != calibration.scale
             ):
                 raise ValueError("reconstruction participant or scale mismatch")
+            if calibration.camera_status != "resolved":
+                raise ValueError("reconstruction requires resolved camera geometry")
             if item.scale == "arbitrary" and any(
                 array.unit in {"m", "cm"} for array in item.arrays
             ):

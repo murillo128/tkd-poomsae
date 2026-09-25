@@ -93,7 +93,8 @@ artifact records the target capture IDs, source revision, board dimension, units
 and identity source-to-world transform. No ankle/contact inference is used.
 
 For a natural-scene candidate, run `uv run --frozen python -m
-calibration.ground_cli --candidate /absolute/natural-scene.json --data-root
+calibration.ground_cli --candidate /absolute/natural-scene.json
+--sync-artifact /absolute/derived/synchronization/ARTIFACT_ID --data-root
 /absolute/data/root` to persist an unresolved calibration with arbitrary-scale
 cameras. Add `--evidence /absolute/evidence.json` only when independent evidence
 exists. The optional file has `ground` and `size` objects. `ground` supplies an
@@ -129,3 +130,50 @@ cue leaves ground unresolved; no ground-dependent product may consume it.
 Without a measured segment, scale stays arbitrary and metric arrays and ground
 measurements remain unavailable. Revisions produce distinct immutable
 calibrations while original scene points and observations remain untouched.
+
+## Publication quality gate
+
+`resolve_scene` and `calibration.ground_cli` publish only when the candidate
+contains verified synchronization identity, compatible per-view source and
+intrinsic evidence, bundle diagnostics, and at least two camera poses with 24
+shared static points. The gate recomputes each camera's reprojection residual and
+positive-depth fraction from the candidate's retained point observations. It
+also checks image coverage, shared-view connectivity, ray intersection angles,
+and 3D point conditioning. Every source retained by synchronization must appear
+in the candidate; a missing view cannot silently disappear from the project.
+A disconnected or inconsistent camera is excluded
+with a persisted reason only if at least two independent coherent views remain.
+If the remaining pair fails, publication stops. Frontal/lateral names never
+provide a pose or orthogonal-camera default.
+
+The defaults below are safety floors. `--thresholds thresholds.json` accepts a
+JSON object with these field names to **tighten** limits; the Python API accepts
+`QualityThresholds`, and runner calibration settings accept an inline
+`thresholds` object. Weaker limits are rejected.
+
+| Field | Default | Meaning |
+| --- | ---: | --- |
+| `min_shared_points` | 24 | Points observed in two retained views |
+| `min_camera_points` | 24 | Correspondences per accepted camera |
+| `min_hull_fraction` | 0.03 | Image area spanned by static features |
+| `min_grid_cells` | 4 | Occupied cells in the 4×4 image grid |
+| `max_camera_p90_px` | 3 | 90th-percentile per-camera reprojection error |
+| `max_bundle_p90_px` | 3 | Candidate bundle error when no view is excluded |
+| `min_cheirality` | 0.95 | Fraction of observed points in front of a camera |
+| `min_angle_deg` | 1 | 10th-percentile triangulation angle |
+| `max_condition` | 100 | Ratio of largest to smallest point-cloud singular value |
+
+The persisted `Calibration` records camera, ground, and metric-scale capability
+statuses separately. `publication_status` is `complete` only when all three are
+resolved; missing ground or measurement evidence yields `partial` with explicit
+quality flags. It also retains excluded cameras, candidate/sync/ground/size
+evidence identifiers, and up to 24 per-point observed-versus-projected pixel
+samples for inspection. Reprojection is an internal consistency diagnostic; it
+does not measure MMPose accuracy or real-world 3D accuracy.
+
+The offline runner's `calibration` stage accepts a persisted candidate path and
+optional evidence path in `{"calibration":{"candidate":"...",
+"evidence":"..."}}`. Its artifact key includes the candidate/evidence file hashes
+and synchronization revision. Observation reruns reuse unchanged calibration;
+sync or intentional calibration/ground revisions change calibration and
+dependent geometry keys without changing registered media or native observations.

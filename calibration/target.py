@@ -378,6 +378,13 @@ def estimate_calibration(
             metres_per_source_unit=1.0, producer="charuco-board-spec",
         ),
         source_revision=digest,
+        camera_status="resolved", publication_status="complete",
+        evidence_links=[f"target-capture:{d.capture.id}" for d in detections],
+        projection_debug=[{
+            "camera_id": camera.camera_id,
+            "rms_reprojection_px": camera.rms_reprojection_px,
+            "capture_ids": camera.capture_ids,
+        } for camera in cameras],
         ground_frame=GroundFrame(
             source_to_world=np.eye(4).tolist(),
             plane_normal_source=(0.0, 0.0, 1.0), plane_offset_source=0.0,

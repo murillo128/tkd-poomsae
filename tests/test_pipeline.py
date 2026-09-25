@@ -130,13 +130,32 @@ def test_reuse_targeted_invalidation_and_explicit_rerun(tmp_path: Path) -> None:
     pipe.analyze("demo", config={"sync": {"offset": 0.25}, "parsing": {"threshold": 2}})
     for name in ("sync", "attachment", "reconstruction", "ground", "parsing"):
         assert counts[name] == (3 if name == "parsing" else 2)
-    assert counts["observations"] == counts["calibration"] == 1
+    assert counts["observations"] == 1
+    assert counts["calibration"] == 2
 
     pipe.analyze("demo", rerun="observations")
     assert counts["observations"] == 2
     assert counts["sync"] == 2
-    assert counts["calibration"] == 1
+    assert counts["calibration"] == 2
     assert counts["attachment"] == 3
+
+
+def test_candidate_bytes_change_calibration_key_without_rerunning_observations(
+    tmp_path: Path,
+) -> None:
+    counts: Counter[str] = Counter()
+    pipe = setup(tmp_path, counts)
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text('{"revision":1}')
+    config = {"calibration": {"candidate": str(candidate)}}
+    pipe.analyze("demo", through="observations", config=config)
+    pipe.analyze("demo", through="calibration")
+    assert counts["calibration"] == 1
+    candidate.write_text('{"revision":2}')
+    assert pipe.status("demo")["stages"]["calibration"]["status"] == "stale"
+    pipe.analyze("demo", through="calibration")
+    assert counts["calibration"] == 2
+    assert counts["observations"] == 1
 
 
 def test_resume_interruption_and_cancel(tmp_path: Path) -> None:

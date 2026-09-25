@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 
 from calibration.cameras import CameraModel
 from calibration.natural import SceneCandidate
+from calibration.quality import QualityThresholds, SceneAssessment, assess_scene
 from contracts.models import (
     Calibration,
     CameraCalibration,
@@ -25,8 +26,9 @@ from storage import ArtifactHandle, ArtifactKey, ArtifactStore, hash_config
 
 
 def scene_revision(candidate: SceneCandidate) -> str:
-    payload = json.dumps(candidate.to_dict(), sort_keys=True, allow_nan=False,
-                         separators=(",", ":")).encode()
+    payload = json.dumps(
+        candidate.to_dict(), sort_keys=True, allow_nan=False, separators=(",", ":")
+    ).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -51,8 +53,10 @@ class GroundEvidence:
             raise ValueError("ground evidence requires identity and source revision")
         if len(set(self.floor_indices)) < 6 or not self.above_indices:
             raise ValueError("floor samples and above-floor sign evidence required")
-        if (len(self.vertical_indices) != 2
-                or self.vertical_indices[0] == self.vertical_indices[1]):
+        if (
+            len(self.vertical_indices) != 2
+            or self.vertical_indices[0] == self.vertical_indices[1]
+        ):
             raise ValueError("vertical reference requires distinct ordered endpoints")
         if self.kind == "manual":
             if not self.author or not self.reason:
@@ -94,22 +98,44 @@ class SizeEvidence:
 def _points(candidate: SceneCandidate, indices: tuple[int, ...]) -> NDArray[np.float64]:
     if any(not 0 <= i < len(candidate.static_points) for i in indices):
         raise ValueError("evidence refers to absent scene point")
-    result = np.asarray([candidate.static_points[i]["xyz"] for i in indices],
-                        dtype=np.float64)
+    result = np.asarray(
+        [candidate.static_points[i]["xyz"] for i in indices], dtype=np.float64
+    )
     if result.shape != (len(indices), 3) or not np.isfinite(result).all():
         raise ValueError("scene points must be finite xyz")
     return result
 
 
+def _require_retained_support(
+    candidate: SceneCandidate,
+    indices: tuple[int, ...],
+    assessment: SceneAssessment,
+) -> None:
+    for index in indices:
+        if not 0 <= index < len(candidate.static_points):
+            raise ValueError("evidence refers to absent scene point")
+        if index not in assessment.shared_point_indices:
+            raise ValueError("ground or size evidence lacks coherent retained support")
+        observations = candidate.static_points[index].get("observations", {})
+        if (
+            not isinstance(observations, dict)
+            or len(set(observations) & set(assessment.retained)) < 2
+        ):
+            raise ValueError("ground or size evidence lacks retained multiview support")
+
+
 def _vertical_direction(
-    candidate: SceneCandidate, evidence: GroundEvidence,
+    candidate: SceneCandidate,
+    evidence: GroundEvidence,
+    retained: tuple[str, ...],
 ) -> NDArray[np.float64]:
     indices = evidence.vertical_indices
     endpoints = _points(candidate, indices)
     if evidence.kind == "scene":
         references = candidate.evidence.get("vertical_references", [])
         matches = [
-            item for item in references
+            item
+            for item in references
             if isinstance(item, dict)
             and item.get("id") == evidence.vertical_reference_id
         ]
@@ -127,9 +153,14 @@ def _vertical_direction(
         for index in indices:
             point = candidate.static_points[index]
             observations = point.get("observations", {})
-            if not isinstance(observations, dict) or len(observations) < 2:
+            if (
+                not isinstance(observations, dict)
+                or len(set(observations) & set(retained)) < 2
+            ):
                 raise ValueError("upright cue lacks multiview point observations")
             for camera_id, pixel in observations.items():
+                if camera_id not in retained:
+                    continue
                 record = candidate.cameras.get(camera_id)
                 if record is None:
                     raise ValueError("upright cue refers to absent camera")
@@ -139,8 +170,11 @@ def _vertical_direction(
                 )
                 projected = camera.project(_points(candidate, (index,)))[0]
                 observed = np.asarray(pixel, dtype=np.float64)
-                if (observed.shape != (2,) or not np.isfinite(observed).all()
-                        or np.linalg.norm(projected - observed) > 3.0):
+                if (
+                    observed.shape != (2,)
+                    or not np.isfinite(observed).all()
+                    or np.linalg.norm(projected - observed) > 3.0
+                ):
                     raise ValueError("upright cue has inconsistent multiview geometry")
     direction = endpoints[1] - endpoints[0]
     length = float(np.linalg.norm(direction))
@@ -150,8 +184,11 @@ def _vertical_direction(
 
 
 def _ground_frame(
-    candidate: SceneCandidate, evidence: GroundEvidence, revision: str,
+    candidate: SceneCandidate,
+    evidence: GroundEvidence,
+    revision: str,
     scale: float,
+    retained: tuple[str, ...],
 ) -> tuple[GroundFrame, NDArray[np.float64], NDArray[np.float64]]:
     samples = _points(candidate, evidence.floor_indices)
     extent = float(np.linalg.norm(np.ptp(samples, axis=0)))
@@ -183,12 +220,13 @@ def _ground_frame(
         raise ValueError("floor residual exceeds supported tolerance")
     above = _points(candidate, evidence.above_indices)
     signed = (above - origin) @ normal
-    if (np.any(np.abs(signed) < 3 * threshold)
-            or np.any(signed > 0) != np.all(signed > 0)):
+    if np.any(np.abs(signed) < 3 * threshold) or np.any(signed > 0) != np.all(
+        signed > 0
+    ):
         raise ValueError("vertical sign evidence is ambiguous")
     if np.all(signed < 0):
         normal = -normal
-    up = _vertical_direction(candidate, evidence)
+    up = _vertical_direction(candidate, evidence, retained)
     if float(normal @ up) < float(np.cos(np.deg2rad(15))):
         raise ValueError("floor plane conflicts with independent vertical cue")
     axis = _points(candidate, evidence.axis_indices)
@@ -211,11 +249,14 @@ def _ground_frame(
         source_to_world=transform.tolist(),
         plane_normal_source=(float(normal[0]), float(normal[1]), float(normal[2])),
         plane_offset_source=-float(normal @ origin),
-        inlier_count=int(best.sum()), sample_count=len(samples),
+        inlier_count=int(best.sum()),
+        sample_count=len(samples),
         inlier_indices=[evidence.floor_indices[i] for i in np.flatnonzero(best)],
-        coverage=coverage * scale**2, rms_residual=rms * scale,
-        normal_uncertainty_rad=float(np.arctan2(
-            rms, singular[1] / np.sqrt(len(inliers)))),
+        coverage=coverage * scale**2,
+        rms_residual=rms * scale,
+        normal_uncertainty_rad=float(
+            np.arctan2(rms, singular[1] / np.sqrt(len(inliers)))
+        ),
         axis_uncertainty_rad=float(np.arctan2(rms, axis_length)),
         evidence_kind=evidence.kind,
         evidence_ids=[evidence.id, evidence.vertical_reference_id],
@@ -231,10 +272,10 @@ def resolve_scene(
     candidate: SceneCandidate,
     ground: GroundEvidence | None = None,
     size: SizeEvidence | None = None,
+    thresholds: QualityThresholds = QualityThresholds(),
 ) -> Calibration:
     """Keep unsupported capabilities unavailable; never infer floor or metres."""
-    if candidate.status != "candidate" or len(candidate.cameras) < 2:
-        raise ValueError("scene camera candidate is unavailable or weak")
+    assessment: SceneAssessment = assess_scene(candidate, thresholds)
     revision = scene_revision(candidate)
     if any(e.source_revision != revision for e in (ground, size) if e is not None):
         raise ValueError("evidence belongs to incompatible scene revision")
@@ -242,6 +283,7 @@ def resolve_scene(
         raise ValueError("ground and size evidence IDs must differ")
     scale = 1.0
     if size is not None:
+        _require_retained_support(candidate, size.point_indices, assessment)
         endpoints = _points(candidate, size.point_indices)
         distance = float(np.linalg.norm(endpoints[1] - endpoints[0]))
         if distance <= 1e-8:
@@ -251,60 +293,110 @@ def resolve_scene(
     rotation = np.eye(3)
     origin = np.zeros(3)
     if ground is not None:
-        frame, rotation, origin = _ground_frame(candidate, ground, revision, scale)
+        _require_retained_support(
+            candidate,
+            ground.floor_indices
+            + ground.above_indices
+            + ground.axis_indices
+            + ground.vertical_indices,
+            assessment,
+        )
+        frame, rotation, origin = _ground_frame(
+            candidate,
+            ground,
+            revision,
+            scale,
+            assessment.retained,
+        )
     cameras = []
-    for camera_id, record in sorted(candidate.cameras.items()):
+    for camera_id in assessment.retained:
+        record = candidate.cameras[camera_id]
         pose = np.asarray(record["world_to_camera"], dtype=np.float64)
         intrinsics = Intrinsics.model_validate(record["intrinsics"])
         CameraModel(intrinsics, pose)
         world_pose = np.eye(4)
         world_pose[:3, :3] = pose[:3, :3] @ rotation.T
         world_pose[:3, 3] = scale * (pose[:3, :3] @ origin + pose[:3, 3])
-        cameras.append(CameraCalibration(
-            camera_id=camera_id, source_id=record["source_id"],
-            intrinsics=intrinsics,
-            world_to_camera=world_pose.tolist(),
-            quality=Quality(state="observed", source_ids=[record["source_id"]]),
-            intrinsic_source="imported",
-        ))
+        cameras.append(
+            CameraCalibration(
+                camera_id=camera_id,
+                source_id=record["source_id"],
+                intrinsics=intrinsics,
+                world_to_camera=world_pose.tolist(),
+                quality=Quality(state="observed", source_ids=[record["source_id"]]),
+                intrinsic_source="imported",
+            )
+        )
     if len({camera.source_id for camera in cameras}) != len(cameras):
         raise ValueError("scene cameras must have distinct sources")
-    config = {"scene_revision": revision, "ground": vars(ground) if ground else None,
-              "size": vars(size) if size else None}
+    config = {
+        "scene_revision": revision,
+        "ground": vars(ground) if ground else None,
+        "size": vars(size) if size else None,
+        "thresholds": vars(thresholds),
+    }
     digest = hash_config(config)
     return Calibration(
-        id=f"calibration-{digest[:24]}", kind="calibration",
+        id=f"calibration-{digest[:24]}",
+        kind="calibration",
         schema_version="1.0.0",
         provenance=Provenance(producer="scene_ground_v1", config_digest=digest),
-        cameras=cameras, scale="metric" if size else "arbitrary",
+        cameras=cameras,
+        scale="metric" if size else "arbitrary",
         world_unit="m" if size else "arbitrary",
         scale_status="resolved" if size else "unresolved",
         scale_evidence_ids=[size.id] if size else [],
         scale_resolution=ScaleResolution(
-            evidence_id=size.id, source_revision=revision, kind=size.kind,
-            measured_length=size.length, measured_unit=size.unit,
+            evidence_id=size.id,
+            source_revision=revision,
+            kind=size.kind,
+            measured_length=size.length,
+            measured_unit=size.unit,
             metres_per_source_unit=scale,
-            producer=size.producer or "operator", author=size.author or None,
+            producer=size.producer or "operator",
+            author=size.author or None,
             reason=size.reason or None,
-        ) if size else None,
+        )
+        if size
+        else None,
         ground_status="resolved" if frame else "unresolved",
-        ground_z=0.0 if frame else None, ground_frame=frame,
+        ground_z=0.0 if frame else None,
+        ground_frame=frame,
         source_revision=revision,
-        quality=Quality(state="observed" if frame else "unknown",
-                        uncertainty=frame.normal_uncertainty_rad if frame else None,
-                        source_ids=sorted({c.source_id for c in cameras})),
+        camera_status="resolved",
+        publication_status="complete" if frame and size else "partial",
+        excluded_cameras=assessment.excluded,
+        quality_flags=list(assessment.flags)
+        + (["ground unresolved"] if not frame else [])
+        + (["metric scale unresolved"] if not size else []),
+        projection_debug=[assessment.diagnostics],
+        evidence_links=[
+            f"scene-candidate:sha256:{revision}",
+            f"synchronization:{candidate.evidence['synchronization']['artifact_id']}",
+        ]
+        + ([f"ground:{ground.id}"] if ground else [])
+        + ([f"size:{size.id}"] if size else []),
+        quality=Quality(
+            state="observed" if frame else "unknown",
+            uncertainty=frame.normal_uncertainty_rad if frame else None,
+            source_ids=sorted({c.source_id for c in cameras}),
+        ),
     )
 
 
 def persist_scene_calibration(
-    store: ArtifactStore, candidate: SceneCandidate, calibration: Calibration,
+    store: ArtifactStore,
+    candidate: SceneCandidate,
+    calibration: Calibration,
 ) -> ArtifactHandle:
     revision = scene_revision(candidate)
     if calibration.source_revision != revision:
         raise ValueError("calibration and scene revisions disagree")
     key = ArtifactKey(
-        layer="calibration", inputs={"scene_candidate": revision},
-        schema_version="1.0.0", algorithm_revision="scene-ground-v1",
+        layer="calibration",
+        inputs={"scene_candidate": revision},
+        schema_version="1.0.0",
+        algorithm_revision="scene-ground-v1",
         config_digest=calibration.provenance.config_digest,
     )
     return store.get_or_create(key, lambda: (calibration, {}))
