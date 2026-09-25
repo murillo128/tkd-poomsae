@@ -10,6 +10,7 @@ from pathlib import Path
 from pipeline import Pipeline
 from tkd_poomsae.dataset import MendeleyDatasetProvider, UnsupportedVersion
 from tkd_poomsae.dataset_bootstrap import AcquisitionError, bootstrap, verify
+from tkd_poomsae.dataset_import import inventory, register_all
 
 
 def main() -> int:
@@ -38,6 +39,15 @@ def main() -> int:
     dataset_bootstrap.add_argument("dataset", choices=["mendeley-bjy7vr4xkt-v1"])
     dataset_bootstrap.add_argument(
         "--repair", action="store_true", help="Replace a corrupt local publication"
+    )
+    dataset_inventory = dataset_commands.add_parser(
+        "inventory", help="Measure all local Mendeley executions without writing"
+    )
+    dataset_inventory.add_argument(
+        "--output", type=Path, help="Write a compact JSON report"
+    )
+    dataset_commands.add_parser(
+        "register", help="Register all local Mendeley projects and shared sources"
     )
     register = subcommands.add_parser("register", help="Register a local project")
     register.add_argument("project")
@@ -83,6 +93,20 @@ def main() -> int:
         payload = asdict(dataset_result)
         payload["root"] = str(dataset_result.root)
         print(json.dumps(payload, indent=2))
+        return 0
+    if args.command == "datasets" and args.dataset_command in {"inventory", "register"}:
+        try:
+            result = (
+                inventory() if args.dataset_command == "inventory" else register_all()
+            )
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+        output = json.dumps(result, indent=2, sort_keys=True) + "\n"
+        if args.dataset_command == "inventory" and args.output is not None:
+            args.output.write_text(output, encoding="utf-8")
+        else:
+            print(output, end="")
         return 0
     if args.command == "datasets" and args.dataset_command in {"bootstrap", "verify"}:
         try:
