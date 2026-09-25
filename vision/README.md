@@ -43,12 +43,14 @@ and 21 points for each hand. Visible hand landmarks define expanded bounding
 boxes that the hand model crops from the original source image at its native
 resolution. The hand model yields 21 points. `smoke` forces a whole-frame box
 when detection finds nobody, so it tests loading and execution rather than
-prediction quality. No accuracy claim follows from the smoke result.
+prediction quality. Normal `models infer` emits no pose or hand samples when
+detection finds nobody. No accuracy claim follows from the smoke result.
 
 Use `models infer` with the same arguments for the normal detection-driven path.
 CPU threads are capped at two by default and one person/one image is processed
-per call. A CUDA job obtains a file lease under the shared models root using the
-physical `GPU-...` UUID from `nvidia-smi`. Only one job per GPU proceeds; waits
+per call. A CUDA job asks the CUDA driver for its actual visible-ordinal UUID,
+verifies it against the physical `GPU-...` UUIDs from `nvidia-smi`, and obtains
+a file lease under the shared models root. Only one job per GPU proceeds; waits
 are bounded, cancellation is checked between stages, an exiting process releases
 the lease, and CUDA OOM gives an actionable error. MIG visibility is rejected
 until a reliable parent-GPU mapping is available.

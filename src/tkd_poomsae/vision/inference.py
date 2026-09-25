@@ -30,6 +30,19 @@ def _hand_box(
     ]
 
 
+def _pose_boxes(
+    boxes: Any, width: int, height: int, *, smoke: bool
+) -> Any | None:
+    """Never let MMPose turn an empty detection into a whole-frame pose."""
+    if len(boxes):
+        return boxes
+    if not smoke:
+        return None
+    import numpy as np
+
+    return np.array([[0, 0, width, height]], dtype=np.float32)
+
+
 def infer_image(
     image_path: Path,
     *,
@@ -78,6 +91,16 @@ def infer_image(
         del detector
         if cancelled is not None and cancelled():
             raise DeviceCancelled("Inference cancelled after detection")
+        pose_boxes = _pose_boxes(boxes, width, height, smoke=smoke)
+        if pose_boxes is None:
+            return {
+                "device": device,
+                "image_size": [width, height],
+                "detected_people": 0,
+                "wholebody_samples": 0,
+                "refined_hands": 0,
+                "smoke": False,
+            }
 
         whole_spec = specs["wholebody"]
         whole_cfg = Config.fromfile(paths[whole_spec["config"]])
@@ -87,9 +110,6 @@ def infer_image(
         whole = init_model(
             whole_cfg, str(paths[whole_spec["checkpoint"]]), device=device
         )
-        pose_boxes = boxes
-        if smoke and len(pose_boxes) == 0:
-            pose_boxes = np.array([[0, 0, width, height]], dtype=np.float32)
         poses = inference_topdown(whole, image, bboxes=pose_boxes)
         if smoke and not poses:
             raise RuntimeError("Whole-body smoke inference returned no sample")

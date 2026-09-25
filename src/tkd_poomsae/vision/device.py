@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import ctypes
 import fcntl
-import os
 import re
 import subprocess
 import time
+import uuid as uuidlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,33 +23,55 @@ class DeviceCancelled(RuntimeError):
     """Inference was cancelled before a device lease was acquired."""
 
 
+def _cuda_device_uuid(cuda_index: int) -> str:
+    """Ask the CUDA driver for the device at this process's visible ordinal."""
+    if cuda_index < 0:
+        raise ValueError("CUDA index must be nonnegative")
+    try:
+        driver = ctypes.CDLL("libcuda.so.1")
+    except OSError as error:
+        raise ValueError("CUDA driver library is unavailable") from error
+    driver.cuInit.argtypes = [ctypes.c_uint]
+    driver.cuInit.restype = ctypes.c_int
+    driver.cuDeviceGet.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+    driver.cuDeviceGet.restype = ctypes.c_int
+    get_uuid = getattr(driver, "cuDeviceGetUuid_v2", None)
+    if get_uuid is None:
+        get_uuid = getattr(driver, "cuDeviceGetUuid", None)
+    if get_uuid is None:
+        raise ValueError("CUDA driver cannot report a device UUID")
+    get_uuid.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
+    get_uuid.restype = ctypes.c_int
+    device = ctypes.c_int()
+    raw = (ctypes.c_ubyte * 16)()
+    if (
+        driver.cuInit(0) != 0
+        or driver.cuDeviceGet(ctypes.byref(device), cuda_index) != 0
+    ):
+        raise ValueError(f"CUDA device {cuda_index} is unavailable")
+    if get_uuid(raw, device.value) != 0:
+        raise ValueError(f"CUDA device {cuda_index} UUID lookup failed")
+    return f"GPU-{uuidlib.UUID(bytes=bytes(raw))}"
+
+
 def physical_gpu_uuid(cuda_index: int) -> str:
-    """Map a CUDA-visible index to an NVIDIA physical GPU UUID, or fail closed."""
-    result = subprocess.run(
-        ["nvidia-smi", "--query-gpu=index,uuid", "--format=csv,noheader,nounits"],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=10,
-    )
-    physical = {}
-    for line in result.stdout.splitlines():
-        index, uuid = (part.strip() for part in line.split(",", 1))
-        physical[int(index)] = uuid
-    visible = os.environ.get("CUDA_VISIBLE_DEVICES")
-    if visible:
-        entries = [part.strip() for part in visible.split(",")]
-        if cuda_index >= len(entries):
-            raise ValueError(f"CUDA device {cuda_index} is not visible")
-        entry = entries[cuda_index]
-        if entry.startswith("MIG-"):
-            raise ValueError("MIG CUDA visibility needs explicit parent-GPU mapping")
-        uuid = physical[int(entry)] if entry.isdigit() else entry
-    else:
-        uuid = physical[cuda_index]
-    if uuid not in physical.values() or not re.fullmatch(r"GPU-[A-Fa-f0-9-]+", uuid):
-        raise ValueError(f"Cannot establish physical GPU UUID for cuda:{cuda_index}")
-    return uuid
+    """Resolve actual CUDA ordinal to a physical UUID, independent of GPU order."""
+    queried = _cuda_device_uuid(cuda_index)
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=uuid", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ValueError("Cannot verify CUDA UUID against physical GPUs") from error
+    physical = [value.strip().casefold() for value in result.stdout.splitlines()]
+    if physical.count(queried.casefold()) != 1:
+        # A MIG UUID is not a physical-GPU UUID. Never lease it independently.
+        raise ValueError(f"CUDA device {cuda_index} has no unique physical GPU UUID")
+    return queried
 
 
 @contextmanager
