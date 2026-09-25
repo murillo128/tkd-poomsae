@@ -23,7 +23,7 @@ jobs:
       - run: uv sync --frozen --group dev
       - run: uv run --frozen tkd-poomsae --help
       - run: uv run --frozen pytest
-      - run: uv run --frozen ruff check src tests
+      - run: uv run --frozen ruff check src tests contracts
       - run: uv run --frozen mypy
 
   web:
@@ -42,5 +42,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler ../contracts/types.ts
       - run: npm run test
       - run: npm run build
