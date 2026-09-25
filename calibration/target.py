@@ -20,9 +20,11 @@ from calibration.cameras import (
 from contracts.models import (
     Calibration,
     CameraCalibration,
+    GroundFrame,
     Intrinsics,
     Provenance,
     Quality,
+    ScaleResolution,
 )
 from storage import ArtifactHandle, ArtifactKey, ArtifactStore, hash_config
 
@@ -365,6 +367,34 @@ def estimate_calibration(
         kind="calibration", id=f"calibration-{digest[:24]}", schema_version="1.0.0",
         provenance=Provenance(producer=producer, config_digest=digest),
         scale="metric", world_unit="m", cameras=cameras, ground_z=0.0,
+        ground_status="resolved", scale_status="resolved",
+        scale_evidence_ids=[d.capture.id for d in detections
+                            if d.capture.board_to_world is not None],
+        scale_resolution=ScaleResolution(
+            evidence_id=next(d.capture.id for d in detections
+                             if d.capture.board_to_world is not None),
+            source_revision=digest, kind="target",
+            measured_length=board.square_length_m, measured_unit="m",
+            metres_per_source_unit=1.0, producer="charuco-board-spec",
+        ),
+        source_revision=digest,
+        ground_frame=GroundFrame(
+            source_to_world=np.eye(4).tolist(),
+            plane_normal_source=(0.0, 0.0, 1.0), plane_offset_source=0.0,
+            inlier_count=sum(len(d.corner_ids) for d in detections
+                             if d.capture.board_to_world is not None),
+            sample_count=sum(len(d.corner_ids) for d in detections
+                             if d.capture.board_to_world is not None),
+            coverage=float(board.squares_x * board.squares_y)
+                     * board.square_length_m**2,
+            rms_residual=0.0, normal_uncertainty_rad=0.0,
+            axis_uncertainty_rad=0.0,
+            evidence_kind="target",
+            evidence_ids=[d.capture.id for d in detections
+                          if d.capture.board_to_world is not None],
+            evidence_producer="placed-charuco-board",
+            source_revision=digest,
+        ),
         quality=Quality(score=min(c.quality.score or 0 for c in cameras),
                         uncertainty=max(c.quality.uncertainty or 0 for c in cameras),
                         state="observed", source_ids=source_ids),

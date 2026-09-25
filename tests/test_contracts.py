@@ -62,6 +62,19 @@ def bundle() -> list[dict[str, Any]]:
         "scale": "arbitrary",
         "world_unit": "arbitrary",
         "ground_z": 0,
+        "ground_status": "resolved",
+        "source_revision": "fixture",
+        "ground_frame": {
+            "source_to_world": IDENTITY,
+            "plane_normal_source": [0, 0, 1],
+            "plane_offset_source": 0,
+            "inlier_count": 3, "sample_count": 3, "coverage": 1,
+            "rms_residual": 0, "normal_uncertainty_rad": 0,
+            "axis_uncertainty_rad": 0,
+            "evidence_kind": "scene", "evidence_ids": ["fixture-floor"],
+            "evidence_producer": "fixture",
+            "source_revision": "fixture",
+        },
         "quality": GOOD,
         "cameras": [
             {
@@ -333,6 +346,22 @@ def test_unknown_contact_differs_from_known_no_contact() -> None:
     sample["right"] = {"state": "no_contact", "quality": GOOD}
     sample["support"] = "left"
     assert validate_bundle(data)[8].kind == "ground"
+
+
+def test_ground_frame_and_arbitrary_scale_gate_outputs() -> None:
+    data = bundle()
+    calibration = data[4]
+    calibration["ground_status"] = "unresolved"
+    calibration["ground_z"] = None
+    calibration["ground_frame"] = None
+    with pytest.raises(ValueError, match="resolved calibration ground"):
+        validate_bundle(data)
+    calibration["ground_status"] = "resolved"
+    calibration["ground_z"] = 0
+    calibration["ground_frame"] = bundle()[4]["ground_frame"]
+    data[6]["arrays"][0]["unit"] = "m"
+    with pytest.raises(ValueError, match="metric arrays"):
+        validate_bundle(data)
 
 
 @pytest.mark.parametrize(

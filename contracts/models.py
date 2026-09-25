@@ -6,6 +6,7 @@ import json
 from collections.abc import Iterator
 from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
+import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 VERSION = "1.0.0"
@@ -304,12 +305,81 @@ class CameraCalibration(StrictModel):
         return self
 
 
+class GroundFrame(StrictModel):
+    # Coordinates of the original camera-solve gauge, before world alignment.
+    source_to_world: list[list[float]]
+    plane_normal_source: tuple[float, float, float]
+    plane_offset_source: float
+    inlier_count: int = Field(ge=3)
+    sample_count: int = Field(ge=3)
+    inlier_indices: list[int] = Field(default_factory=list)
+    coverage: float = Field(ge=0)
+    rms_residual: float = Field(ge=0)
+    normal_uncertainty_rad: float = Field(ge=0)
+    axis_uncertainty_rad: float = Field(ge=0)
+    evidence_kind: Literal["target", "scene", "manual"]
+    evidence_ids: list[str] = Field(min_length=1)
+    evidence_producer: str = Field(min_length=1)
+    evidence_author: str | None = None
+    evidence_reason: str | None = None
+    source_revision: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def valid_frame(self) -> GroundFrame:
+        if self.inlier_count > self.sample_count:
+            raise ValueError("ground inliers exceed samples")
+        if self.inlier_indices and (
+            len(set(self.inlier_indices)) != self.inlier_count
+            or min(self.inlier_indices) < 0
+        ):
+            raise ValueError("ground inlier indices disagree with count")
+        m = self.source_to_world
+        if len(m) != 4 or any(len(row) != 4 for row in m):
+            raise ValueError("source_to_world must be 4x4")
+        if m[3] != [0.0, 0.0, 0.0, 1.0]:
+            raise ValueError("source_to_world must be homogeneous")
+        basis = np.asarray(m, dtype=np.float64)[:3, :3]
+        lengths = np.linalg.norm(basis, axis=1)
+        if (np.linalg.det(basis) <= 0 or not np.allclose(lengths, lengths[0])
+                or not np.allclose(basis @ basis.T, np.eye(3) * lengths[0]**2)):
+            raise ValueError("source_to_world must preserve handedness and scale")
+        if self.evidence_kind == "manual" and (
+            not self.evidence_author or not self.evidence_reason
+        ):
+            raise ValueError("manual ground requires author and reason")
+        return self
+
+
+class ScaleResolution(StrictModel):
+    evidence_id: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    kind: Literal["target", "measured", "manual"]
+    measured_length: float = Field(gt=0)
+    measured_unit: Literal["m", "cm"]
+    metres_per_source_unit: float = Field(gt=0)
+    producer: str = Field(min_length=1)
+    author: str | None = None
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def manual_provenance(self) -> ScaleResolution:
+        if self.kind == "manual" and (not self.author or not self.reason):
+            raise ValueError("manual scale requires author and reason")
+        return self
+
+
 class Calibration(ArtifactBase):
     kind: Literal["calibration"]
     scale: Literal["metric", "arbitrary"]
     world_unit: Literal["m", "arbitrary"]
     cameras: list[CameraCalibration] = Field(min_length=2)
-    ground_z: float = 0.0
+    ground_z: float | None = None
+    ground_status: Literal["resolved", "unresolved"] = "unresolved"
+    scale_status: Literal["resolved", "unresolved"] = "unresolved"
+    ground_frame: GroundFrame | None = None
+    scale_evidence_ids: list[str] = Field(default_factory=list)
+    scale_resolution: ScaleResolution | None = None
+    source_revision: str | None = None
     quality: Quality
 
     @model_validator(mode="after")
@@ -318,6 +388,29 @@ class Calibration(ArtifactBase):
             raise ValueError(
                 "metric scale requires metres; unresolved scale is arbitrary"
             )
+        if (self.scale_status == "resolved") != (self.scale == "metric"):
+            raise ValueError("scale status and units disagree")
+        if self.scale == "metric" and not self.scale_evidence_ids:
+            raise ValueError("metric scale requires known-size evidence")
+        if self.scale == "metric" and (
+            self.scale_resolution is None
+            or self.scale_resolution.evidence_id not in self.scale_evidence_ids
+        ):
+            raise ValueError("metric scale requires measurement provenance")
+        if self.scale == "arbitrary" and self.scale_resolution is not None:
+            raise ValueError("unresolved scale cannot claim a measurement")
+        if self.ground_status == "resolved":
+            if self.ground_frame is None or self.ground_z != 0.0:
+                raise ValueError("resolved ground requires a frame at z=0")
+        elif self.ground_frame is not None or self.ground_z is not None:
+            raise ValueError("unresolved ground cannot claim a ground frame")
+        if self.source_revision is not None:
+            if (self.ground_frame is not None
+                    and self.ground_frame.source_revision != self.source_revision):
+                raise ValueError("ground source revision mismatch")
+            if (self.scale_resolution is not None
+                    and self.scale_resolution.source_revision != self.source_revision):
+                raise ValueError("scale source revision mismatch")
         return self
 
 
@@ -860,17 +953,30 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 or item.scale != calibration.scale
             ):
                 raise ValueError("reconstruction participant or scale mismatch")
+            if item.scale == "arbitrary" and any(
+                array.unit in {"m", "cm"} for array in item.arrays
+            ):
+                raise ValueError("unresolved scale cannot emit metric arrays")
         elif isinstance(item, Morphology):
             if item.participant_id not in project.participant_ids:
                 raise ValueError("morphology participant missing")
         elif isinstance(item, Ground):
             reconstruction = require(item.reconstruction_id, Reconstruction)
+            calibration = require(reconstruction.calibration_id, Calibration)
+            if calibration.ground_status != "resolved":
+                raise ValueError(
+                    "ground-dependent output requires resolved calibration ground"
+                )
             if item.scale != reconstruction.scale:
                 raise ValueError("ground scale mismatch")
             if item.scale == "arbitrary" and any(
                 m.unit == "m" for m in item.measurements
             ):
                 raise ValueError("unresolved scale cannot emit metres")
+            if item.scale == "arbitrary" and any(
+                array.unit in {"m", "cm"} for array in item.arrays
+            ):
+                raise ValueError("unresolved scale cannot emit metric arrays")
         elif isinstance(item, Semantics):
             require(item.reconstruction_id, Reconstruction)
             ground = require(item.ground_id, Ground)
