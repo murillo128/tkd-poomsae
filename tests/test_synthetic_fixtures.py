@@ -71,6 +71,12 @@ def test_articulation_morphology_and_pivot_geometry() -> None:
     assert scene.landmarks(0)["left_index_3"] != scene.landmarks(0)["left_thumb_3"]
     assert scene.orientations(0)["root"] != scene.orientations(2.3)["root"]
     assert scene.orientations(2.5)["head"] != scene.orientations(2.5)["root"]
+    head_points = scene.landmarks(2.5)
+    head_axis = tuple(head_points["head_front"][i]
+                      - head_points["head_center"][i] for i in range(3))
+    head_quaternion = scene.orientations(2.5)["head"]
+    assert math.atan2(-head_axis[0], head_axis[1]) == pytest.approx(
+        2 * math.atan2(head_quaternion[3], head_quaternion[0]), abs=1e-10)
     assert scene.ground_state(1.2)["right_contact"] == "no_contact"
     assert scene.ground_state(1.8)["right_contact"] == "contact"
     assert scene.ground_state(2.0)["left_pivot_region"] == "forefoot"
@@ -81,6 +87,29 @@ def test_articulation_morphology_and_pivot_geometry() -> None:
     assert actions[0]["interval"][0] < actions[1]["interval"][0]
     assert actions[0]["interval"][1] > actions[1]["interval"][0]
     assert len(actions[-1]["tracks"]) == 2
+
+
+def test_exported_morphology_matches_dense_articulation() -> None:
+    scene = make_scene("clean_three")
+    oracle = scene.oracle()
+    morphology = oracle["morphology"]
+    for landmarks in oracle["landmarks"]:
+        assert distance(landmarks["left_shoulder"], landmarks["right_shoulder"]) \
+            == pytest.approx(morphology["shoulder_width"], abs=1e-10)
+        assert distance(landmarks["left_hip"], landmarks["right_hip"]) \
+            == pytest.approx(morphology["hip_width"], abs=1e-10)
+        for side in ("left", "right"):
+            for proximal, distal, declared in (
+                ("shoulder", "elbow", "upper_arm_length"),
+                ("elbow", "wrist", "forearm_length"),
+                ("hip", "knee", "thigh_length"),
+                ("knee", "ankle", "shin_length"),
+                ("heel", "forefoot", "foot_length"),
+            ):
+                measured = distance(landmarks[f"{side}_{proximal}"],
+                                    landmarks[f"{side}_{distal}"])
+                assert measured == pytest.approx(morphology[declared], abs=1e-10), (
+                    side, proximal, distal, measured)
 
 
 def test_source_time_is_native_and_oracle_only(tmp_path: Path) -> None:

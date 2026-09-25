@@ -33,6 +33,8 @@ from images; the oracle camera/world geometry is reserved for assertions.
 The tolerances describe synthetic arithmetic and injected errors, not real-world
 accuracy or MMPose performance. The left forefoot remains fixed during the
 support pivot (< `1e-10` world units); the heel travels > `0.05` world units.
+Shoulder/hip widths and each upper-arm, forearm, thigh, shin and foot length
+match the exported morphology within `1e-10` world units at every dense sample.
 Events include pre/post-roll, overlapping independent arm actions, kick,
 recovery/placement, pivot, a coordinated two-arm action and left-forearm-front
 crossing. Morphology is constant while trajectories and root/head orientation

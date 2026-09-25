@@ -32,6 +32,10 @@ def sub(a: Vec3, b: Vec3) -> Vec3:
     return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
 
 
+def scale(a: Vec3, factor: float) -> Vec3:
+    return (a[0] * factor, a[1] * factor, a[2] * factor)
+
+
 def dot(a: Vec3, b: Vec3) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))
 
@@ -45,6 +49,24 @@ def cross(a: Vec3, b: Vec3) -> Vec3:
 def unit(a: Vec3) -> Vec3:
     length = math.sqrt(dot(a, a))
     return (a[0] / length, a[1] / length, a[2] / length)
+
+
+def at_length(start: Vec3, direction: Vec3, length: float) -> Vec3:
+    return add(start, scale(unit(direction), length))
+
+
+def knee_between(hip: Vec3, ankle: Vec3, thigh: float, shin: float) -> Vec3:
+    """Two-bone sagittal IK with the knee bent toward local +Y."""
+    delta = sub(ankle, hip)
+    distance = math.sqrt(dot(delta, delta))
+    if not 0 < distance < thigh + shin or distance <= abs(thigh - shin):
+        raise ValueError("leg target is outside articulated reach")
+    axis = unit(delta)
+    along = (thigh * thigh - shin * shin + distance * distance) / (2 * distance)
+    bend = math.sqrt(max(0.0, thigh * thigh - along * along))
+    # The recipe keeps hip and ankle in one sagittal plane, so this is unit length.
+    forward = (0.0, -axis[2], axis[1])
+    return add(hip, add(scale(axis, along), scale(forward, bend)))
 
 
 def rotate_z(p: Vec3, angle: float) -> Vec3:
@@ -226,11 +248,11 @@ class Scene:
         yaw = 0.7 * ramp(t, 1.65, 2.3)
         if t < 1.65:
             return travel(t), yaw
-        pivot_anchor = add(travel(1.65), (-0.16, 0.19, 0.0))
-        pivot_root = sub(pivot_anchor, rotate_z((-0.16, 0.19, 0.0), yaw))
+        pivot_anchor = add(travel(1.65), (-0.16, 0.21, 0.0))
+        pivot_root = sub(pivot_anchor, rotate_z((-0.16, 0.21, 0.0), yaw))
         if t <= 2.3:
             return pivot_root, yaw
-        end_root = sub(pivot_anchor, rotate_z((-0.16, 0.19, 0.0), 0.7))
+        end_root = sub(pivot_anchor, rotate_z((-0.16, 0.21, 0.0), 0.7))
         return add(end_root, sub(travel(t), travel(2.3))), yaw
 
     def landmarks(self, t: float) -> dict[str, Vec3]:
@@ -264,12 +286,27 @@ class Scene:
             "right_ankle": (0.16, 0.02 + 0.52 * kick + 0.24 * placement,
                             -0.82 + 0.42 * kick + recovery_lift),
             "left_heel": (-0.16, -0.05, -0.9),
-            "left_forefoot": (-0.16, 0.19, -0.9),
+            "left_forefoot": (-0.16, 0.21, -0.9),
             "right_heel": (0.16, -0.05 + 0.52 * kick + 0.24 * placement,
                            -0.9 + 0.42 * kick + recovery_lift),
             "right_forefoot": (0.16, 0.21 + 0.52 * kick + 0.24 * placement,
                                -0.9 + 0.42 * kick + recovery_lift),
         }
+        for side in ("left", "right"):
+            shoulder = local[f"{side}_shoulder"]
+            elbow_target = local[f"{side}_elbow"]
+            wrist_target = local[f"{side}_wrist"]
+            local[f"{side}_elbow"] = at_length(
+                shoulder, sub(elbow_target, shoulder), MORPHOLOGY["upper_arm_length"])
+            local[f"{side}_wrist"] = at_length(
+                local[f"{side}_elbow"], sub(wrist_target, elbow_target),
+                MORPHOLOGY["forearm_length"])
+            local[f"{side}_knee"] = knee_between(
+                local[f"{side}_hip"], local[f"{side}_ankle"],
+                MORPHOLOGY["thigh_length"], MORPHOLOGY["shin_length"])
+        head_relative_yaw = 0.2 * pulse(t, 2.0, 2.5, 3.1)
+        local["head_front"] = add(
+            local["head_center"], rotate_z((0.0, 0.12, 0.0), head_relative_yaw))
         for side in ("left", "right"):
             wrist = local[f"{side}_wrist"]
             for finger_index, finger in enumerate(
