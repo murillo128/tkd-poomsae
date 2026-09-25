@@ -99,9 +99,13 @@ def inference_job(
     """Bound threads and hold the GPU lease through model teardown."""
     if not 1 <= threads <= 8:
         raise ValueError("CPU threads must be between 1 and 8")
+    import cv2  # type: ignore[import-not-found]
     import torch  # type: ignore[import-not-found]
 
     torch.set_num_threads(threads)
+    if torch.get_num_interop_threads() != 1:
+        torch.set_num_interop_threads(1)
+    cv2.setNumThreads(threads)
     if cancelled is not None and cancelled():
         raise DeviceCancelled("Inference cancelled")
     if device == "cpu":
