@@ -37,7 +37,8 @@ export interface Calibration extends ArtifactBase { kind: 'calibration'; scale: 
 export interface RawScore { value: number; range_min: number; range_max: number }
 export interface Landmark2D { name: Landmark; xy_px: [number, number] | null; raw_score?: RawScore | null; quality: Quality }
 export interface RegionOfInterest { part: 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot' | 'head'; xywh_px: [number, number, number, number] }
-export interface Observation extends ArtifactBase { kind: 'observation'; frame: FrameTime; landmarks: Landmark2D[]; regions?: RegionOfInterest[]; arrays?: DenseArray[] }
+export interface RegionalGeometry2D { part: 'left_foot' | 'right_foot' | 'head'; availability: 'complete' | 'partial' | 'missing'; orientation_state: 'available' | 'degenerate' | 'unavailable'; provider: string; supporting_landmarks?: Landmark[]; axis_start_px?: [number, number] | null; axis_end_px?: [number, number] | null; orientation_rad?: number | null }
+export interface Observation extends ArtifactBase { kind: 'observation'; frame: FrameTime; landmarks: Landmark2D[]; regions?: RegionOfInterest[]; regional_geometry?: RegionalGeometry2D[]; arrays?: DenseArray[] }
 export interface Landmark3D { name: Landmark; xyz_world: [number, number, number] | null; quality: Quality }
 export interface Quaternion { wxyz: [number, number, number, number] }
 export interface SegmentFrame { segment: string; parent: 'world' | 'root' | 'torso' | 'left_forearm' | 'right_forearm' | 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot' | 'head'; orientation: Quaternion | null; quality: Quality }

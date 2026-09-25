@@ -360,17 +360,63 @@ class RegionOfInterest(StrictModel):
         return self
 
 
+class RegionalGeometry2D(StrictModel):
+    """View-space evidence, independent for each detailed foot/head region."""
+
+    part: Literal["left_foot", "right_foot", "head"]
+    availability: Literal["complete", "partial", "missing"]
+    orientation_state: Literal["available", "degenerate", "unavailable"]
+    provider: str = Field(min_length=1)
+    supporting_landmarks: list[Landmark] = Field(default_factory=list)
+    axis_start_px: tuple[float, float] | None = None
+    axis_end_px: tuple[float, float] | None = None
+    orientation_rad: float | None = None
+
+    @model_validator(mode="after")
+    def consistent_geometry(self) -> RegionalGeometry2D:
+        if (self.axis_start_px is None) != (self.axis_end_px is None):
+            raise ValueError("regional axis requires both endpoints")
+        if self.availability == "missing" and (
+            self.axis_start_px is not None or self.orientation_rad is not None
+        ):
+            raise ValueError("missing region cannot have geometry")
+        if self.orientation_state != "available" and self.orientation_rad is not None:
+            raise ValueError("unavailable region cannot have orientation")
+        if self.orientation_state == "available" and (
+            self.axis_start_px is None or self.orientation_rad is None
+        ):
+            raise ValueError("available region needs axis and orientation")
+        if self.orientation_state in ("available", "degenerate") and (
+            self.availability != "complete"
+        ):
+            raise ValueError("orientation assessment needs complete landmarks")
+        if len(set(self.supporting_landmarks)) != len(self.supporting_landmarks):
+            raise ValueError("regional supporting landmarks must be unique")
+        return self
+
+
 class Observation(ArtifactBase):
     kind: Literal["observation"]
     frame: FrameTime
     landmarks: list[Landmark2D]
     regions: list[RegionOfInterest] = Field(default_factory=list)
+    regional_geometry: list[RegionalGeometry2D] = Field(default_factory=list)
     arrays: list[DenseArray] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_landmarks(self) -> Observation:
-        if len({landmark.name for landmark in self.landmarks}) != len(self.landmarks):
+        names = {landmark.name for landmark in self.landmarks}
+        if len(names) != len(self.landmarks):
             raise ValueError("observation landmark names must be unique")
+        if len({region.part for region in self.regional_geometry}) != len(
+            self.regional_geometry
+        ):
+            raise ValueError("observation regional parts must be unique")
+        if any(
+            not set(region.supporting_landmarks) <= names
+            for region in self.regional_geometry
+        ):
+            raise ValueError("regional supporting landmarks must be persisted")
         return self
 
 

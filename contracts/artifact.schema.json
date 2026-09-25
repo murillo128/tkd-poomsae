@@ -1215,6 +1215,13 @@
         "provenance": {
           "$ref": "#/$defs/Provenance"
         },
+        "regional_geometry": {
+          "items": {
+            "$ref": "#/$defs/RegionalGeometry2D"
+          },
+          "title": "Regional Geometry",
+          "type": "array"
+        },
         "regions": {
           "items": {
             "$ref": "#/$defs/RegionOfInterest"
@@ -1628,6 +1635,184 @@
         "xywh_px"
       ],
       "title": "RegionOfInterest",
+      "type": "object"
+    },
+    "RegionalGeometry2D": {
+      "additionalProperties": false,
+      "description": "View-space evidence, independent for each detailed foot/head region.",
+      "properties": {
+        "availability": {
+          "enum": [
+            "complete",
+            "partial",
+            "missing"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "axis_end_px": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis End Px"
+        },
+        "axis_start_px": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Start Px"
+        },
+        "orientation_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orientation Rad"
+        },
+        "orientation_state": {
+          "enum": [
+            "available",
+            "degenerate",
+            "unavailable"
+          ],
+          "title": "Orientation State",
+          "type": "string"
+        },
+        "part": {
+          "enum": [
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "supporting_landmarks": {
+          "items": {
+            "enum": [
+              "pelvis",
+              "spine",
+              "neck",
+              "head",
+              "nose",
+              "left_eye",
+              "right_eye",
+              "left_ear",
+              "right_ear",
+              "left_shoulder",
+              "right_shoulder",
+              "left_elbow",
+              "right_elbow",
+              "left_wrist",
+              "right_wrist",
+              "left_hip",
+              "right_hip",
+              "left_knee",
+              "right_knee",
+              "left_ankle",
+              "right_ankle",
+              "left_heel",
+              "right_heel",
+              "left_forefoot",
+              "right_forefoot",
+              "left_foot_outer",
+              "right_foot_outer",
+              "left_thumb_cmc",
+              "left_thumb_mcp",
+              "left_thumb_ip",
+              "left_thumb_tip",
+              "left_index_mcp",
+              "left_index_pip",
+              "left_index_dip",
+              "left_index_tip",
+              "left_middle_mcp",
+              "left_middle_pip",
+              "left_middle_dip",
+              "left_middle_tip",
+              "left_ring_mcp",
+              "left_ring_pip",
+              "left_ring_dip",
+              "left_ring_tip",
+              "left_pinky_mcp",
+              "left_pinky_pip",
+              "left_pinky_dip",
+              "left_pinky_tip",
+              "right_thumb_cmc",
+              "right_thumb_mcp",
+              "right_thumb_ip",
+              "right_thumb_tip",
+              "right_index_mcp",
+              "right_index_pip",
+              "right_index_dip",
+              "right_index_tip",
+              "right_middle_mcp",
+              "right_middle_pip",
+              "right_middle_dip",
+              "right_middle_tip",
+              "right_ring_mcp",
+              "right_ring_pip",
+              "right_ring_dip",
+              "right_ring_tip",
+              "right_pinky_mcp",
+              "right_pinky_pip",
+              "right_pinky_dip",
+              "right_pinky_tip"
+            ],
+            "type": "string"
+          },
+          "title": "Supporting Landmarks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "part",
+        "availability",
+        "orientation_state",
+        "provider"
+      ],
+      "title": "RegionalGeometry2D",
       "type": "object"
     },
     "SegmentFrame": {

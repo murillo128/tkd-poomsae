@@ -31,6 +31,11 @@ producer/config digest distinguishes target estimation from imported profiles.
 
 Landmarks have stable names, including individual finger joints, heels,
 forefeet, and head landmarks. Unavailable points are null with `unknown` quality.
+`Observation.regional_geometry` records independent per-view foot/head landmark
+availability and orientation state, supporting landmark names, optional
+pixel-space axis and projected orientation. A degenerate orientation retains
+usable axis endpoints when available but has no angle;
+these 2D values make no contact, 3D direction, or technique claim.
 Raw model scores retain their original declared range and are never interpreted
 as calibrated accuracy probabilities. Derived quality is separate. Source IDs
 on quality values identify contributing artifacts: synchronization, calibration,

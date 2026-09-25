@@ -154,8 +154,20 @@ def test_native_frames_multiple_candidates_empty_and_cancel(
     assert result[0].frame.camera_id == "cam"
     assert len(result[0].candidates) == 2
     assert len(result[0].candidates[0].landmarks) == 133
+    assert {region.part for region in result[0].candidates[0].regional_geometry} == {
+        "left_foot",
+        "right_foot",
+        "head",
+    }
+    assert result[0].model_identity["wholebody"]["framework"] == "mmpose"
     assert len(result[0].candidates[0].refined_hands["left"]) == 21
     assert "left" in result[0].candidates[0].refined_hand_boxes
+    alternate = MMPoseAdapter(
+        _backend_factory=lambda _device: backend,
+        regional_provider=lambda _landmarks: (),
+    )
+    alternate_frame = list(alternate.infer(recording, [decoded]))[0]
+    assert alternate_frame.candidates[0].regional_geometry == ()
     backend.empty = True
     assert list(adapter.infer(recording, [decoded]))[0].candidates == ()
     with pytest.raises(ValueError, match="max_frames"):
