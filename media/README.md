@@ -12,12 +12,13 @@ SHA-256, and both stored/oriented pixel transforms. Source time is absolute
 `MediaReader(recording, max_decode_frames=N)` reuses that recording's metadata
 index for `nearest`, `bracket`, `frame`, and `decode_window`. Decode windows hold
 only requested RGB frames and decoder buffers; no full-video pixel cache or frame
-extraction is created. A window that cannot be reached from a keyframe within
-`N` decoded frames fails explicitly. `FrameRef.ordinal` identifies a frame within
-the indexed presentation sequence. It is not a claimed source frame number;
-`Recording.frame_time()` leaves the shared contract's native `frame_index` unset
+extraction is created. `N` limits output frames, while seeking may decode and
+discard more frames from a distant keyframe. `FrameRef.ordinal` identifies a
+frame within the indexed presentation sequence. It is not a claimed source frame
+number; `Recording.frame_time()` leaves the shared contract's native `frame_index` unset
 when the container supplies none. Missing PTS and decode failures are errors,
-and source files changed since indexing must be ingested again.
+and source files changed since indexing must be ingested again. When a stream
+declares an end time, ingest checks for a missing decoded tail.
 
 Rotation degrees follow FFmpeg display-matrix convention (counterclockwise).
 Returned pixels are oriented RGB. Apply `stored_to_oriented` to overlay points

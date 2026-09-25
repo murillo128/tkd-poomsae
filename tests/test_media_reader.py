@@ -14,8 +14,15 @@ import pytest
 from media import DecodeError, DecodeWindowExceeded, IngestError, MediaReader, ingest
 
 
-def video(path: Path, pts: list[int], *, b_frames: int = 0) -> Path:
-    """Encode distinct frames at explicit millisecond presentation timestamps."""
+def video(
+    path: Path,
+    pts: list[int],
+    *,
+    b_frames: int = 0,
+    gop_size: int = 5,
+    vary_pixels: bool = True,
+) -> Path:
+    """Encode frames at explicit millisecond presentation timestamps."""
     with av.open(str(path), "w") as container:
         stream = container.add_stream("mpeg4", rate=30)
         stream.width = 32
@@ -24,10 +31,10 @@ def video(path: Path, pts: list[int], *, b_frames: int = 0) -> Path:
         stream.time_base = Fraction(1, 1000)
         stream.codec_context.time_base = Fraction(1, 1000)
         stream.codec_context.max_b_frames = b_frames
-        stream.codec_context.gop_size = 5
+        stream.codec_context.gop_size = gop_size
         for i, timestamp in enumerate(pts):
             image = np.zeros((24, 32, 3), dtype=np.uint8)
-            image[:, :, 0] = i * 20
+            image[:, :, 0] = i * 20 % 256 if vary_pixels else 20
             image[:6, :6, 1] = 200
             frame = av.VideoFrame.from_ndarray(image, format="rgb24")
             frame.pts = timestamp
@@ -143,3 +150,32 @@ def test_invalid_sources_and_partial_decode_are_explicit(tmp_path: Path) -> None
     source.write_bytes(source.read_bytes()[:100])
     with pytest.raises(DecodeError, match="source changed"):
         MediaReader(recording).frame(recording.frames[-1])
+
+
+def test_truncated_tail_disagrees_with_declared_duration(tmp_path: Path) -> None:
+    complete = video(tmp_path / "complete.mkv", [i * 40 for i in range(20)])
+    second = video(tmp_path / "second.mkv", [0, 50, 100])
+    truncated = tmp_path / "truncated.mkv"
+    truncated.write_bytes(complete.read_bytes()[: int(complete.stat().st_size * 0.9)])
+    with av.open(str(truncated)) as container:
+        assert container.streams.video[0].metadata.get("DURATION")
+    with pytest.raises(DecodeError, match="truncated video"):
+        ingest([("cut", truncated), ("second", second)])
+
+
+def test_exact_retrieval_across_gop_longer_than_output_window(tmp_path: Path) -> None:
+    long = video(
+        tmp_path / "long.mkv",
+        [i * 40 for i in range(300)],
+        gop_size=500,
+        vary_pixels=False,
+    )
+    second = video(tmp_path / "second.mkv", [0, 50, 100])
+    recording = ingest([("long", long), ("second", second)])[0]
+    assert [ref.ordinal for ref in recording.frames if ref.keyframe] == [0]
+    reader = MediaReader(recording, max_decode_frames=1)
+    decoded = reader.frame(recording.frames[299])
+    assert decoded.ref == recording.frames[299]
+    assert decoded.rgb.shape == (24, 32, 3)
+    with pytest.raises(DecodeWindowExceeded):
+        list(reader.decode_window(298, 2))

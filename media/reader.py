@@ -25,7 +25,7 @@ class DecodeError(IngestError):
 
 
 class DecodeWindowExceeded(DecodeError):
-    """The requested frame needs more decoding than the configured window."""
+    """The requested output has more frames than the configured window."""
 
 
 @dataclass(frozen=True)
@@ -153,6 +153,18 @@ def _frame_ref(ordinal: int, frame: av.VideoFrame) -> FrameRef:
     )
 
 
+def _duration_tag_seconds(value: str) -> float:
+    """Parse the Matroska-style stream DURATION tag, when one is present."""
+    try:
+        hours, minutes, seconds = value.split(":")
+        result = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except ValueError as exc:
+        raise IngestError(f"invalid stream DURATION metadata: {value!r}") from exc
+    if result < 0 or not np.isfinite(result):
+        raise IngestError(f"invalid stream DURATION metadata: {value!r}")
+    return result
+
+
 def _probe(camera_id: str, path: Path) -> Recording:
     if not camera_id:
         raise IngestError("camera ID must be nonempty")
@@ -206,11 +218,47 @@ def _probe(camera_id: str, path: Path) -> Recording:
                 (height, width) if rotation in (90, 270) else (width, height)
             )
             base = Fraction(stream.time_base)
-            duration = (
-                float(stream.duration * base) if stream.duration is not None else None
+            declared_end: float | None = None
+            if stream.duration is not None:
+                stream_start = (
+                    stream.start_time * base
+                    if stream.start_time is not None
+                    else frames[0].seconds
+                )
+                declared_end = float(stream_start + stream.duration * base)
+            duration_tag = stream.metadata.get("DURATION")
+            if duration_tag is not None:
+                tagged_end = _duration_tag_seconds(duration_tag)
+                # Some muxers report an absolute end; others report a span.
+                if tagged_end < frames[0].seconds:
+                    tagged_end += frames[0].seconds
+                if declared_end is None or tagged_end > declared_end:
+                    declared_end = tagged_end
+            observed_end = (
+                frames[-1].seconds + final_frame_duration
+                if final_frame_duration is not None
+                else None
             )
-            if duration is None and final_frame_duration is not None:
-                duration = frames[-1].seconds - frames[0].seconds + final_frame_duration
+            if (
+                declared_end is not None
+                and observed_end is not None
+                and final_frame_duration is not None
+            ):
+                tolerance = max(0.001, final_frame_duration * 0.5)
+                if declared_end - observed_end > tolerance:
+                    raise DecodeError(
+                        f"{path}: truncated video: decoded frames end before "
+                        "declared stream duration"
+                    )
+            duration = (
+                declared_end - frames[0].seconds
+                if declared_end is not None
+                else (
+                    observed_end - frames[0].seconds
+                    if observed_end is not None
+                    else None
+                )
+            )
             source = Source(
                 id=f"source:{digest}",
                 schema_version="1.0.0",
@@ -308,10 +356,6 @@ class MediaReader:
         anchor = start
         while anchor > 0 and not refs[anchor].keyframe:
             anchor -= 1
-        if start + count - anchor > self.max_decode_frames:
-            raise DecodeWindowExceeded(
-                "keyframe-to-window distance exceeds max_decode_frames"
-            )
         try:
             stat = self.recording.path.stat()
         except OSError as exc:
@@ -327,15 +371,13 @@ class MediaReader:
                 container.seek(refs[anchor].pts, backward=True, stream=stream)
                 expected = anchor
                 started = False
-                skipped = 0
                 for frame in container.decode(stream):
                     assert isinstance(frame, av.VideoFrame)
                     if not started:
                         if frame.pts != refs[anchor].pts:
-                            skipped += 1
-                            if skipped >= self.max_decode_frames:
-                                raise DecodeWindowExceeded(
-                                    "seek preroll exceeds max_decode_frames"
+                            if frame.pts is not None and frame.pts > refs[anchor].pts:
+                                raise DecodeError(
+                                    f"{self.recording.path}: seek missed keyframe"
                                 )
                             continue
                         started = True
