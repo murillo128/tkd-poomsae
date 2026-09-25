@@ -59,12 +59,19 @@ it does not perform final ground estimation.
 ## Natural-scene candidate
 
 Run `uv run --frozen python -m calibration.natural_cli --selection smoke-short
+--sync-artifact /absolute/derived/synchronization/ARTIFACT_ID
 --output-dir /absolute/output/directory` on already registered native sources.
+The synchronization artifact must come from the upstream sync stage, cover the
+exact source hashes, and retain the requested cameras. Without it, the command
+persists an unavailable result. It samples the intersection of the selected
+windows in **global** time (`global = native PTS + effective offset`) and rejects
+unverified or misaligned frames. Native PTS and source hashes remain in the
+candidate evidence.
 Pass `--profiles /absolute/profiles.json` when measured intrinsics are available;
 the JSON maps camera IDs to `Intrinsics` objects (`fx`, `fy`, `cx`, `cy`, and
-optional `distortion`). The command samples native frames at matching source
-times, makes a temporal-median background image per view, excludes locally
-varying pixels, matches SIFT features across every camera pair, and stores one
+optional `distortion`). The command makes a temporal-median background image
+per view, excludes locally varying pixels, matches SIFT features across every
+camera pair, and stores one
 content-addressed JSON candidate. It never copies or downloads video.
 
 The candidate includes source and sampled-frame identity, pairwise overlap and

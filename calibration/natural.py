@@ -22,7 +22,7 @@ from scipy.optimize import least_squares  # type: ignore[import-untyped]
 from scipy.sparse import lil_matrix  # type: ignore[import-untyped]
 
 from calibration.cameras import CameraModel, validate_intrinsics
-from contracts.models import Intrinsics
+from contracts.models import Intrinsics, Synchronization
 
 FloatArray = NDArray[np.float64]
 
@@ -406,12 +406,14 @@ def _bundle(
 
 def estimate_scene(
     views: list[SceneView],
+    synchronization: Synchronization | None = None,
     *,
     max_features: int = 1600,
     max_bundle_points: int = 180,
 ) -> SceneCandidate:
     """Estimate only evidence-supported relative camera geometry.
 
+    A source-bound Synchronization artifact and exact native PTS are required.
     Supplied intrinsics are treated as fixed pinhole plus OpenCV distortion.
     Missing intrinsics are never guessed from image size. Their constrained
     model/priors and observability are recorded as unavailable.
@@ -422,8 +424,6 @@ def estimate_scene(
         raise ValueError("camera source IDs must be distinct")
     if max_features < 100 or max_bundle_points < 24:
         raise ValueError("feature and bundle limits are too small")
-    feature_map = {view.camera_id: _features(view, max_features) for view in views}
-    intrinsics = {view.camera_id: view.intrinsics for view in views}
     evidence: dict[str, Any] = {
         "intrinsic_model": "fixed supplied pinhole with OpenCV distortion",
         "missing_intrinsics": {
@@ -447,30 +447,146 @@ def estimate_scene(
                 "frames": len(view.frames),
                 "frame_seconds": view.frame_seconds,
                 "frame_native_ids": view.frame_native_ids,
-                "features": len(feature_map[view.camera_id].pixels),
-                "stable_pixel_fraction": feature_map[view.camera_id].stable_fraction,
             }
             for view in views
         },
     }
-    if all(view.frame_seconds is not None for view in views):
-        sample_counts = {len(view.frames) for view in views}
-        if len(sample_counts) != 1:
-            raise ValueError("synchronized views need equal sample counts")
-        times = np.asarray([view.frame_seconds for view in views], dtype=float)
-        max_spread = float(np.max(np.ptp(times, axis=0)))
-        evidence["frame_alignment"] = {
-            "max_native_time_spread_seconds": max_spread,
-            "state": "aligned" if max_spread <= 0.05 else "unverified",
-        }
-        if max_spread > 0.05:
+    if synchronization is None:
+        return SceneCandidate(
+            "unavailable",
+            ["verified synchronization artifact is required"],
+            evidence=evidence,
+        )
+    by_source = {row.source_id: row for row in synchronization.offsets}
+    if {view.source_id for view in views} - set(by_source):
+        return SceneCandidate(
+            "unavailable",
+            ["synchronization does not cover exact source IDs"],
+            evidence=evidence,
+        )
+    evidence["synchronization"] = {
+        "artifact_id": synchronization.id,
+        "producer": synchronization.provenance.producer,
+        "config_digest": synchronization.provenance.config_digest,
+        "offsets": {},
+    }
+    if synchronization.common_interval is None:
+        return SceneCandidate(
+            "unavailable",
+            ["synchronization lacks a common interval"],
+            evidence=evidence,
+        )
+    sample_counts = {len(view.frames) for view in views}
+    if len(sample_counts) != 1:
+        raise ValueError("synchronized views need equal sample counts")
+    global_times = []
+    for view in views:
+        row = by_source[view.source_id]
+        if (
+            view.source_sha256 is not None
+            and view.source_id != f"source:{view.source_sha256}"
+        ):
             return SceneCandidate(
                 "unavailable",
-                ["native frames are not synchronized"],
+                [f"source hash identity mismatch: {view.camera_id}"],
                 evidence=evidence,
             )
-    else:
-        evidence["frame_alignment"] = {"state": "not supplied"}
+        if (
+            not row.retained
+            or row.source_interval is None
+            or row.global_interval is None
+            or not (
+                row.quality.state == "observed"
+                or (
+                    row.manual_seconds is not None
+                    and row.manual_author
+                    and row.manual_source
+                    and row.manual_reason
+                )
+                or (
+                    row.timing_reference
+                    and row.source_id == synchronization.reference_source_id
+                )
+            )
+        ):
+            return SceneCandidate(
+                "unavailable",
+                [f"unverified timing for {view.camera_id}"],
+                evidence=evidence,
+            )
+        if view.frame_seconds is None or view.frame_native_ids is None:
+            return SceneCandidate(
+                "unavailable",
+                [f"native frame timing missing for {view.camera_id}"],
+                evidence=evidence,
+            )
+        try:
+            for seconds, native_id in zip(
+                view.frame_seconds, view.frame_native_ids, strict=True
+            ):
+                pts_text, rational = native_id.split(":", 1)
+                numerator_text, denominator_text = rational.split("/", 1)
+                native_seconds = (
+                    int(pts_text) * int(numerator_text) / int(denominator_text)
+                )
+                if abs(native_seconds - seconds) > 1e-9:
+                    raise ValueError("native frame time disagrees with PTS")
+        except (ValueError, ZeroDivisionError) as exc:
+            return SceneCandidate(
+                "unavailable",
+                [f"invalid native PTS for {view.camera_id}: {exc}"],
+                evidence=evidence,
+            )
+        offset = row.effective_seconds
+        if (
+            abs(row.global_interval.start - row.source_interval.start - offset) > 1e-9
+            or abs(row.global_interval.end - row.source_interval.end - offset) > 1e-9
+        ):
+            return SceneCandidate(
+                "unavailable",
+                [f"inconsistent sync interval: {view.camera_id}"],
+                evidence=evidence,
+            )
+        evidence["synchronization"]["offsets"][view.source_id] = offset
+        global_sample_times = np.asarray(view.frame_seconds) + offset
+        if any(
+            source_time < row.source_interval.start - 1e-9
+            or source_time > row.source_interval.end + 1e-9
+            for source_time in view.frame_seconds
+        ) or any(
+            global_time
+            < max(row.global_interval.start, synchronization.common_interval.start)
+            - 1e-9
+            or global_time
+            > min(row.global_interval.end, synchronization.common_interval.end) + 1e-9
+            for global_time in global_sample_times
+        ):
+            return SceneCandidate(
+                "unavailable",
+                [f"frames outside verified timeline: {view.camera_id}"],
+                evidence=evidence,
+            )
+        global_times.append(global_sample_times)
+    max_spread = float(np.max(np.ptp(np.asarray(global_times), axis=0)))
+    evidence["frame_alignment"] = {
+        "max_global_time_spread_seconds": max_spread,
+        "state": "aligned" if max_spread <= 0.05 else "unverified",
+    }
+    if max_spread > 0.05:
+        return SceneCandidate(
+            "unavailable",
+            ["frames are not aligned in verified global time"],
+            evidence=evidence,
+        )
+    feature_map = {view.camera_id: _features(view, max_features) for view in views}
+    intrinsics = {view.camera_id: view.intrinsics for view in views}
+    for view in views:
+        evidence["views"][view.camera_id].update(
+            {
+                "features": len(feature_map[view.camera_id].pixels),
+                "stable_pixel_fraction": feature_map[view.camera_id].stable_fraction,
+            }
+        )
     edges = [
         _edge(
             a.camera_id,
