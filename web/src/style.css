@@ -33,6 +33,8 @@ h3 { font-size: .95rem; }
 .project-summary > button { justify-self: start; }
 .transport { padding: 1rem; margin-bottom: .8rem; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.2rem; }
 .seek input { width: 7rem; }
+.seek input[aria-invalid="true"] { border-color: #f5a397; }
+.seek-error { color: #ffd4cc; font-size: .82rem; }
 .time-readout { font-variant-numeric: tabular-nums; }
 .time-readout span { display: flex; flex-direction: column; font-size: .78rem; color: #aebeca; }
 .time-readout strong { color: #eef7fc; font-size: 1rem; }

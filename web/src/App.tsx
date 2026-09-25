@@ -24,6 +24,8 @@ export function App() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [project, setProject] = useState<LoadState<ProjectSnapshot> | null>(null)
   const [projectAttempt, setProjectAttempt] = useState(0)
+  const [seekDraft, setSeekDraft] = useState<string | null>(null)
+  const [seekError, setSeekError] = useState(false)
   const requestEpoch = useRef(0)
 
   useEffect(() => {
@@ -103,7 +105,23 @@ export function App() {
   function openProject(id: string) {
     setProjectId(id)
     setProject(null)
+    setSeekDraft(null)
+    setSeekError(false)
     dispatch({ type: 'project', id })
+  }
+  function commitSeek(discardInvalid = false): boolean {
+    if (seekDraft === null) return true
+    const value = seekDraft.trim()
+    const seconds = Number(value)
+    if (value && Number.isFinite(seconds) && seconds >= 0) {
+      dispatch({ type: 'seek', seconds })
+      setSeekDraft(null)
+      setSeekError(false)
+      return true
+    }
+    setSeekError(true)
+    if (discardInvalid) setSeekDraft(null)
+    return false
   }
 
   return <main className="workspace">
@@ -150,7 +168,16 @@ export function App() {
           {[0.25, 0.5, 1, 2].map(speed => <option key={speed} value={speed}>{speed}×</option>)}
         </select></label>
       </div>
-      <label className="seek">Global time <input type="number" min="0" step="0.001" disabled={!hasProject} value={playback.cursorSeconds.toFixed(3)} onChange={event => dispatch({ type: 'seek', seconds: Number(event.target.value) })} /> seconds</label>
+      <label className="seek">Global time <input type="text" inputMode="decimal" disabled={!hasProject}
+        value={seekDraft ?? playback.cursorSeconds.toFixed(3)} aria-invalid={seekError}
+        onFocus={() => { setSeekDraft(playback.cursorSeconds.toFixed(3)); setSeekError(false) }}
+        onChange={event => { setSeekDraft(event.target.value); setSeekError(false) }}
+        onBlur={() => commitSeek(true)}
+        onKeyDown={event => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+          if (event.key === 'Escape') { setSeekDraft(null); setSeekError(false) }
+        }} /> seconds</label>
+      {seekError && <span role="alert" className="seek-error">Enter a non-negative time in seconds.</span>}
       <div className="time-readout"><span>Desired cursor <strong>{formatTime(playback.cursorSeconds)}</strong></span><span>Delivered video frame <strong>{playback.deliveredFrameSeconds === null ? 'Unavailable' : formatTime(playback.deliveredFrameSeconds)}</strong></span></div>
       <div className="step-options"><label>Step source <select disabled={!hasProject} value={playback.stepMode} onChange={event => dispatch({ type: 'mode', mode: event.target.value as 'camera' | 'reconstruction' })}>
         <option value="camera">Selected camera PTS</option><option value="reconstruction">Reconstruction samples</option>

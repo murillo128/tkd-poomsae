@@ -28,6 +28,10 @@ const stages = Object.fromEntries(['ingest', 'sync', 'calibration', 'observation
   status: { status: 'unavailable', diagnostics: [`${name} producer unavailable`] },
 }]))
 function response(body: unknown, status = 200) { return { ok: status < 400, status, json: async () => body } as Response }
+function typeInto(input: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+}
 
 describe('rendered local inspection shell', () => {
   it('opens a synthetic project and shows explicit missing capability states with shared controls', async () => {
@@ -45,7 +49,21 @@ describe('rendered local inspection shell', () => {
     expect(element.textContent).toContain('Frame stepping unavailable')
     expect(element.querySelector<HTMLButtonElement>('[aria-label="Next native frame"]')?.disabled).toBe(true)
     const seek = element.querySelector<HTMLInputElement>('.seek input')!
-    await act(async () => { seek.value = '1.25'; seek.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => { seek.focus() })
+    for (const value of ['', '0', '0.', '0.1', '0.125']) {
+      await act(async () => { typeInto(seek, value) })
+      expect(seek.value).toBe(value)
+    }
+    expect(element.querySelector('.time-readout')?.textContent).toContain('0.000 s')
+    await act(async () => { seek.blur() })
+    expect(element.querySelector('.time-readout')?.textContent).toContain('0.125 s')
+    expect(seek.value).toBe('0.125')
+    await act(async () => { seek.focus() })
+    await act(async () => { typeInto(seek, '') })
+    expect(seek.value).toBe('')
+    await act(async () => { seek.blur() })
+    expect(element.querySelector('.time-readout')?.textContent).toContain('0.125 s')
+    expect(element.querySelector('.seek-error')?.textContent).toContain('non-negative time')
     const track = [...element.querySelectorAll<HTMLButtonElement>('.track-list button')].find(button => button.textContent === 'left leg')!
     await act(async () => { track.click() })
     expect(element.querySelector('.inspector')?.textContent).toContain('left_leg')
