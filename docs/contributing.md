@@ -20,10 +20,11 @@ Before a PR, run the same offline checks as application CI:
 
 ```sh
 uv run --frozen pytest
-uv run --frozen ruff check src tests
+uv run --frozen ruff check src tests contracts
 uv run --frozen mypy
 cd web
 npm run typecheck
+npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler ../contracts/types.ts
 npm run test
 npm run build
 ```
