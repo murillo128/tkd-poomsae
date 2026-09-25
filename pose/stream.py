@@ -29,6 +29,7 @@ _PARTS = ("body", "left_hand", "right_hand", "left_foot", "right_foot", "head")
 @dataclass(frozen=True)
 class TrackingConfig:
     min_raw_score: float = 0.2
+    min_raw_visibility: float = 0.5
     max_gap_seconds: float = 0.5
     max_match_cost: float = 1.5
     ambiguity_margin: float = 0.2
@@ -36,8 +37,8 @@ class TrackingConfig:
     min_roi_span_px: float = 12.0
 
     def __post_init__(self) -> None:
-        if not 0 <= self.min_raw_score <= 1:
-            raise ValueError("invalid raw score threshold")
+        if not 0 <= self.min_raw_score <= 1 or not 0 <= self.min_raw_visibility <= 1:
+            raise ValueError("invalid raw evidence threshold")
         if any(
             value <= 0 or not math.isfinite(value)
             for value in (
@@ -309,6 +310,11 @@ def _assemble(
             x, y = point.xy_px or (float("nan"), float("nan"))
             if score < config.min_raw_score:
                 reasons[part].add("low_raw_score")
+            elif (
+                point.raw_visibility is not None
+                and point.raw_visibility < config.min_raw_visibility
+            ):
+                reasons[part].add("low_raw_visibility")
             elif not 0 <= x < width or not 0 <= y < height:
                 reasons[part].add("out_of_frame")
             else:
@@ -320,15 +326,27 @@ def _assemble(
         for side in ("left", "right"):
             part = f"{side}_hand"
             hand = selected.hand_observations.get(side)
+            # Coarse wholebody fingers are source evidence, not detailed hand
+            # observations. Only independently supported refinement can populate
+            # the derived hand region.
+            for name, point in tuple(combined.items()):
+                if _part(name) == part:
+                    combined[name] = point.model_copy(
+                        update={"xy_px": None, "quality": Quality(state="unknown")}
+                    )
             if hand is None:
                 reasons[part].add("no_refinement")
             else:
+                roi_usable = True
                 if hand.roi is None:
                     reasons[part].add("tiny_roi")
+                    roi_usable = False
                 elif hand.roi.source_span_px < config.min_roi_span_px:
                     reasons[part].add("tiny_roi")
+                    roi_usable = False
                 elif hand.roi.visible_fraction < 0.5:
                     reasons[part].add("truncated_roi")
+                    roi_usable = False
                 if hand.status != "refined":
                     reasons[part].add("refinement_" + hand.status)
                 for refined_point in hand.refined:
@@ -354,8 +372,21 @@ def _assemble(
                         quality=Quality(state="observed" if observed else "unknown"),
                     )
                     refined.append(item)
-                    if observed:
+                    if (
+                        observed
+                        and roi_usable
+                        and hand.status == "refined"
+                        and (
+                            refined_point.raw_visibility is None
+                            or refined_point.raw_visibility >= config.min_raw_visibility
+                        )
+                    ):
                         combined[canonical_name] = item
+                    elif (
+                        refined_point.raw_visibility is not None
+                        and refined_point.raw_visibility < config.min_raw_visibility
+                    ):
+                        reasons[part].add("low_raw_visibility")
             if _side_ambiguous(previous, selected, side):
                 reasons[part].add("anatomical_side_ambiguous")
                 for name, point in tuple(combined.items()):

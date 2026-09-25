@@ -49,6 +49,9 @@ and temporal match cost. `wholebody_landmarks` and `refined_landmarks` retain
 independent source evidence; `landmarks` is the derived selected view with unknown
 geometry explicitly null. Original visibility and scores remain separate from
 derived `region_quality` usability and reasons for body, hands, feet and head.
+Low raw visibility masks derived geometry without changing the source record;
+unavailable detailed hand refinement likewise leaves coarse fingers only in
+`wholebody_landmarks`.
 Raw model scores retain their original declared range and are never interpreted
 as calibrated accuracy probabilities. Derived quality is separate. Source IDs
 on quality values identify contributing artifacts: synchronization, calibration,

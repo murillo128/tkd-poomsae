@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from contracts.models import FrameTime, Observation, Provenance, RawScore
 from pose.providers.mmpose.adapter import (
     NamedPoint,
@@ -9,7 +11,8 @@ from pose.providers.mmpose.adapter import (
     PoseFrame,
     canonical_landmarks,
 )
-from pose.providers.mmpose.hand import HandObservation, RefinedPoint
+from pose.providers.mmpose.geometry import PixelTransform
+from pose.providers.mmpose.hand import HandObservation, HandROI, RefinedPoint
 from pose.providers.mmpose.mapping import NAMES
 from pose.regions import WholebodyRegionalProvider
 from pose.stream import PractitionerTracker
@@ -183,13 +186,13 @@ def test_crossing_missing_feet_and_hand_quality_survive_json() -> None:
     assert selected["left_index_tip"].xy_px is None
 
 
-def test_fast_hand_motion_keeps_body_identity_and_camera_isolation() -> None:
+def test_fast_limb_motion_keeps_body_identity_and_camera_isolation() -> None:
     tracker = PractitionerTracker()
     observe(tracker, frame(0, candidate(0, 50)))
     moved = candidate(0, 52)
     points = tuple(
         NamedPoint(point.name, (300, 5), point.raw_score, point.raw_visibility)
-        if point.name == "left_hand_index_4"
+        if point.name == "left_wrist"
         else point
         for point in moved.landmarks
     )
@@ -197,9 +200,10 @@ def test_fast_hand_motion_keeps_body_identity_and_camera_isolation() -> None:
     result = observe(tracker, frame(1, moved))
     assert result.subject_selection is not None
     assert result.subject_selection.state == "selected"
-    assert {point.name: point for point in result.landmarks}[
-        "left_index_tip"
-    ].xy_px == (300, 5)
+    assert {point.name: point for point in result.landmarks}["left_wrist"].xy_px == (
+        300,
+        5,
+    )
     try:
         observe(tracker, frame(2, moved, camera="other"))
     except ValueError as error:
@@ -228,3 +232,90 @@ def test_ambiguous_initial_candidates_and_torso_jump_are_explicit() -> None:
     assert not body.usable
     assert "implausible_torso_jump" in body.reasons
     assert flagged.wholebody_landmarks
+
+
+def test_invisible_foot_stays_unknown_despite_high_raw_scores() -> None:
+    source = candidate(0, 50)
+    foot_names = {"left_heel", "left_big_toe", "left_small_toe"}
+    points = tuple(
+        replace(point, raw_visibility=0.0) if point.name in foot_names else point
+        for point in source.landmarks
+    )
+    source = replace(
+        source,
+        landmarks=points,
+        regional_geometry=WholebodyRegionalProvider()(
+            canonical_landmarks(replace(source, landmarks=points))
+        ),
+    )
+    restored = Observation.model_validate_json(
+        observe(PractitionerTracker(), frame(0, source)).model_dump_json()
+    )
+    quality = {part.part: part for part in restored.region_quality}
+    assert not quality["left_foot"].usable
+    assert "low_raw_visibility" in quality["left_foot"].reasons
+    assert "missing_landmarks" in quality["left_foot"].reasons
+    assert quality["right_foot"].usable
+    assert restored.regional_geometry[0].availability == "missing"
+    selected = {point.name: point for point in restored.landmarks}
+    coarse = {point.name: point for point in restored.wholebody_landmarks}
+    for name in ("left_heel", "left_forefoot", "left_foot_outer"):
+        assert selected[name].xy_px is None
+        assert selected[name].quality.state == "unknown"
+        assert selected[name].raw_score == coarse[name].raw_score
+        assert selected[name].raw_visibility == coarse[name].raw_visibility == 0.0
+
+
+def test_skipped_hand_is_unusable_without_crossing() -> None:
+    source = candidate(0, 50, hand_outside=True)
+    restored = Observation.model_validate_json(
+        observe(PractitionerTracker(), frame(0, source)).model_dump_json()
+    )
+    quality = {part.part: part for part in restored.region_quality}
+    assert not quality["left_hand"].usable
+    assert "tiny_roi" in quality["left_hand"].reasons
+    assert "refinement_skipped" in quality["left_hand"].reasons
+    assert "anatomical_side_ambiguous" not in quality["left_hand"].reasons
+    selected = {point.name: point for point in restored.landmarks}
+    coarse = {point.name: point for point in restored.wholebody_landmarks}
+    assert selected["left_index_tip"].xy_px is None
+    assert selected["left_index_tip"].quality.state == "unknown"
+    assert coarse["left_index_tip"].xy_px is not None
+    assert restored.refined_landmarks
+
+
+def test_good_refined_hand_remains_usable_when_foot_is_missing() -> None:
+    source = candidate(
+        0, 50, missing={"right_heel", "right_big_toe", "right_small_toe"}
+    )
+    roi = HandROI(
+        "left",
+        (0, 0, 100, 100),
+        (0, 0, 100, 100),
+        PixelTransform(crop_width=100, crop_height=100),
+        1.0,
+        30.0,
+    )
+    hand = HandObservation(
+        "left",
+        source.landmarks[91:112],
+        tuple(
+            RefinedPoint(name, (75.0, 45.0), 0.8, 1.0, "observed")
+            for name in NAMES[91:112]
+        ),
+        roi,
+        "refined",
+        False,
+    )
+    source = replace(source, hand_observations={"left": hand})
+    result = observe(PractitionerTracker(), frame(0, source))
+    quality = {part.part: part for part in result.region_quality}
+    assert quality["left_hand"].usable
+    assert not quality["right_foot"].usable
+    selected = {point.name: point for point in result.landmarks}
+    coarse = {point.name: point for point in result.wholebody_landmarks}
+    assert selected["left_index_tip"].xy_px == (75, 45)
+    assert selected["left_index_tip"].raw_score is not None
+    assert coarse["left_index_tip"].raw_score is not None
+    assert selected["left_index_tip"].raw_score.value == 0.8
+    assert coarse["left_index_tip"].raw_score.value == 0.91

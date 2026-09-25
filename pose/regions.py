@@ -23,10 +23,21 @@ class WholebodyRegionalProvider:
     raw scores remain available even when this projection marks a region missing.
     """
 
-    def __init__(self, *, min_raw_score: float = 0.2, min_span_px: float = 2.0) -> None:
-        if not 0 <= min_raw_score <= 1 or min_span_px <= 0:
+    def __init__(
+        self,
+        *,
+        min_raw_score: float = 0.2,
+        min_raw_visibility: float = 0.5,
+        min_span_px: float = 2.0,
+    ) -> None:
+        if (
+            not 0 <= min_raw_score <= 1
+            or not 0 <= min_raw_visibility <= 1
+            or min_span_px <= 0
+        ):
             raise ValueError("invalid regional geometry thresholds")
         self.min_raw_score = min_raw_score
+        self.min_raw_visibility = min_raw_visibility
         self.min_span_px = min_span_px
 
     def __call__(
@@ -43,6 +54,10 @@ class WholebodyRegionalProvider:
                 or item.raw_score.range_min != 0
                 or item.raw_score.range_max != 1
                 or item.raw_score.value < self.min_raw_score
+                or (
+                    item.raw_visibility is not None
+                    and item.raw_visibility < self.min_raw_visibility
+                )
             ):
                 return None
             return item.xy_px

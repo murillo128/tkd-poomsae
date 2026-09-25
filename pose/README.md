@@ -48,7 +48,9 @@ match costs and selection reasons. `wholebody_landmarks` preserves coarse named
 coordinates, scores and visibility; `refined_landmarks` preserves independent
 hand evidence, including unknown points and their original scores. `landmarks`
 is the selected derived view: unsupported coordinates become null with unknown
-quality, while rapid valid hand movement remains unsmoothed. `region_quality`
+quality, including low raw visibility. Detailed hand points require usable
+refinement; coarse wholebody fingers remain source evidence when a crop is too
+small or refinement is unavailable. Rapid valid movement remains unsmoothed. `region_quality`
 contains independent body, hand, foot and head usability masks and reason codes.
 These fields are per view; downstream reconstruction can combine useful regions
 from different cameras. No optional temporal filter is applied.
