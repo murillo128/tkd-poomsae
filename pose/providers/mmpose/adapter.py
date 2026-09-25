@@ -134,14 +134,14 @@ class _OpenMMLab:
         )
 
     def detect(self, bgr: np.ndarray) -> Any:
-        from mmdet.apis import inference_detector  # type: ignore[import-not-found]
+        from mmdet.apis import inference_detector
         from mmengine.registry import DefaultScope  # type: ignore[import-not-found]
 
         with DefaultScope.overwrite_default_scope("mmdet"):
             return inference_detector(self.detector, bgr).pred_instances
 
     def pose(self, bgr: np.ndarray, boxes: np.ndarray, *, hand: bool = False) -> Any:
-        from mmengine.registry import DefaultScope  # type: ignore[import-not-found]
+        from mmengine.registry import DefaultScope
         from mmpose.apis import inference_topdown
 
         with DefaultScope.overwrite_default_scope("mmpose"):
@@ -174,7 +174,7 @@ class MMPoseAdapter:
         self, recording: Recording, frames: Iterable[DecodedFrame]
     ) -> Iterator[PoseFrame]:
         """Consume at most one bounded window; errors and cancellation propagate."""
-        import cv2  # type: ignore[import-not-found]
+        import cv2
         import torch  # type: ignore[import-not-found]
 
         with (
