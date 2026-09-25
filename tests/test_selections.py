@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -131,6 +132,20 @@ def test_variant_rejects_upsampling(tmp_path: Path) -> None:
         materialize(
             window, VariantRecipe(fps=30), root=StorageRoot(tmp_path / "shared")
         )
+
+
+def test_cached_variant_rejects_changed_lineage(tmp_path: Path) -> None:
+    source = video(tmp_path / "source.mkv", [i * 40 for i in range(12)])
+    window = Window("test", "front", hash_file(source), source, 0.08, 0.32)
+    root = StorageRoot(tmp_path / "shared")
+    recipe = VariantRecipe()
+    artifact = materialize(window, recipe, root=root)
+    manifest_path = artifact.path.parent / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["time_mappings"][0]["source_ordinal"] = 999999
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    with pytest.raises(CorruptArtifact, match="changed media variant"):
+        materialize(window, recipe, root=root)
 
 
 def test_corrupt_tail_variant_retains_exact_recipe_and_source(tmp_path: Path) -> None:

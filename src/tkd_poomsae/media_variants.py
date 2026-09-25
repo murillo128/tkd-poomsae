@@ -90,12 +90,20 @@ def _validated(
     if not directory.exists():
         return None
     manifest_path = directory / "manifest.json"
+    clip_path = directory / "clip.mkv"
     try:
+        receipt: dict[str, Any] = json.loads(
+            (directory / "receipt.json").read_text()
+        )
         manifest: dict[str, Any] = json.loads(manifest_path.read_text())
         if (
-            manifest["key"] != digest
+            receipt["schema_version"] != 1
+            or receipt["key"] != digest
+            or receipt["manifest_sha256"] != hash_file(manifest_path)
+            or receipt["clip_sha256"] != hash_file(clip_path)
+            or manifest["key"] != digest
             or manifest["identity"] != identity
-            or hash_file(directory / "clip.mkv") != manifest["output_sha256"]
+            or manifest["output_sha256"] != receipt["clip_sha256"]
         ):
             raise CorruptArtifact(f"changed media variant: {directory}")
     except (FileNotFoundError, MissingResource, KeyError, json.JSONDecodeError) as exc:
@@ -235,10 +243,20 @@ def materialize(
                 "output_audio_present": False,
                 "geometry_independent_camera": False,
             }
-            (stage / "manifest.json").write_text(
+            manifest_path = stage / "manifest.json"
+            manifest_path.write_text(
                 json.dumps(manifest, sort_keys=True, indent=2) + "\n"
             )
-            for name in ("clip.mkv", "manifest.json"):
+            receipt = {
+                "schema_version": 1,
+                "key": digest,
+                "manifest_sha256": hash_file(manifest_path),
+                "clip_sha256": manifest["output_sha256"],
+            }
+            (stage / "receipt.json").write_text(
+                json.dumps(receipt, sort_keys=True, indent=2) + "\n"
+            )
+            for name in ("clip.mkv", "manifest.json", "receipt.json"):
                 with (stage / name).open("rb") as stream:
                     os.fsync(stream.fileno())
             _fsync_dir(stage)

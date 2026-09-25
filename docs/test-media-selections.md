@@ -24,8 +24,9 @@ tkd-poomsae datasets variant smoke-short mendeley-bjy7vr4xkt-v1-taegeuk-1 mendel
 ```
 
 The recipe and original source hash identify one directory under shared
-`derived/media-variants/`. A file lock serializes producers; later callers
-verify and reuse the same clip and manifest. The manifest records each output
+`derived/media-variants/`. A file lock serializes producers; a completion
+receipt binds the clip and manifest hashes, and later callers verify both
+before reuse. The manifest records each output
 frame's actual PTS and corresponding original ordinal, PTS, and time base.
 Recipes never alter originals. The output removes audio, and any generated
 view remains the **same camera evidence** as its original. Pre/post-roll may
