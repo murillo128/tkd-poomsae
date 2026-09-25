@@ -4,19 +4,31 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from media import IngestError, MediaReader
 from pipeline import Pipeline
 from pipeline.runner import STAGE_ORDER
 from storage import MissingResource
 from tkd_poomsae.jobs import BusyProject, JobQueue, QueueFull, required_stages
+from tkd_poomsae.media_access import (
+    MediaAccess,
+    MediaAccessError,
+    RegisteredMedia,
+    byte_range,
+    frame_info,
+    last_modified,
+)
 
 
 class SourceRegistration(BaseModel):
@@ -81,6 +93,7 @@ def create_app(
         }
     )
     jobs = JobQueue(pipe, workers=workers, capacity=queue_size)
+    media = MediaAccess(pipe, roots)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> Any:
@@ -119,6 +132,10 @@ def create_app(
         def with_cors(response: Response) -> Response:
             if origin is not None:
                 response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Expose-Headers"] = (
+                    "ETag, Last-Modified, Accept-Ranges, Content-Range, "
+                    "Content-Length, X-Source-Ordinal, X-Source-PTS, X-Source-SHA256"
+                )
                 vary = response.headers.get("Vary", "")
                 if "origin" not in {part.strip().lower() for part in vary.split(",")}:
                     response.headers["Vary"] = f"{vary}, Origin" if vary else "Origin"
@@ -138,16 +155,25 @@ def create_app(
             if (
                 origin is None
                 or not request.url.path.startswith("/api/")
-                or requested_method not in {"GET", "POST"}
-                or requested_headers - {"x-tkd-local-request", "content-type"}
+                or requested_method not in {"GET", "HEAD", "POST"}
+                or requested_headers
+                - {
+                    "x-tkd-local-request",
+                    "content-type",
+                    "range",
+                    "if-none-match",
+                    "if-modified-since",
+                    "if-range",
+                }
             ):
                 return JSONResponse(
                     {"detail": "unsupported preflight"}, status_code=403
                 )
             response = Response(status_code=204)
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST"
+            response.headers["Access-Control-Allow-Methods"] = "GET, HEAD, POST"
             response.headers["Access-Control-Allow-Headers"] = (
-                "X-TKD-Local-Request, Content-Type"
+                "X-TKD-Local-Request, Content-Type, Range, If-None-Match, "
+                "If-Modified-Since, If-Range"
             )
             response.headers["Vary"] = (
                 "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
@@ -240,6 +266,181 @@ def create_app(
                 for name, stage in pipe.stages.items()
             },
         }
+
+    def registered_media(project: str, camera: str) -> RegisteredMedia:
+        try:
+            return media.resolve(project, camera)
+        except MediaAccessError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        except IngestError as exc:
+            raise HTTPException(422, f"source cannot be indexed: {exc}") from exc
+
+    @service.api_route(
+        "/api/projects/{project}/media/{camera}", methods=["GET", "HEAD"]
+    )
+    def source_video(project: str, camera: str, request: Request) -> Response:
+        item = registered_media(project, camera)
+        recording = item.recording
+        etag = f'"{recording.sha256}"'
+        modified = last_modified(recording.modified_ns)
+        headers = {
+            "Accept-Ranges": "bytes",
+            "ETag": etag,
+            "Last-Modified": modified,
+            "Cache-Control": "private, no-cache",
+            "X-Content-Type-Options": "nosniff",
+        }
+        match = request.headers.get("if-none-match")
+        since = request.headers.get("if-modified-since")
+        matches_etag = match is not None and any(
+            tag.strip().removeprefix("W/") in {etag, "*"} for tag in match.split(",")
+        )
+        matches_date = False
+        if match is None and since is not None:
+            try:
+                parsed = parsedate_to_datetime(since)
+                if parsed.tzinfo is not None:
+                    matches_date = parsed >= datetime.fromtimestamp(
+                        recording.modified_ns / 1e9, UTC
+                    ).replace(microsecond=0)
+            except (TypeError, ValueError, OverflowError):
+                pass
+        if matches_etag or matches_date:
+            return Response(status_code=304, headers=headers)
+        size = recording.size_bytes
+        requested = request.headers.get("range")
+        if_range = request.headers.get("if-range")
+        if requested and if_range and if_range not in {etag, modified}:
+            requested = None
+        selected = byte_range(requested, size) if requested else None
+        if requested and selected is None:
+            return Response(
+                status_code=416,
+                headers={
+                    **headers,
+                    "Content-Range": f"bytes */{size}",
+                    "Content-Length": "0",
+                },
+            )
+        start, end = selected if selected is not None else (0, size - 1)
+        headers["Content-Length"] = str(end - start + 1)
+        if selected is not None:
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        status = 206 if selected is not None else 200
+        if request.method == "HEAD":
+            return Response(
+                status_code=status, media_type=item.content_type, headers=headers
+            )
+        if not media.streams.acquire(blocking=False):
+            raise HTTPException(503, "media stream capacity reached")
+        try:
+            stream = media.open_stream(item)
+        except MediaAccessError as exc:
+            media.streams.release()
+            raise HTTPException(exc.status, str(exc)) from exc
+
+        def chunks() -> Iterator[bytes]:
+            try:
+                stream.seek(start)
+                remaining = end - start + 1
+                while remaining:
+                    block = stream.read(min(1024 * 1024, remaining))
+                    if not block:
+                        break
+                    remaining -= len(block)
+                    yield block
+            finally:
+                stream.close()
+                media.streams.release()
+
+        return StreamingResponse(
+            chunks(), status_code=status, media_type=item.content_type, headers=headers
+        )
+
+    @service.get("/api/projects/{project}/media/{camera}/metadata")
+    def media_metadata(project: str, camera: str) -> dict[str, Any]:
+        item = registered_media(project, camera)
+        recording = item.recording
+        return {
+            "source_id": recording.source_id,
+            "source_sha256": recording.sha256,
+            "camera_id": camera,
+            "content_type": item.content_type,
+            "codec": recording.codec,
+            "browser_playback": item.browser_playback,
+            "browser_playback_reason": (
+                None
+                if item.browser_playback
+                else "source codec/container requires exact PNG frame fallback"
+            ),
+            "frame_count": len(recording.frames),
+            "first_frame": frame_info(recording, 0),
+            "last_frame": frame_info(recording, len(recording.frames) - 1),
+        }
+
+    @service.get("/api/projects/{project}/media/{camera}/frames")
+    def source_frames(
+        project: str, camera: str, start: int = 0, limit: int = 100
+    ) -> dict[str, Any]:
+        recording = registered_media(project, camera).recording
+        if start < 0 or limit < 1 or limit > 256:
+            raise HTTPException(
+                422, "frame page must have nonnegative start and limit 1..256"
+            )
+        end = min(start + limit, len(recording.frames))
+        return {
+            "source_id": recording.source_id,
+            "source_sha256": recording.sha256,
+            "total": len(recording.frames),
+            "start": start,
+            "frames": [frame_info(recording, ordinal) for ordinal in range(start, end)],
+        }
+
+    @service.get("/api/projects/{project}/media/{camera}/frames/nearest")
+    def nearest_frame(project: str, camera: str, seconds: float) -> dict[str, Any]:
+        if not -1e12 < seconds < 1e12:
+            raise HTTPException(422, "invalid source time")
+        recording = registered_media(project, camera).recording
+        ref = MediaReader(recording).nearest(seconds)
+        return {
+            "requested_source_seconds": seconds,
+            "frame": frame_info(recording, ref.ordinal),
+        }
+
+    @service.get("/api/projects/{project}/media/{camera}/frames/bracket")
+    def bracket_frames(project: str, camera: str, seconds: float) -> dict[str, Any]:
+        if not -1e12 < seconds < 1e12:
+            raise HTTPException(422, "invalid source time")
+        recording = registered_media(project, camera).recording
+        before, after = MediaReader(recording).bracket(seconds)
+        return {
+            "requested_source_seconds": seconds,
+            "before": frame_info(recording, before.ordinal) if before else None,
+            "after": frame_info(recording, after.ordinal) if after else None,
+        }
+
+    @service.get("/api/projects/{project}/media/{camera}/frames/{ordinal}/image")
+    def exact_frame(project: str, camera: str, ordinal: int) -> Response:
+        recording = registered_media(project, camera).recording
+        if ordinal < 0 or ordinal >= len(recording.frames):
+            raise HTTPException(404, "unknown source frame")
+        try:
+            content = media.preview(recording, ordinal)
+        except MediaAccessError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+        except IngestError as exc:
+            raise HTTPException(409, f"source frame unavailable: {exc}") from exc
+        info = frame_info(recording, ordinal)
+        return Response(
+            content,
+            media_type="image/png",
+            headers={
+                "X-Source-Ordinal": str(ordinal),
+                "X-Source-PTS": str(info["pts"]),
+                "X-Source-SHA256": recording.sha256,
+                "Cache-Control": "private, no-cache",
+            },
+        )
 
     @service.post("/api/projects/{project}/runs", status_code=202)
     def create_run(project: str, data: RunRequest) -> dict[str, str]:
