@@ -57,7 +57,7 @@ def infer_image(
     """
     paths = verified_paths()
     specs = registry()["models"]
-    import cv2  # type: ignore[import-not-found]
+    import cv2
     import numpy as np
     import torch  # type: ignore[import-not-found]
     from mmdet.apis import (  # type: ignore[import-not-found]
