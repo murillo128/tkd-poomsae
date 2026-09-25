@@ -366,6 +366,21 @@ def test_crossed_foot_sides_are_ambiguous_without_relabeling_raw_points() -> Non
     assert {item.part: item.availability for item in restored.regional_geometry}[
         "left_foot"
     ] == "missing"
+    repeated = observe(tracker, frame(2, source))
+    repeated_quality = {part.part: part for part in repeated.region_quality}
+    repeated_points = {point.name: point for point in repeated.landmarks}
+    assert repeated.subject_selection is not None
+    assert repeated.subject_selection.state == "selected"
+    assert not repeated_quality["left_foot"].usable
+    assert not repeated_quality["right_foot"].usable
+    assert "anatomical_side_ambiguous" in repeated_quality["left_foot"].reasons
+    assert "anatomical_side_ambiguous" in repeated_quality["right_foot"].reasons
+    assert repeated_points["left_heel"].xy_px is None
+    assert repeated_points["right_heel"].xy_px is None
+    recovered = observe(tracker, frame(3, candidate(0, 50)))
+    recovered_quality = {part.part: part for part in recovered.region_quality}
+    assert recovered_quality["left_foot"].usable
+    assert recovered_quality["right_foot"].usable
 
 
 def test_out_of_frame_foot_geometry_is_retained_only_as_source() -> None:

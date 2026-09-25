@@ -55,7 +55,9 @@ contains independent body, hand, foot and head usability masks and reason codes.
 These fields are per view; downstream reconstruction can combine useful regions
 from different cameras. No optional temporal filter is applied.
 Plausible left/right foot exchanges mark both foot regions ambiguous without
-renaming source landmarks. `source_regional_geometry` retains the provider's
+renaming source landmarks. A separate trusted foot-side anchor prevents repeated
+exchanged detector labels from becoming accepted on the next frame; recovery
+requires renewed consistent foot evidence. `source_regional_geometry` retains the provider's
 unmodified projection; `regional_geometry` is the accepted projection and does
 not expose axes for masked or out-of-frame source landmarks.
 

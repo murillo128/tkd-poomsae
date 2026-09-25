@@ -215,11 +215,12 @@ def _reconcile_geometry(
 
 
 class PractitionerTracker:
-    """One camera/source track; uncertainty never advances the identity anchor."""
+    """One camera/source track with separate subject and trusted foot-side anchors."""
 
     def __init__(self, config: TrackingConfig | None = None) -> None:
         self.config = config or TrackingConfig()
         self._anchor: PersonCandidate | None = None
+        self._trusted_foot_anchor: PersonCandidate | None = None
         self._anchor_time: float | None = None
         self._camera: str | None = None
         self._source: str | None = None
@@ -324,15 +325,36 @@ class PractitionerTracker:
             reasons=reasons,
             candidates=evidence,
         )
-        return _assemble(
-            frame, selected, previous, selection, artifact_id, provenance, self.config
+        observation = _assemble(
+            frame,
+            selected,
+            previous,
+            self._trusted_foot_anchor,
+            selection,
+            artifact_id,
+            provenance,
+            self.config,
         )
+        if selected is not None and all(
+            any(
+                quality.part == part and quality.usable
+                for quality in observation.region_quality
+            )
+            and any(
+                region.part == part and region.availability == "complete"
+                for region in observation.regional_geometry
+            )
+            for part in ("left_foot", "right_foot")
+        ):
+            self._trusted_foot_anchor = selected
+        return observation
 
 
 def _assemble(
     frame: PoseFrame,
     selected: PersonCandidate | None,
     previous: PersonCandidate | None,
+    trusted_foot: PersonCandidate | None,
     selection: SubjectSelection,
     artifact_id: str,
     provenance: Provenance,
@@ -473,7 +495,7 @@ def _assemble(
                         combined[name] = point.model_copy(
                             update={"xy_px": None, "quality": Quality(state="unknown")}
                         )
-        if _foot_side_ambiguous(previous, selected):
+        if _foot_side_ambiguous(trusted_foot, selected):
             for part in ("left_foot", "right_foot"):
                 reasons[part].add("anatomical_side_ambiguous")
             for name, point in tuple(combined.items()):
