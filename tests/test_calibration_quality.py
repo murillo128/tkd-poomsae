@@ -38,6 +38,9 @@ def multiview(count: int) -> SceneCandidate:
             "frame_seconds": [1 / 30],
         }
         candidate.evidence["synchronization"]["offsets"][record["source_id"]] = 0.0
+        candidate.evidence["synchronization"]["retained_source_ids"] = sorted(
+            record["source_id"] for record in candidate.cameras.values()
+        )
         pixels = CameraModel(
             candidate_camera_intrinsics(candidate, camera_id),
             pose,
@@ -134,6 +137,17 @@ def test_candidate_is_bound_to_exact_sync_offsets() -> None:
     changed = synced(views, {views[1].source_id: 0.1})
     with pytest.raises(ValueError, match="offsets disagree"):
         require_synchronization(candidate, changed)
+
+
+def test_omitted_retained_sync_camera_fails_closed() -> None:
+    views = rendered_scene((0, 0.8, 1.4))
+    sync = synced(views)
+    candidate = estimate_scene(views[:2], sync)
+    assert candidate.status == "candidate"
+    with pytest.raises(ValueError, match="omits retained synchronized source"):
+        require_synchronization(candidate, sync)
+    with pytest.raises(ValueError, match="omits retained synchronized source"):
+        resolve_scene(candidate)
 
 
 def test_offline_stage_consumes_verified_candidate(

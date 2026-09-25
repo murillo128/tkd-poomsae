@@ -65,6 +65,17 @@ class SceneAssessment:
     diagnostics: dict[str, Any]
 
 
+def _view_source_ids(views: dict[str, Any]) -> list[str]:
+    if any(
+        not isinstance(view, dict)
+        or not isinstance(view.get("source_id"), str)
+        or not view["source_id"]
+        for view in views.values()
+    ):
+        raise ValueError("candidate has malformed synchronized view sources")
+    return [view["source_id"] for view in views.values()]
+
+
 def require_synchronization(candidate: SceneCandidate, sync: Synchronization) -> None:
     """Bind a candidate to the exact retained synchronization revision."""
     claimed = candidate.evidence.get("synchronization", {})
@@ -74,6 +85,13 @@ def require_synchronization(candidate: SceneCandidate, sync: Synchronization) ->
     views = candidate.evidence.get("views", {})
     if not isinstance(views, dict) or not views:
         raise ValueError("candidate lacks synchronized views")
+    sources = _view_source_ids(views)
+    if (
+        len(set(sources)) != len(sources)
+        or set(sources) != set(retained)
+        or claimed.get("retained_source_ids") != sorted(retained)
+    ):
+        raise ValueError("candidate omits retained synchronized source")
     claimed_offsets = claimed.get("offsets")
     if not isinstance(claimed_offsets, dict):
         raise ValueError("candidate lacks synchronized offsets")
@@ -115,6 +133,14 @@ def assess_scene(
         )
     if not sync.get("artifact_id") or set(candidate.cameras) - set(views):
         raise ValueError("candidate lacks source-bound synchronized view evidence")
+    candidate_sources = _view_source_ids(views)
+    declared_sources = sync.get("retained_source_ids")
+    if (
+        not isinstance(declared_sources, list)
+        or len(set(candidate_sources)) != len(candidate_sources)
+        or sorted(candidate_sources) != declared_sources
+    ):
+        raise ValueError("candidate omits retained synchronized source")
     alignment = evidence.get("frame_alignment", {})
     spread = (
         float(alignment.get("max_global_time_spread_seconds", float("nan")))

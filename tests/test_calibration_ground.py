@@ -66,6 +66,9 @@ def scene() -> SceneCandidate:
         {
             "synchronization": {
                 "artifact_id": "synthetic-sync",
+                "retained_source_ids": sorted(
+                    record["source_id"] for record in cameras.values()
+                ),
                 "offsets": {record["source_id"]: 0.0 for record in cameras.values()},
             },
             "frame_alignment": {

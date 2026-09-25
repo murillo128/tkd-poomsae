@@ -468,6 +468,9 @@ def estimate_scene(
         "artifact_id": synchronization.id,
         "producer": synchronization.provenance.producer,
         "config_digest": synchronization.provenance.config_digest,
+        "retained_source_ids": sorted(
+            row.source_id for row in synchronization.offsets if row.retained
+        ),
         "offsets": {},
     }
     if synchronization.common_interval is None:

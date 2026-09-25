@@ -139,7 +139,9 @@ intrinsic evidence, bundle diagnostics, and at least two camera poses with 24
 shared static points. The gate recomputes each camera's reprojection residual and
 positive-depth fraction from the candidate's retained point observations. It
 also checks image coverage, shared-view connectivity, ray intersection angles,
-and 3D point conditioning. A disconnected or inconsistent camera is excluded
+and 3D point conditioning. Every source retained by synchronization must appear
+in the candidate; a missing view cannot silently disappear from the project.
+A disconnected or inconsistent camera is excluded
 with a persisted reason only if at least two independent coherent views remain.
 If the remaining pair fails, publication stops. Frontal/lateral names never
 provide a pose or orthogonal-camera default.
