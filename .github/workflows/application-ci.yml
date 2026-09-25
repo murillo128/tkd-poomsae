@@ -1,0 +1,46 @@
+name: Application checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'codex/epic-issue-*'
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.11
+      - run: uv sync --frozen --group dev
+      - run: uv run --frozen tkd-poomsae --help
+      - run: uv run --frozen pytest
+      - run: uv run --frozen ruff check src tests
+      - run: uv run --frozen mypy
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
