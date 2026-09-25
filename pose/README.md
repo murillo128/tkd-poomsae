@@ -15,6 +15,15 @@ hand refinements and the boxes used for those crops. The optional
 points to the shared `Landmark2D` contract. It does not invent pelvis, spine,
 neck, or head points, and it does not turn detector scores into quality scores.
 Face points and hand wrist duplicates remain available in the raw candidate.
+The replaceable `RegionalProvider` projects wholebody heels, medial/lateral toe
+points, eyes, nose and shoulders into independent left-foot, right-foot and head
+states. Available foot axes run from heel to toe midpoint in original-image
+pixels. Collinear or foreshortened geometry has no orientation. The head axis
+is only a projected eye-midpoint-to-nose direction; it is not 3D head direction.
+`regional_geometry` can be copied into an `Observation` with canonical landmarks;
+the frame carries source identity and model identity while the observation
+provenance records the chosen model/configuration. No foot-only crop is sent to
+the wholebody model.
 Artifact IDs and final observation assembly belong to the integration stage.
 
 The adapter uses verified local registry paths. It never provisions assets and

@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from contracts.models import FrameTime, Landmark2D, Quality, RawScore
+from contracts.models import (
+    FrameTime,
+    Landmark2D,
+    Quality,
+    RawScore,
+    RegionalGeometry2D,
+)
 from pose.providers.mmpose.mapping import CANONICAL, NAMES
+from pose.regions import RegionalProvider, WholebodyRegionalProvider
 from tkd_poomsae.vision.assets import registry, verified_paths
 from tkd_poomsae.vision.device import DeviceCancelled, inference_job
 
@@ -36,6 +43,7 @@ class PersonCandidate:
     landmarks: tuple[NamedPoint, ...]
     refined_hands: dict[str, tuple[NamedPoint, ...]]
     refined_hand_boxes: dict[str, tuple[float, float, float, float]]
+    regional_geometry: tuple[RegionalGeometry2D, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -160,6 +168,7 @@ class MMPoseAdapter:
         max_frames: int = 32,
         cancelled: Callable[[], bool] | None = None,
         _backend_factory: Callable[[str], Any] = _OpenMMLab,
+        regional_provider: RegionalProvider | None = None,
     ) -> None:
         if max_people < 1 or max_frames < 1 or not 0 <= detector_threshold <= 1:
             raise ValueError("invalid inference bounds or detector threshold")
@@ -169,6 +178,7 @@ class MMPoseAdapter:
         self.max_frames = max_frames
         self.cancelled = cancelled
         self._backend_factory = _backend_factory
+        self.regional_provider = regional_provider or WholebodyRegionalProvider()
 
     def infer(
         self, recording: Recording, frames: Iterable[DecodedFrame]
@@ -283,14 +293,20 @@ class MMPoseAdapter:
                                 float(hand_box[0, 2]),
                                 float(hand_box[0, 3]),
                             )
+                        candidate = PersonCandidate(
+                            index,
+                            bbox,
+                            _score(scores[det_index]),
+                            points,
+                            refined,
+                            refined_boxes,
+                        )
                         candidates.append(
-                            PersonCandidate(
-                                index,
-                                bbox,
-                                _score(scores[det_index]),
-                                points,
-                                refined,
-                                refined_boxes,
+                            replace(
+                                candidate,
+                                regional_geometry=self.regional_provider(
+                                    canonical_landmarks(candidate)
+                                ),
                             )
                         )
                 manifest = registry()
