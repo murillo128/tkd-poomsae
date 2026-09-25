@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
   "fastapi>=0.115,<1",
+  "numpy>=2.2,<3",
   "pydantic>=2.11,<3",
   "uvicorn>=0.34,<1",
 ]
@@ -28,7 +29,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tkd_poomsae", "contracts"]
+packages = ["src/tkd_poomsae", "contracts", "storage"]
 
 [tool.ruff]
 target-version = "py311"
@@ -39,7 +40,7 @@ select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src", "tests", "contracts"]
+files = ["src", "tests", "contracts", "storage"]
 strict = true
 
 [tool.pytest.ini_options]
