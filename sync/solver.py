@@ -214,8 +214,20 @@ def solve_offsets(
     ids = sorted(sources)
     pairs = [_pair(sources[i], sources[j]) for i, j in combinations(ids, 2)]
     usable = [p for p in pairs if p.reliable and p.shift_seconds is not None]
-    if not usable:
-        raise TimelineFailure("no reliable pairwise synchronization")
+    revisions = overrides or {}
+    if set(revisions) - set(ids):
+        raise ValueError("manual offset names an unknown source")
+    manual_values: dict[str, float] = {}
+    for name, revision in revisions.items():
+        value = revision.get("offset_seconds")
+        if not isinstance(value, (int, float)) or not np.isfinite(value):
+            raise ValueError("manual offset must be finite")
+        if any(
+            not isinstance(revision.get(field), str) or not str(revision[field]).strip()
+            for field in ("author", "source", "reason")
+        ):
+            raise ValueError("manual offset needs author, source, and reason")
+        manual_values[name] = float(value)
     # Prefer the largest connected, cycle-consistent subset. A contradictory
     # camera is removed only if two other cameras still establish a timeline.
     ranked: list[tuple[int, float, tuple[str, ...], dict[str, float]]] = []
@@ -273,38 +285,47 @@ def solve_offsets(
             ranked.append((size, sum(p.score for p in edges), subset, offsets))
         if ranked:
             break
-    if not ranked:
-        raise TimelineFailure("no cycle-consistent shared interval for two views")
-    _, _, retained, offsets = max(ranked, key=lambda row: (row[0], row[1]))
-    ref = reference or retained[0]
-    if ref not in retained:
-        raise TimelineFailure("requested timing reference is not retained")
-    origin = offsets[ref]
-    offsets = {name: value - origin for name, value in offsets.items()}
-    revisions = overrides or {}
-    if set(revisions) - set(ids):
-        raise ValueError("manual offset names an unknown source")
+    manual_timeline = not ranked
+    if ranked:
+        _, _, retained, offsets = max(ranked, key=lambda row: (row[0], row[1]))
+        ref = reference or retained[0]
+        if ref not in retained:
+            raise TimelineFailure("requested timing reference is not retained")
+        origin = offsets[ref]
+        offsets = {name: value - origin for name, value in offsets.items()}
+    else:
+        # A manual offset can recover an ambiguous pair, but contributes no
+        # automatic confidence. One source must still define global zero.
+        candidate_reference = reference or next(
+            (n for n in ids if n not in revisions), None
+        )
+        candidate_reference = candidate_reference or next(
+            (n for n in ids if manual_values.get(n) == 0), None
+        )
+        if candidate_reference is None or candidate_reference not in sources:
+            raise TimelineFailure("manual timeline needs a zero-offset reference")
+        ref = candidate_reference
+        retained = tuple(sorted({ref, *revisions}))
+        offsets = {}
+        if len(retained) < 2:
+            raise TimelineFailure("manual timeline needs two attributed views")
+    if ref in manual_values and manual_values[ref] != 0:
+        raise ValueError("timing reference offset must remain zero")
     rows: list[SyncOffset] = []
     for name in ids:
         source = sources[name]
         auto = offsets.get(name)
-        revision = revisions.get(name)
-        correction = None
-        manual_value: float | None = None
-        if revision is not None:
-            value = revision.get("offset_seconds")
-            if not isinstance(value, (int, float)) or not np.isfinite(value):
-                raise ValueError("manual offset must be finite")
-            if any(
-                not isinstance(revision.get(field), str)
-                or not str(revision[field]).strip()
-                for field in ("author", "source", "reason")
-            ):
-                raise ValueError("manual offset needs author, source, and reason")
-            manual_value = float(value)
-            correction = manual_value - auto if auto is not None else None
-        keep = name in retained or revision is not None
+        manual_revision = revisions.get(name)
+        manual_value = manual_values.get(name)
+        correction = (
+            manual_value - auto
+            if manual_value is not None and auto is not None
+            else None
+        )
+        keep = name in retained or manual_revision is not None
         effective = manual_value if manual_value is not None else auto
+        if manual_timeline and name == ref and effective is None:
+            effective = 0.0
         if keep:
             assert effective is not None
             global_interval = Interval(
@@ -324,7 +345,7 @@ def solve_offsets(
                     ),
                 ),
             )
-            if name in retained
+            if name in offsets
             else Quality(state="unknown")
         )
         rows.append(
@@ -333,9 +354,16 @@ def solve_offsets(
                 automatic_seconds=auto,
                 manual_correction_seconds=correction,
                 manual_seconds=manual_value,
-                manual_author=str(revision["author"]) if revision else None,
-                manual_source=str(revision["source"]) if revision else None,
-                manual_reason=str(revision["reason"]) if revision else None,
+                manual_author=str(manual_revision["author"])
+                if manual_revision
+                else None,
+                manual_source=str(manual_revision["source"])
+                if manual_revision
+                else None,
+                manual_reason=str(manual_revision["reason"])
+                if manual_revision
+                else None,
+                timing_reference=name == ref,
                 retained=keep,
                 exclusion_reason=None
                 if keep
@@ -361,7 +389,10 @@ def solve_offsets(
         reference_source_id=ref,
         common_interval=Interval(start=common_start, end=common_end),
         pair_estimates=[SyncPairEstimate(**asdict(pair)) for pair in pairs],
-        diagnostics=[f"excluded:{name}" for name in ids if name not in retained],
+        diagnostics=(
+            ["manual_timeline_without_reliable_pair"] if manual_timeline else []
+        )
+        + [f"excluded:{row.source_id}" for row in rows if not row.retained],
     )
 
 

@@ -58,3 +58,10 @@ automatic estimate and its quality separately. The CLI source ID here is the
 registered camera name. Revision history survives reload and invalidates sync,
 attachment, reconstruction, ground and parsing. Ingest, calibration, and
 native-time observations remain reusable.
+
+When automatic pairs are ambiguous, an attributed manual offset may establish
+a two-view timeline relative to one zero-offset reference. The artifact keeps
+the rejected pair diagnostics and marks automatic quality `unknown`; the
+reference's zero is a timing convention, not an automatic estimate. A nonzero
+manual revision of the selected reference is rejected, including through the
+runner once that reference is known.

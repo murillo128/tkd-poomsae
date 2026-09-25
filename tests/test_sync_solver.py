@@ -24,6 +24,7 @@ from sync import (
     solve_offsets,
     sources_from_manifest,
 )
+from sync.solver import PairEstimate
 
 from .test_pipeline import setup
 from .test_sync_cues import recording
@@ -129,12 +130,53 @@ def test_periodic_ambiguity_and_missing_audio() -> None:
     assert result.offsets[1].effective_seconds == pytest.approx(-0.35, abs=0.1)
 
 
+def test_manual_offset_recovers_ambiguous_pair_without_automatic_confidence() -> None:
+    sources = {
+        "a": _source("a", 0, periodic=True),
+        "b": _source("b", -0.35, periodic=True),
+    }
+    revision = {
+        "offset_seconds": -0.35,
+        "author": "operator",
+        "source": "inspection",
+        "reason": "matched event",
+    }
+    result = solve_offsets(sources, overrides={"b": revision})
+    assert result.reference_source_id == "a"
+    assert "manual_timeline_without_reliable_pair" in result.diagnostics
+    assert not result.pair_estimates[0].reliable
+    assert result.offsets[0].automatic_seconds is None
+    assert result.offsets[0].effective_seconds == 0
+    assert result.offsets[0].quality.state == "unknown"
+    assert result.offsets[1].automatic_seconds is None
+    assert result.offsets[1].effective_seconds == -0.35
+    assert result.offsets[1].manual_author == "operator"
+    assert result.offsets[1].quality.state == "unknown"
+    assert result.common_interval is not None
+
+
+def test_nonzero_reference_override_is_rejected() -> None:
+    sources = {"a": _source("a", 0), "b": _source("b", -0.35)}
+    revision = {
+        "offset_seconds": 0.25,
+        "author": "operator",
+        "source": "inspection",
+        "reason": "shift",
+    }
+    with pytest.raises(ValueError, match="reference offset must remain zero"):
+        solve_offsets(sources, reference="a", overrides={"a": revision})
+
+
 def test_no_overlap_fails_explicitly() -> None:
     first = _source("a", 0)
     second = _source("b", -0.35)
     shifted = SyncSource("b", 20, 28, second.cues)
     with pytest.raises(TimelineFailure):
         solve_offsets({"a": first, "b": shifted})
+    revision = {"offset_seconds": -0.35, "author": "operator",
+                "source": "inspection", "reason": "attempted recovery"}
+    with pytest.raises(TimelineFailure, match="overlapping views"):
+        solve_offsets({"a": first, "b": shifted}, overrides={"b": revision})
 
 
 def test_inconsistent_camera_is_excluded() -> None:
@@ -212,23 +254,95 @@ def test_registered_media_manifest_and_runner_publication(tmp_path: Path) -> Non
     handle = pipe.solve_sync("media")
     assert isinstance(handle.metadata, Synchronization)
     assert pipe.status("media")["stages"]["sync"]["status"] == "complete"
-    original = {row.source_id: row for row in handle.metadata.offsets}
+
+
+def test_runner_can_publish_attributed_manual_timeline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = {
+        name: recording(
+            tmp_path / f"{name}.mkv",
+            video_rate=10,
+            audio_rate=None,
+            pre_roll=roll,
+            events=(0.8, 1.5, 2.2, 2.9),
+        )
+        for name, roll in (("left", 0.2), ("right", 0.55))
+    }
+    manifest = ingest(list(paths.items()))
+    reference_item = min(manifest, key=lambda item: item.source_id)
+    manual_item = next(item for item in manifest if item != reference_item)
+    monkeypatch.setattr(
+        "sync.solver._pair",
+        lambda a, b: PairEstimate(
+            a.source_id, b.source_id, None, 0, 0, 0, (), (), False, ("ambiguous_peak",)
+        ),
+    )
+    pipe = Pipeline(ArtifactStore(StorageRoot(tmp_path / "data")))
+    pipe.register("media", paths)
     pipe.revise_sync_offset(
         "media",
-        "right",
-        -0.4,
+        manual_item.camera_id,
+        0.35,
+        author="operator",
+        source="inspection",
+        reason="repeated events",
+    )
+    handle = pipe.solve_sync("media")
+    assert isinstance(handle.metadata, Synchronization)
+    assert handle.metadata.reference_source_id == reference_item.source_id
+    assert "manual_timeline_without_reliable_pair" in handle.metadata.diagnostics
+    assert all(row.quality.state == "unknown" for row in handle.metadata.offsets)
+    assert (
+        next(
+            row
+            for row in handle.metadata.offsets
+            if row.source_id == manual_item.source_id
+        ).effective_seconds
+        == 0.35
+    )
+    original = {row.source_id: row for row in handle.metadata.offsets}
+    nonreference = next(
+        item
+        for item in manifest
+        if item.source_id != handle.metadata.reference_source_id
+    )
+    revised_offset = -0.4 if nonreference.camera_id == "right" else 0.4
+    pipe.revise_sync_offset(
+        "media",
+        nonreference.camera_id,
+        revised_offset,
         author="operator",
         source="inspection",
         reason="correct event",
     )
     revised = pipe.solve_sync("media")
     assert isinstance(revised.metadata, Synchronization)
-    right = next(
+    revised_row = next(
         row
         for row in revised.metadata.offsets
-        if row.source_id == manifest[1].source_id
+        if row.source_id == nonreference.source_id
     )
-    assert right.automatic_seconds == original[right.source_id].automatic_seconds
-    assert right.effective_seconds == -0.4
-    assert right.manual_author == "operator"
+    assert (
+        revised_row.automatic_seconds
+        == original[revised_row.source_id].automatic_seconds
+    )
+    assert revised_row.effective_seconds == revised_offset
+    assert revised_row.manual_author == "operator"
     assert revised.path != handle.path
+    reference_camera = next(
+        item.camera_id
+        for item in manifest
+        if item.source_id == revised.metadata.reference_source_id
+    )
+    with pytest.raises(ValueError, match="reference offset must remain zero"):
+        pipe.revise_sync_offset(
+            "media",
+            reference_camera,
+            0.25,
+            author="operator",
+            source="inspection",
+            reason="bad reference shift",
+        )
+    assert pipe.status("media")["stages"]["sync"]["status"] == "complete"

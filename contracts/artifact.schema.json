@@ -2333,6 +2333,11 @@
             }
           ],
           "default": null
+        },
+        "timing_reference": {
+          "default": false,
+          "title": "Timing Reference",
+          "type": "boolean"
         }
       },
       "required": [

@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from contracts.models import ArtifactBase
+from contracts.models import ArtifactBase, Synchronization
 from storage import (
     ArtifactHandle,
     ArtifactKey,
@@ -311,6 +311,18 @@ class Pipeline:
             if source_id not in project_data["sources"]:
                 raise ValueError(f"unknown source: {source_id}")
             state = self._load_status(project, runner_active=False)
+            sync_key = self._expected_keys(project_data, state)["sync"]
+            try:
+                current_sync = self.store.get(sync_key).metadata
+            except MissingResource:
+                current_sync = None
+            if (
+                isinstance(current_sync, Synchronization)
+                and current_sync.reference_source_id
+                == f"source:{hash_file(Path(project_data['sources'][source_id]))}"
+                and offset_seconds != 0
+            ):
+                raise ValueError("timing reference offset must remain zero")
             revision = {
                 "source_id": source_id,
                 "offset_seconds": offset_seconds,

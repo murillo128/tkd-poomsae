@@ -192,6 +192,7 @@ class SyncOffset(StrictModel):
     manual_author: str | None = None
     manual_source: str | None = None
     manual_reason: str | None = None
+    timing_reference: bool = False
     retained: bool = True
     exclusion_reason: str | None = None
     source_interval: Interval | None = None
@@ -202,6 +203,8 @@ class SyncOffset(StrictModel):
     def effective_seconds(self) -> float:
         if self.manual_seconds is not None:
             return self.manual_seconds
+        if self.timing_reference and self.automatic_seconds is None:
+            return 0.0
         if self.automatic_seconds is None:
             raise ValueError("excluded source has no effective offset")
         return self.automatic_seconds + (self.manual_correction_seconds or 0.0)
