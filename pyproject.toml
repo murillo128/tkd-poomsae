@@ -12,6 +12,7 @@ dependencies = [
   "av>=16.1,<17",
   "fastapi>=0.115,<1",
   "numpy>=2.2,<3",
+  "opencv-contrib-python-headless>=4.11,<5",
   "pydantic>=2.11,<3",
   "uvicorn>=0.34,<1",
 ]
@@ -31,7 +32,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tkd_poomsae", "contracts", "storage", "datasets", "pipeline", "media", "sync"]
+packages = ["src/tkd_poomsae", "contracts", "storage", "datasets", "pipeline", "media", "sync", "calibration"]
 
 [tool.ruff]
 target-version = "py311"
@@ -42,7 +43,7 @@ select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src", "tests", "contracts", "storage", "pipeline", "media", "sync"]
+files = ["src", "tests", "contracts", "storage", "pipeline", "media", "sync", "calibration"]
 strict = true
 
 [tool.pytest.ini_options]

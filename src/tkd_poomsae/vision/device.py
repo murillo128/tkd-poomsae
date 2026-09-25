@@ -122,7 +122,7 @@ def inference_job(
     """Bound threads and hold the GPU lease through model teardown."""
     if not 1 <= threads <= 8:
         raise ValueError("CPU threads must be between 1 and 8")
-    import cv2  # type: ignore[import-not-found]
+    import cv2
     import torch  # type: ignore[import-not-found]
 
     torch.set_num_threads(threads)

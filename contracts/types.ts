@@ -31,7 +31,7 @@ export interface SyncOffset { source_id: string; automatic_seconds: number; manu
 export interface Synchronization extends ArtifactBase { kind: 'synchronization'; offsets: SyncOffset[] }
 export interface FrameTime { source_id: string; camera_id: string; frame_index?: number | null; pts?: number | null; time_base_num?: number | null; time_base_den?: number | null; source_seconds: number; offset_seconds: number; global_seconds: number }
 export interface Intrinsics { fx: number; fy: number; cx: number; cy: number; distortion?: number[] }
-export interface CameraCalibration { camera_id: string; source_id: string; intrinsics: Intrinsics; world_to_camera: number[][]; quality: Quality }
+export interface CameraCalibration { camera_id: string; source_id: string; intrinsics: Intrinsics; world_to_camera: number[][]; quality: Quality; intrinsic_source?: 'estimated' | 'imported' | null; capture_ids?: string[]; corner_count?: number | null; rms_reprojection_px?: number | null; pose_ambiguity_px?: number | null }
 export interface Calibration extends ArtifactBase { kind: 'calibration'; scale: 'metric' | 'arbitrary'; world_unit: 'm' | 'arbitrary'; cameras: CameraCalibration[]; ground_z?: number; quality: Quality }
 export interface RawScore { value: number; range_min: number; range_max: number }
 export interface Landmark2D { name: Landmark; xy_px: [number, number] | null; raw_score?: RawScore | null; quality: Quality }

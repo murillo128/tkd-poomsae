@@ -140,11 +140,73 @@
           "title": "Camera Id",
           "type": "string"
         },
+        "capture_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capture Ids",
+          "type": "array"
+        },
+        "corner_count": {
+          "anyOf": [
+            {
+              "minimum": 4,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corner Count"
+        },
+        "intrinsic_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "estimated",
+                "imported"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intrinsic Source"
+        },
         "intrinsics": {
           "$ref": "#/$defs/Intrinsics"
         },
+        "pose_ambiguity_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pose Ambiguity Px"
+        },
         "quality": {
           "$ref": "#/$defs/Quality"
+        },
+        "rms_reprojection_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rms Reprojection Px"
         },
         "source_id": {
           "title": "Source Id",

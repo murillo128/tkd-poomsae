@@ -256,6 +256,11 @@ class CameraCalibration(StrictModel):
     # Row-major homogeneous transform: camera_xyz = world_to_camera * world_xyz.
     world_to_camera: list[list[float]]
     quality: Quality
+    intrinsic_source: Literal["estimated", "imported"] | None = None
+    capture_ids: list[str] = Field(default_factory=list)
+    corner_count: int | None = Field(default=None, ge=4)
+    rms_reprojection_px: float | None = Field(default=None, ge=0)
+    pose_ambiguity_px: float | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def matrix_shape(self) -> CameraCalibration:

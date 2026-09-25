@@ -25,6 +25,9 @@ named parent frame. Angles are radians unless a measurement explicitly says
 `deg`. Distances carry their unit. `scale: arbitrary` means metres are unavailable,
 and no implicit conversion to metres is allowed. Body ratios require an explicit
 participant morphology reference in the consuming calculation.
+Target calibration records each camera's intrinsic origin, capture IDs, corner
+count, reprojection RMS in pixels, and planar-pose ambiguity gap. The calibration
+producer/config digest distinguishes target estimation from imported profiles.
 
 Landmarks have stable names, including individual finger joints, heels,
 forefeet, and head landmarks. Unavailable points are null with `unknown` quality.
