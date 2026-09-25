@@ -99,7 +99,18 @@ cameras. Add `--evidence /absolute/evidence.json` only when independent evidence
 exists. The optional file has `ground` and `size` objects. `ground` supplies an
 ID, the candidate's SHA-256 `source_revision`, at least six classified floor
 `floor_indices`, `above_indices` establishing the vertical sign, an ordered
-`axis_indices` pair fixing +X, `kind` (`scene` or `manual`), and `producer`.
+`axis_indices` pair fixing +X, ordered `vertical_indices` (lower, upper),
+`vertical_reference_id`, `kind` (`scene` or `manual`), and `producer`.
+Automatic `scene` evidence must name a `known_upright` reference already in
+the candidate's `evidence.vertical_references` with matching point indices,
+`source_kind: upright_target`, an identified physical `source_id`, and a
+producer distinct from the floor classifier. Both endpoints must have
+consistent projected observations in at
+least two calibrated cameras. The fitted floor normal must align within 15°
+of that independently identified upright direction. An ordinary wall with
+points on one side cannot pass this gate. Without such a cue, natural-scene
+ground remains unresolved; an operator can instead supply a separately
+attributed `manual` recovery revision.
 `size` supplies an ID, the same source revision, two `point_indices`, a positive
 measured `length`, `unit` (`m` or `cm`), `kind` (`measured` or `manual`), and
 `producer`. Manual evidence also requires `author` and `reason`. Indices refer to
@@ -110,7 +121,8 @@ calibration. The SHA-256 is over the candidate's canonical sorted JSON without
 whitespace; `calibration.scene_revision()` computes it.
 
 The resolver fits only classified floor points with deterministic RANSAC, checks
-inlier fraction, planar coverage, residual, above-floor sign, and axis direction.
+inlier fraction, planar coverage, residual, above-floor sign, independent
+vertical alignment, and axis direction.
 The artifact retains those diagnostics and the single source-to-world transform.
 Its camera transforms are expressed in that world frame. A missing or ambiguous
 cue leaves ground unresolved; no ground-dependent product may consume it.

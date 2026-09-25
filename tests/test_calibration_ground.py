@@ -24,7 +24,7 @@ def scene() -> SceneCandidate:
     floor = np.column_stack((rng.uniform(-2, 2, 40), rng.uniform(-1, 1, 40),
                              rng.normal(0, 0.002, 40)))
     floor[3, 2] = 0.6  # Robust fit must discard this mislabeled point.
-    above = np.array([[0.0, 0.0, 1.5], [0.5, 0.1, 2.0]])
+    above = np.array([[0.0, 0.0, 1.5], [0.0, 0.0, 2.0]])
     wall = np.column_stack((np.full(100, 3.0), rng.uniform(-2, 2, 100),
                             rng.uniform(0, 3, 100)))
     points = np.vstack((floor, above, wall))
@@ -38,13 +38,28 @@ def scene() -> SceneCandidate:
             "intrinsics": intrinsics.model_dump(),
             "world_to_camera": pose.tolist(),
         }
-    return SceneCandidate("candidate", [], cameras,
-                          [{"xyz": point.tolist()} for point in points])
+    static_points = [{"xyz": point.tolist()} for point in points]
+    for index in (40, 41):
+        static_points[index]["observations"] = {
+            camera_id: CameraModel(
+                intrinsics, np.asarray(record["world_to_camera"]),
+            ).project(points[index:index + 1])[0].tolist()
+            for camera_id, record in cameras.items()
+        }
+    return SceneCandidate("candidate", [], cameras, static_points, {
+        "vertical_references": [{
+            "id": "upright-1", "kind": "known_upright",
+            "point_indices": [40, 41],
+            "source_kind": "upright_target", "source_id": "fixture-upright",
+            "producer": "synthetic-upright-detector-v1",
+        }],
+    })
 
 
 def evidence(candidate: SceneCandidate) -> GroundEvidence:
     return GroundEvidence("floor-classification", scene_revision(candidate),
                           tuple(range(40)), (40, 41), (0, 1),
+                          (40, 41), "upright-1",
                           producer="synthetic-floor-classifier-v1")
 
 
@@ -95,12 +110,53 @@ def test_unavailable_ground_and_scale_are_explicit() -> None:
     assert resolve_scene(candidate, evidence(candidate)).scale_status == "unresolved"
     with pytest.raises(ValueError, match="floor samples"):
         GroundEvidence("wall-only", scene_revision(candidate), (42, 43), (40,),
-                       (42, 43), producer="fixture")
+                       (42, 43), (40, 41), "upright-1", producer="fixture")
     with pytest.raises(ValueError, match="sign evidence"):
         GroundEvidence("no-sign", scene_revision(candidate), tuple(range(40)),
-                       (), (0, 1), producer="fixture")
+                       (), (0, 1), (40, 41), "upright-1", producer="fixture")
     candidate.static_points[41]["xyz"] = [0.5, 0.1, -2.0]
     with pytest.raises(ValueError, match="vertical sign evidence is ambiguous"):
+        resolve_scene(candidate, evidence(candidate))
+
+
+def test_wall_only_plane_cannot_become_ground() -> None:
+    original = scene()
+    wall = SceneCandidate(
+        "candidate", [], original.cameras,
+        original.static_points[42:57] + original.static_points[:2]
+        + original.static_points[40:42],
+        {"vertical_references": [{
+            "id": "upright-1", "kind": "known_upright",
+            "point_indices": [17, 18],
+            "source_kind": "upright_target", "source_id": "fixture-upright",
+            "producer": "synthetic-upright-detector-v1",
+        }]},
+    )
+    claimed_floor = GroundEvidence(
+        "wall-claim", scene_revision(wall), tuple(range(15)), (15, 16),
+        (0, 1), (17, 18), "upright-1",
+        producer="synthetic-floor-classifier-v1",
+    )
+    with pytest.raises(ValueError, match="conflicts with independent vertical"):
+        resolve_scene(wall, claimed_floor)
+    assert resolve_scene(wall).ground_status == "unresolved"
+    wall.evidence["vertical_references"] = []
+    with pytest.raises(ValueError, match="independent upright cue"):
+        resolve_scene(
+            wall, replace(claimed_floor, source_revision=scene_revision(wall)),
+        )
+
+
+def test_scene_vertical_cue_needs_independent_multiview_support() -> None:
+    candidate = scene()
+    candidate.evidence["vertical_references"][0]["producer"] = (
+        "synthetic-floor-classifier-v1"
+    )
+    with pytest.raises(ValueError, match="independent upright cue"):
+        resolve_scene(candidate, evidence(candidate))
+    candidate = scene()
+    candidate.static_points[40]["observations"]["cam1"][0] += 10
+    with pytest.raises(ValueError, match="inconsistent multiview geometry"):
         resolve_scene(candidate, evidence(candidate))
 
 

@@ -37,6 +37,8 @@ class GroundEvidence:
     floor_indices: tuple[int, ...]
     above_indices: tuple[int, ...]
     axis_indices: tuple[int, int]
+    vertical_indices: tuple[int, int]
+    vertical_reference_id: str
     kind: Literal["scene", "manual"] = "scene"
     producer: str = ""
     author: str = ""
@@ -45,10 +47,13 @@ class GroundEvidence:
     def __post_init__(self) -> None:
         if self.kind not in {"scene", "manual"}:
             raise ValueError("unsupported ground evidence kind")
-        if not self.id or not self.source_revision:
+        if not self.id or not self.source_revision or not self.vertical_reference_id:
             raise ValueError("ground evidence requires identity and source revision")
         if len(set(self.floor_indices)) < 6 or not self.above_indices:
             raise ValueError("floor samples and above-floor sign evidence required")
+        if (len(self.vertical_indices) != 2
+                or self.vertical_indices[0] == self.vertical_indices[1]):
+            raise ValueError("vertical reference requires distinct ordered endpoints")
         if self.kind == "manual":
             if not self.author or not self.reason:
                 raise ValueError("manual ground recovery requires author and reason")
@@ -96,6 +101,54 @@ def _points(candidate: SceneCandidate, indices: tuple[int, ...]) -> NDArray[np.f
     return result
 
 
+def _vertical_direction(
+    candidate: SceneCandidate, evidence: GroundEvidence,
+) -> NDArray[np.float64]:
+    indices = evidence.vertical_indices
+    endpoints = _points(candidate, indices)
+    if evidence.kind == "scene":
+        references = candidate.evidence.get("vertical_references", [])
+        matches = [
+            item for item in references
+            if isinstance(item, dict)
+            and item.get("id") == evidence.vertical_reference_id
+        ]
+        if len(matches) != 1 or (
+            matches[0].get("kind") != "known_upright"
+            or matches[0].get("point_indices") != list(indices)
+            or matches[0].get("source_kind") != "upright_target"
+            or not matches[0].get("source_id")
+            or not matches[0].get("producer")
+            or matches[0].get("producer") == evidence.producer
+        ):
+            raise ValueError("scene ground requires a matching independent upright cue")
+        # A named cue alone is insufficient: both endpoints must be actual
+        # triangulated scene tracks with consistent observations in two views.
+        for index in indices:
+            point = candidate.static_points[index]
+            observations = point.get("observations", {})
+            if not isinstance(observations, dict) or len(observations) < 2:
+                raise ValueError("upright cue lacks multiview point observations")
+            for camera_id, pixel in observations.items():
+                record = candidate.cameras.get(camera_id)
+                if record is None:
+                    raise ValueError("upright cue refers to absent camera")
+                camera = CameraModel(
+                    Intrinsics.model_validate(record["intrinsics"]),
+                    np.asarray(record["world_to_camera"], dtype=np.float64),
+                )
+                projected = camera.project(_points(candidate, (index,)))[0]
+                observed = np.asarray(pixel, dtype=np.float64)
+                if (observed.shape != (2,) or not np.isfinite(observed).all()
+                        or np.linalg.norm(projected - observed) > 3.0):
+                    raise ValueError("upright cue has inconsistent multiview geometry")
+    direction = endpoints[1] - endpoints[0]
+    length = float(np.linalg.norm(direction))
+    if length <= 1e-8:
+        raise ValueError("upright cue is degenerate")
+    return np.asarray(direction / length, dtype=np.float64)
+
+
 def _ground_frame(
     candidate: SceneCandidate, evidence: GroundEvidence, revision: str,
     scale: float,
@@ -135,6 +188,9 @@ def _ground_frame(
         raise ValueError("vertical sign evidence is ambiguous")
     if np.all(signed < 0):
         normal = -normal
+    up = _vertical_direction(candidate, evidence)
+    if float(normal @ up) < float(np.cos(np.deg2rad(15))):
+        raise ValueError("floor plane conflicts with independent vertical cue")
     axis = _points(candidate, evidence.axis_indices)
     x = axis[1] - axis[0]
     x -= np.dot(x, normal) * normal
@@ -161,7 +217,8 @@ def _ground_frame(
         normal_uncertainty_rad=float(np.arctan2(
             rms, singular[1] / np.sqrt(len(inliers)))),
         axis_uncertainty_rad=float(np.arctan2(rms, axis_length)),
-        evidence_kind=evidence.kind, evidence_ids=[evidence.id],
+        evidence_kind=evidence.kind,
+        evidence_ids=[evidence.id, evidence.vertical_reference_id],
         evidence_producer=evidence.producer or "operator",
         evidence_author=evidence.author or None,
         evidence_reason=evidence.reason or None,
