@@ -81,6 +81,8 @@ def main() -> int:
         command.add_argument("--device", default="cpu")
     args = parser.parse_args()
     if args.command == "serve":
+        if args.host not in {"localhost", "127.0.0.1", "::1"}:
+            parser.error("the local API must bind to a loopback address")
         import uvicorn
 
         uvicorn.run("tkd_poomsae.api:app", host=args.host, port=args.port)

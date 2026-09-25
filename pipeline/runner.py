@@ -91,6 +91,7 @@ class Stage:
     revision: str = "1"
     model_revision: str | None = None
     schema_version: str = "1.0.0"
+    capability_reason: str | None = None
 
 
 def _unavailable(name: str) -> Producer:
@@ -110,7 +111,13 @@ def _unavailable(name: str) -> Producer:
 def default_stages() -> tuple[Stage, ...]:
     """Explicit stage slots; feature packages replace producers as they land."""
     return tuple(
-        Stage(name, _unavailable(name), STAGE_LAYERS[name], DEPENDENCIES[name])
+        Stage(
+            name,
+            _unavailable(name),
+            STAGE_LAYERS[name],
+            DEPENDENCIES[name],
+            capability_reason=f"{name} producer is not installed; provision it offline",
+        )
         for name in STAGE_ORDER
     )
 
@@ -165,11 +172,28 @@ class Pipeline:
             "..",
         }:
             raise ValueError("invalid project identifier")
-        return self.store.root.namespace("runs") / "projects" / project
+        runs = self.store.root.namespace("runs")
+        base = runs / "projects"
+        directory = base / project
+        if (
+            runs.is_symlink()
+            or base.is_symlink()
+            or directory.is_symlink()
+            or any(
+                (directory / name).is_symlink()
+                for name in ("project.json", "state.json", "run.lock", "cancel.request")
+            )
+        ):
+            raise ValueError("invalid project directory")
+        return directory
 
     def register(self, project: str, sources: Mapping[str, str | Path]) -> None:
         """Record source references. Source bytes stay in their existing location."""
-        if len(sources) < 2 or any(not source for source in sources):
+        if len(sources) < 2 or any(
+            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", source)
+            or source in {".", ".."}
+            for source in sources
+        ):
             raise ValueError("at least two named sources are required")
         directory = self._directory(project)
         if directory.exists():
@@ -284,6 +308,7 @@ class Pipeline:
         *,
         config: Mapping[str, Mapping[str, Any]] | None = None,
         rerun: str | None = None,
+        reset_cancellation: bool = True,
     ) -> dict[str, Any]:
         if through not in STAGE_ORDER or (
             rerun is not None and rerun not in STAGE_ORDER
@@ -311,8 +336,9 @@ class Pipeline:
                 state["config"] = {name: dict(value) for name, value in config.items()}
             if rerun is not None:
                 state["generation"][rerun] = state["generation"].get(rerun, 0) + 1
-            (directory / "cancel.request").unlink(missing_ok=True)
-            state["cancel_requested"] = False
+            if reset_cancellation:
+                (directory / "cancel.request").unlink(missing_ok=True)
+            state["cancel_requested"] = self._cancelled(project)
             _write_json(state_path, state)
             keys = self._expected_keys(project_data, state)
             handles: dict[str, ArtifactHandle] = {}

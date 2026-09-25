@@ -9,7 +9,7 @@ from tkd_poomsae.api import app
 
 
 def test_local_api_health() -> None:
-    response = TestClient(app).get("/health")
+    response = TestClient(app, base_url="http://localhost").get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
