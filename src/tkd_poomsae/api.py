@@ -421,11 +421,12 @@ def create_app(
 
     @service.get("/api/projects/{project}/media/{camera}/frames/{ordinal}/image")
     def exact_frame(project: str, camera: str, ordinal: int) -> Response:
-        recording = registered_media(project, camera).recording
+        item = registered_media(project, camera)
+        recording = item.recording
         if ordinal < 0 or ordinal >= len(recording.frames):
             raise HTTPException(404, "unknown source frame")
         try:
-            content = media.preview(recording, ordinal)
+            content = media.preview(item, ordinal)
         except MediaAccessError as exc:
             raise HTTPException(exc.status, str(exc)) from exc
         except IngestError as exc:

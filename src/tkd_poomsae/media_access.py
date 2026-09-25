@@ -9,7 +9,7 @@ import re
 import stat
 import tempfile
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from email.utils import format_datetime
 from pathlib import Path
@@ -46,6 +46,7 @@ class RegisteredMedia:
     recording: Recording
     device: int
     inode: int
+    changed_ns: int
 
     @property
     def browser_playback(self) -> bool:
@@ -165,10 +166,12 @@ class MediaAccess:
                 oldest.unlink()
             return content
 
-    def open_stream(self, item: RegisteredMedia) -> BinaryIO:
-        """Open the already resolved source without following a swapped leaf link."""
+    def _open_checked(
+        self, path: Path, expected: tuple[int, int, int, int, int]
+    ) -> BinaryIO:
+        """Pin and authorize the inode before any hashing, decoding, or stream."""
         try:
-            fd = os.open(item.path, os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
         except OSError as exc:
             raise MediaAccessError(409, "registered source cannot be opened") from exc
         stream = os.fdopen(fd, "rb")
@@ -179,17 +182,7 @@ class MediaAccess:
                 actual.is_relative_to(root) for root in self.roots
             ):
                 raise MediaAccessError(403, "source outside permitted roots")
-            if (
-                current.st_dev,
-                current.st_ino,
-                current.st_size,
-                current.st_mtime_ns,
-            ) != (
-                item.device,
-                item.inode,
-                item.recording.size_bytes,
-                item.recording.modified_ns,
-            ):
+            if self._identity(current) != expected:
                 raise MediaAccessError(409, "source changed since indexing")
         except (OSError, ValueError) as exc:
             stream.close()
@@ -197,6 +190,29 @@ class MediaAccess:
                 raise
             raise MediaAccessError(409, "registered source changed") from exc
         return stream
+
+    @staticmethod
+    def _identity(source_stat: os.stat_result) -> tuple[int, int, int, int, int]:
+        return (
+            source_stat.st_dev,
+            source_stat.st_ino,
+            source_stat.st_size,
+            source_stat.st_mtime_ns,
+            source_stat.st_ctime_ns,
+        )
+
+    def open_stream(self, item: RegisteredMedia) -> BinaryIO:
+        """Open the indexed source without following a swapped leaf link."""
+        return self._open_checked(
+            item.path,
+            (
+                item.device,
+                item.inode,
+                item.recording.size_bytes,
+                item.recording.modified_ns,
+                item.changed_ns,
+            ),
+        )
 
     def resolve(self, project: str, camera: str) -> RegisteredMedia:
         try:
@@ -219,7 +235,7 @@ class MediaAccess:
                 raise MediaAccessError(
                     415, "source media type is not browser supported"
                 )
-            stat = path.stat()
+            source_stat = path.stat()
         except (FileNotFoundError, OSError, KeyError, ValueError, TypeError) as exc:
             if isinstance(exc, MediaAccessError):
                 raise
@@ -228,59 +244,77 @@ class MediaAccess:
             project,
             camera,
             str(path),
-            stat.st_dev,
-            stat.st_ino,
-            stat.st_size,
-            stat.st_mtime_ns,
-            stat.st_ctime_ns,
+            *self._identity(source_stat),
         )
         with self._lock:
             recording = self._indexes.get(key)
             if recording is None:
-                recording = index_recording(camera, path)
+                expected = self._identity(source_stat)
+                with self._open_checked(path, expected) as source:
+                    pinned = Path(f"/proc/self/fd/{source.fileno()}")
+                    recording = index_recording(camera, pinned, preserve_path=True)
+                    if self._identity(os.fstat(source.fileno())) != expected:
+                        raise MediaAccessError(409, "source changed while indexing")
                 try:
                     after = path.stat()
                 except OSError as exc:
                     raise MediaAccessError(
                         409, "source vanished while indexing"
                     ) from exc
-                if (after.st_size, after.st_mtime_ns, after.st_ctime_ns) != (
-                    stat.st_size,
-                    stat.st_mtime_ns,
-                    stat.st_ctime_ns,
-                ):
+                if self._identity(after) != expected:
                     raise MediaAccessError(409, "source changed while indexing")
+                recording = replace(recording, path=path)
                 self._indexes[key] = recording
                 while len(self._indexes) > 8:
                     self._indexes.popitem(last=False)
             else:
                 self._indexes.move_to_end(key)
-        return RegisteredMedia(path, content_type, recording, stat.st_dev, stat.st_ino)
+        return RegisteredMedia(
+            path,
+            content_type,
+            recording,
+            source_stat.st_dev,
+            source_stat.st_ino,
+            source_stat.st_ctime_ns,
+        )
 
-    def preview(self, recording: Recording, ordinal: int) -> bytes:
+    def preview(self, item: RegisteredMedia, ordinal: int) -> bytes:
+        recording = item.recording
         key = (recording.sha256, ordinal)
-        with self._lock:
-            cached = self._previews.get(key)
+        with self.open_stream(item) as source:
+            with self._lock:
+                cached = self._previews.get(key)
+                if cached is not None:
+                    self._previews.move_to_end(key)
+                    return cached
+            cached = self._disk_preview(key)
             if cached is not None:
-                self._previews.move_to_end(key)
+                self._remember(key, cached)
                 return cached
-        cached = self._disk_preview(key)
-        if cached is not None:
-            self._remember(key, cached)
-            return cached
-        if recording.source.width_px * recording.source.height_px > 16_000_000:
-            raise MediaAccessError(413, "decoded frame exceeds preview pixel limit")
-        if not self.decoders.acquire(blocking=False):
-            raise MediaAccessError(503, "frame decode capacity reached")
-        try:
-            rgb = (
-                MediaReader(recording, max_decode_frames=1)
-                .frame(recording.frames[ordinal])
-                .rgb
-            )
-            ok, encoded = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-        finally:
-            self.decoders.release()
+            if recording.source.width_px * recording.source.height_px > 16_000_000:
+                raise MediaAccessError(413, "decoded frame exceeds preview pixel limit")
+            if not self.decoders.acquire(blocking=False):
+                raise MediaAccessError(503, "frame decode capacity reached")
+            try:
+                pinned = replace(
+                    recording, path=Path(f"/proc/self/fd/{source.fileno()}")
+                )
+                rgb = (
+                    MediaReader(pinned, max_decode_frames=1)
+                    .frame(pinned.frames[ordinal])
+                    .rgb
+                )
+                ok, encoded = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+                if self._identity(os.fstat(source.fileno())) != (
+                    item.device,
+                    item.inode,
+                    recording.size_bytes,
+                    recording.modified_ns,
+                    item.changed_ns,
+                ):
+                    raise MediaAccessError(409, "source changed during frame decode")
+            finally:
+                self.decoders.release()
         if not ok:
             raise MediaAccessError(500, "frame encoding failed")
         result = encoded.tobytes()

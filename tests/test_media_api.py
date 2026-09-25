@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
 import cv2
 import imageio_ffmpeg  # type: ignore[import-untyped]
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from media import index_recording
@@ -16,6 +18,7 @@ from pipeline import Pipeline
 from storage import ArtifactStore, StorageRoot
 from tests.test_media_reader import video
 from tkd_poomsae.api import create_app
+from tkd_poomsae.media_access import MediaAccess, RegisteredMedia
 
 
 def client_for(tmp_path: Path, left: Path, right: Path) -> TestClient:
@@ -203,3 +206,51 @@ def test_shared_dataset_root_is_permitted_without_api_registration_root(
             client.get("/api/projects/demo/media/left/metadata").json()["source_sha256"]
             == hashlib.sha256(left.read_bytes()).hexdigest()
         )
+
+
+def test_exact_frame_rejects_source_replacement_after_resolution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    left = video(tmp_path / "left.mkv", [0, 40, 80], vary_pixels=True)
+    right = video(tmp_path / "right.mkv", [100, 140, 180])
+    outside = video(
+        tmp_path.parent / "outside-race.mkv", [0, 40, 80], vary_pixels=False
+    )
+    outside.write_bytes(outside.read_bytes().ljust(left.stat().st_size, b"\0"))
+    original_stat = left.stat()
+    os.utime(
+        outside,
+        ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+    )
+    assert (outside.stat().st_size, outside.stat().st_mtime_ns) == (
+        original_stat.st_size,
+        original_stat.st_mtime_ns,
+    )
+    pipe = Pipeline(ArtifactStore(StorageRoot(tmp_path / "store")))
+    pipe.register("demo", {"left": left, "right": right})
+    held = tmp_path / "original.mkv"
+    original_resolve = MediaAccess.resolve
+
+    def swap_after_resolution(
+        self: MediaAccess, project: str, camera: str
+    ) -> RegisteredMedia:
+        item = original_resolve(self, project, camera)
+        if camera == "left":
+            left.rename(held)
+            left.symlink_to(outside)
+        return item
+
+    monkeypatch.setattr(MediaAccess, "resolve", swap_after_resolution)
+    try:
+        with TestClient(
+            create_app(pipe, allowed_roots={"local": tmp_path}),
+            base_url="http://localhost",
+        ) as client:
+            assert (
+                client.get("/api/projects/demo/media/left/frames/2/image").status_code
+                == 409
+            )
+    finally:
+        left.unlink()
+        held.rename(left)
+    assert not (tmp_path / "store" / "derived" / "media-previews-v1").exists()

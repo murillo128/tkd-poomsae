@@ -38,7 +38,9 @@ The API endpoints are:
   identifies the delivered ordinal, PTS, and source hash in response headers.
 
 Media routes resolve only registered cameras within configured source roots or
-the shared storage `datasets/` namespace. Source paths remain absent from JSON.
+the shared storage `datasets/` namespace. Indexing and exact-frame decoding use
+checked open file descriptors, so a path replacement cannot redirect an in-flight
+read outside those roots. Source paths remain absent from JSON.
 At most four video streams and two frame decodes run at once. The service keeps
 at most eight compact indexes in memory and 16 exact PNG previews (64 MiB total)
 under shared `derived/media-previews-v1/`, with a matching bounded memory cache.
