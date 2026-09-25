@@ -55,3 +55,32 @@ World XY is ground, +Z is up; camera +Z is forward; image +Y points down.
 Points behind the camera are rejected. Distortion uses OpenCV coefficient order.
 This route supplies ground/world alignment evidence to the later ground stage;
 it does not perform final ground estimation.
+
+## Natural-scene candidate
+
+Run `uv run --frozen python -m calibration.natural_cli --selection smoke-short
+--sync-artifact /absolute/derived/synchronization/ARTIFACT_ID
+--output-dir /absolute/output/directory` on already registered native sources.
+The synchronization artifact must come from the upstream sync stage, cover the
+exact source hashes, and retain the requested cameras. Without it, the command
+persists an unavailable result. It samples the intersection of the selected
+windows in **global** time (`global = native PTS + effective offset`) and rejects
+unverified or misaligned frames. Native PTS and source hashes remain in the
+candidate evidence.
+Pass `--profiles /absolute/profiles.json` when measured intrinsics are available;
+the JSON maps camera IDs to `Intrinsics` objects (`fx`, `fy`, `cx`, `cy`, and
+optional `distortion`). The command makes a temporal-median background image
+per view, excludes locally varying pixels, matches SIFT features across every
+camera pair, and stores one
+content-addressed JSON candidate. It never copies or downloads video.
+
+The candidate includes source and sampled-frame identity, pairwise overlap and
+degeneracy evidence, relative camera poses, static points, bundle residuals,
+coverage, triangulation angles, and conditioning when these can be estimated.
+It is **not** an accepted `Calibration`: its first camera and baseline define
+only a numerical world/scale gauge. The ground frame and metric scale remain
+unresolved. Missing intrinsics are reported as unavailable; resolution alone
+does not supply a focal-length prior. All camera intrinsics are held fixed in
+bundle adjustment. A later ground and quality stage must evaluate the candidate
+before downstream use. `docs/natural-scene-attempt.md` records the initial
+registered-data attempt.
