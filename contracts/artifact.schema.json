@@ -77,10 +77,37 @@
           "title": "Cameras",
           "type": "array"
         },
+        "ground_frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GroundFrame"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ground_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Ground Status",
+          "type": "string"
+        },
         "ground_z": {
-          "default": 0.0,
-          "title": "Ground Z",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ground Z"
         },
         "id": {
           "minLength": 1,
@@ -106,10 +133,49 @@
           "title": "Scale",
           "type": "string"
         },
+        "scale_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scale Evidence Ids",
+          "type": "array"
+        },
+        "scale_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScaleResolution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scale_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Scale Status",
+          "type": "string"
+        },
         "schema_version": {
           "const": "1.0.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Revision"
         },
         "world_unit": {
           "enum": [
@@ -571,6 +637,147 @@
         "samples"
       ],
       "title": "Ground",
+      "type": "object"
+    },
+    "GroundFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_uncertainty_rad": {
+          "minimum": 0,
+          "title": "Axis Uncertainty Rad",
+          "type": "number"
+        },
+        "coverage": {
+          "minimum": 0,
+          "title": "Coverage",
+          "type": "number"
+        },
+        "evidence_author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Author"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "evidence_kind": {
+          "enum": [
+            "target",
+            "scene",
+            "manual"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
+        "evidence_producer": {
+          "minLength": 1,
+          "title": "Evidence Producer",
+          "type": "string"
+        },
+        "evidence_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Reason"
+        },
+        "inlier_count": {
+          "minimum": 3,
+          "title": "Inlier Count",
+          "type": "integer"
+        },
+        "inlier_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Inlier Indices",
+          "type": "array"
+        },
+        "normal_uncertainty_rad": {
+          "minimum": 0,
+          "title": "Normal Uncertainty Rad",
+          "type": "number"
+        },
+        "plane_normal_source": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Plane Normal Source",
+          "type": "array"
+        },
+        "plane_offset_source": {
+          "title": "Plane Offset Source",
+          "type": "number"
+        },
+        "rms_residual": {
+          "minimum": 0,
+          "title": "Rms Residual",
+          "type": "number"
+        },
+        "sample_count": {
+          "minimum": 3,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "source_to_world": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Source To World",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_to_world",
+        "plane_normal_source",
+        "plane_offset_source",
+        "inlier_count",
+        "sample_count",
+        "coverage",
+        "rms_residual",
+        "normal_uncertainty_rad",
+        "axis_uncertainty_rad",
+        "evidence_kind",
+        "evidence_ids",
+        "evidence_producer",
+        "source_revision"
+      ],
+      "title": "GroundFrame",
       "type": "object"
     },
     "GroundSample": {
@@ -1813,6 +2020,88 @@
         "provider"
       ],
       "title": "RegionalGeometry2D",
+      "type": "object"
+    },
+    "ScaleResolution": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "target",
+            "measured",
+            "manual"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "measured_length": {
+          "exclusiveMinimum": 0,
+          "title": "Measured Length",
+          "type": "number"
+        },
+        "measured_unit": {
+          "enum": [
+            "m",
+            "cm"
+          ],
+          "title": "Measured Unit",
+          "type": "string"
+        },
+        "metres_per_source_unit": {
+          "exclusiveMinimum": 0,
+          "title": "Metres Per Source Unit",
+          "type": "number"
+        },
+        "producer": {
+          "minLength": 1,
+          "title": "Producer",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_revision",
+        "kind",
+        "measured_length",
+        "measured_unit",
+        "metres_per_source_unit",
+        "producer"
+      ],
+      "title": "ScaleResolution",
       "type": "object"
     },
     "SegmentFrame": {

@@ -84,3 +84,36 @@ does not supply a focal-length prior. All camera intrinsics are held fixed in
 bundle adjustment. A later ground and quality stage must evaluate the candidate
 before downstream use. `docs/natural-scene-attempt.md` records the initial
 registered-data attempt.
+
+## Ground frame and scale resolution
+
+The target route publishes a resolved ground frame and metric scale from the
+declared floor placement and measured board square length. Its calibration
+artifact records the target capture IDs, source revision, board dimension, units,
+and identity source-to-world transform. No ankle/contact inference is used.
+
+For a natural-scene candidate, run `uv run --frozen python -m
+calibration.ground_cli --candidate /absolute/natural-scene.json --data-root
+/absolute/data/root` to persist an unresolved calibration with arbitrary-scale
+cameras. Add `--evidence /absolute/evidence.json` only when independent evidence
+exists. The optional file has `ground` and `size` objects. `ground` supplies an
+ID, the candidate's SHA-256 `source_revision`, at least six classified floor
+`floor_indices`, `above_indices` establishing the vertical sign, an ordered
+`axis_indices` pair fixing +X, `kind` (`scene` or `manual`), and `producer`.
+`size` supplies an ID, the same source revision, two `point_indices`, a positive
+measured `length`, `unit` (`m` or `cm`), `kind` (`measured` or `manual`), and
+`producer`. Manual evidence also requires `author` and `reason`. Indices refer to
+the candidate's `static_points` array; a producer must derive floor/sign/axis
+classification from independent scene or target evidence. A plane's size alone
+never classifies it as floor. Evidence cannot use contacts derived from this
+calibration. The SHA-256 is over the candidate's canonical sorted JSON without
+whitespace; `calibration.scene_revision()` computes it.
+
+The resolver fits only classified floor points with deterministic RANSAC, checks
+inlier fraction, planar coverage, residual, above-floor sign, and axis direction.
+The artifact retains those diagnostics and the single source-to-world transform.
+Its camera transforms are expressed in that world frame. A missing or ambiguous
+cue leaves ground unresolved; no ground-dependent product may consume it.
+Without a measured segment, scale stays arbitrary and metric arrays and ground
+measurements remain unavailable. Revisions produce distinct immutable
+calibrations while original scene points and observations remain untouched.

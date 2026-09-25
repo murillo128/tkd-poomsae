@@ -28,6 +28,13 @@ participant morphology reference in the consuming calculation.
 Target calibration records each camera's intrinsic origin, capture IDs, corner
 count, reprojection RMS in pixels, and planar-pose ambiguity gap. The calibration
 producer/config digest distinguishes target estimation from imported profiles.
+`Calibration.ground_status` and `scale_status` gate downstream use. A resolved
+`ground_frame` owns the right-handed XY/Z-up transform, fitted plane diagnostics,
+and floor/sign/axis evidence provenance; an unresolved ground has neither a frame
+nor a ground Z. `scale_resolution` names the measured dimension, input unit,
+conversion, and source revision. Manual recovery records author and reason in a
+new calibration revision. Reconstruction and ground products reference the exact
+calibration lineage; observations are immutable across scale revisions.
 
 Landmarks have stable names, including individual finger joints, heels,
 forefeet, and head landmarks. Unavailable points are null with `unknown` quality.
