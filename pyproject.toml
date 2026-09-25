@@ -9,6 +9,7 @@ description = "Local foundation for observing Taekwondo poomsae motion"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+  "av>=16.1,<17",
   "fastapi>=0.115,<1",
   "numpy>=2.2,<3",
   "pydantic>=2.11,<3",
@@ -21,6 +22,7 @@ tkd-poomsae = "tkd_poomsae.cli:main"
 [dependency-groups]
 dev = [
   "httpx>=0.27,<1",
+  "imageio-ffmpeg>=0.6,<1",
   "jsonschema>=4.23,<5",
   "mypy>=1.15,<2",
   "pytest>=8.3,<9",
@@ -29,7 +31,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tkd_poomsae", "contracts", "storage", "datasets", "pipeline"]
+packages = ["src/tkd_poomsae", "contracts", "storage", "datasets", "pipeline", "media"]
 
 [tool.ruff]
 target-version = "py311"
@@ -40,7 +42,7 @@ select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["src", "tests", "contracts", "storage", "pipeline"]
+files = ["src", "tests", "contracts", "storage", "pipeline", "media"]
 strict = true
 
 [tool.pytest.ini_options]
