@@ -71,7 +71,7 @@ export function App() {
     const timer = window.setInterval(() => {
       const now = performance.now()
       // UI ticks move the desired cursor; only a video renderer can report a delivered frame.
-      dispatch({ type: 'tick', elapsedSeconds: Math.min((now - previous) / 1000, 0.25) })
+      dispatch({ type: 'tick', elapsedSeconds: (now - previous) / 1000 })
       previous = now
     }, 50)
     return () => window.clearInterval(timer)

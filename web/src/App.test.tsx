@@ -21,6 +21,8 @@ afterEach(async () => {
   root = null
   host = null
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 const stages = Object.fromEntries(['ingest', 'sync', 'calibration', 'observations', 'attachment', 'reconstruction', 'ground', 'parsing'].map(name => [name, {
@@ -111,5 +113,24 @@ describe('rendered local inspection shell', () => {
     expect(element.querySelector('.project-summary h2')?.textContent).toBe('new')
     expect(element.querySelector('.camera-grid')?.textContent).toContain('new-camera')
     expect(element.querySelector('.camera-grid')?.textContent).not.toContain('old-camera')
+  })
+
+  it('advances the shared cursor by full elapsed time after a delayed playback callback', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const now = vi.spyOn(performance, 'now').mockReturnValue(0)
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/api/projects')) return response({ projects: ['synthetic'] })
+      if (url.endsWith('/capabilities')) return response({ project: 'synthetic', stages })
+      return response({ id: 'synthetic', sources: ['front'], state: { stages: Object.fromEntries(Object.entries(stages).map(([name, stage]) => [name, stage.status])) } })
+    }))
+    const element = await mount()
+    const projectSelect = element.querySelector<HTMLSelectElement>('.project-actions select')!
+    await act(async () => { projectSelect.value = 'synthetic'; projectSelect.dispatchEvent(new Event('change', { bubbles: true })) })
+    const speedSelect = element.querySelector<HTMLSelectElement>('.transport-buttons select')!
+    await act(async () => { speedSelect.value = '2'; speedSelect.dispatchEvent(new Event('change', { bubbles: true })) })
+    await act(async () => { [...element.querySelectorAll('button')].find(button => button.textContent === 'Play')!.click() })
+    now.mockReturnValue(1000)
+    await act(async () => { vi.advanceTimersByTime(50) })
+    expect(element.querySelector('.time-readout')?.textContent).toContain('2.000 s')
   })
 })
