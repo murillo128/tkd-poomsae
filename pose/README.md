@@ -34,6 +34,25 @@ provenance records the chosen model/configuration. No foot-only crop is sent to
 the wholebody model.
 Artifact IDs and final observation assembly belong to the integration stage.
 
+`pose.stream.PractitionerTracker` assembles one camera/source stream in native
+frame order. Call `observe` for each `PoseFrame` with an artifact ID and producer
+provenance; keep one tracker per camera. Its initial automatic selection requires
+a clearly larger practitioner box. Later selections use box and torso continuity,
+not candidate index or detector score. Ambiguous matches and gaps retain the
+prior identity anchor without choosing a spectator. Pass an explicit
+`operator_candidate_index` to recover and record that selection. The tracker
+does not join cameras in global time or interpolate a missing frame.
+
+The resulting `Observation` stores subject candidate boxes, raw detector scores,
+match costs and selection reasons. `wholebody_landmarks` preserves coarse named
+coordinates, scores and visibility; `refined_landmarks` preserves independent
+hand evidence, including unknown points and their original scores. `landmarks`
+is the selected derived view: unsupported coordinates become null with unknown
+quality, while rapid valid hand movement remains unsmoothed. `region_quality`
+contains independent body, hand, foot and head usability masks and reason codes.
+These fields are per view; downstream reconstruction can combine useful regions
+from different cameras. No optional temporal filter is applied.
+
 The adapter uses verified local registry paths. It never provisions assets and
 has no whole-frame production fallback. OpenMMLab's topdown API receives the
 original display-oriented pixels and returns coordinates in that same image;

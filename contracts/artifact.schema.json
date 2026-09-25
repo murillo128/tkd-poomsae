@@ -1002,6 +1002,18 @@
           ],
           "default": null
         },
+        "raw_visibility": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Visibility"
+        },
         "xy_px": {
           "anyOf": [
             {
@@ -1422,6 +1434,20 @@
         "provenance": {
           "$ref": "#/$defs/Provenance"
         },
+        "refined_landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark2D"
+          },
+          "title": "Refined Landmarks",
+          "type": "array"
+        },
+        "region_quality": {
+          "items": {
+            "$ref": "#/$defs/ViewRegionQuality"
+          },
+          "title": "Region Quality",
+          "type": "array"
+        },
         "regional_geometry": {
           "items": {
             "$ref": "#/$defs/RegionalGeometry2D"
@@ -1440,6 +1466,24 @@
           "const": "1.0.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "subject_selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubjectSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wholebody_landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark2D"
+          },
+          "title": "Wholebody Landmarks",
+          "type": "array"
         }
       },
       "required": [
@@ -2688,6 +2732,134 @@
       "title": "StanceState",
       "type": "object"
     },
+    "SubjectCandidateEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox_xyxy_px": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox Xyxy Px",
+          "type": "array"
+        },
+        "detector_score": {
+          "$ref": "#/$defs/RawScore"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "match_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Cost"
+        }
+      },
+      "required": [
+        "index",
+        "bbox_xyxy_px",
+        "detector_score"
+      ],
+      "title": "SubjectCandidateEvidence",
+      "type": "object"
+    },
+    "SubjectSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Index"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/SubjectCandidateEvidence"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "initial",
+                "temporal",
+                "operator"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "selected",
+            "ambiguous",
+            "missing"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Id"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "SubjectSelection",
+      "type": "object"
+    },
     "SyncOffset": {
       "additionalProperties": false,
       "properties": {
@@ -2972,6 +3144,40 @@
         "offsets"
       ],
       "title": "Synchronization",
+      "type": "object"
+    },
+    "ViewRegionQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "part": {
+          "enum": [
+            "body",
+            "left_hand",
+            "right_hand",
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "usable": {
+          "title": "Usable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "part",
+        "usable"
+      ],
+      "title": "ViewRegionQuality",
       "type": "object"
     }
   },

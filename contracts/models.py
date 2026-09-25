@@ -433,6 +433,7 @@ class Landmark2D(StrictModel):
     name: Landmark
     xy_px: tuple[float, float] | None
     raw_score: RawScore | None = None
+    raw_visibility: float | None = None
     quality: Quality
 
     @model_validator(mode="after")
@@ -488,12 +489,52 @@ class RegionalGeometry2D(StrictModel):
         return self
 
 
+class SubjectCandidateEvidence(StrictModel):
+    index: int = Field(ge=0)
+    bbox_xyxy_px: tuple[float, float, float, float]
+    detector_score: RawScore
+    match_cost: float | None = Field(default=None, ge=0)
+
+
+class SubjectSelection(StrictModel):
+    state: Literal["selected", "ambiguous", "missing"]
+    track_id: str | None = None
+    candidate_index: int | None = Field(default=None, ge=0)
+    method: Literal["initial", "temporal", "operator"] | None = None
+    reasons: list[str] = Field(default_factory=list)
+    candidates: list[SubjectCandidateEvidence] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def consistent_selection(self) -> SubjectSelection:
+        if (self.state == "selected") != (self.candidate_index is not None):
+            raise ValueError("selected subject requires exactly one candidate")
+        if (self.state == "selected") != (self.method is not None):
+            raise ValueError("selected subject requires a selection method")
+        if self.candidate_index is not None and self.candidate_index not in {
+            item.index for item in self.candidates
+        }:
+            raise ValueError("selected candidate must have evidence")
+        if len({item.index for item in self.candidates}) != len(self.candidates):
+            raise ValueError("candidate evidence indices must be unique")
+        return self
+
+
+class ViewRegionQuality(StrictModel):
+    part: Literal["body", "left_hand", "right_hand", "left_foot", "right_foot", "head"]
+    usable: bool
+    reasons: list[str] = Field(default_factory=list)
+
+
 class Observation(ArtifactBase):
     kind: Literal["observation"]
     frame: FrameTime
     landmarks: list[Landmark2D]
+    wholebody_landmarks: list[Landmark2D] = Field(default_factory=list)
+    refined_landmarks: list[Landmark2D] = Field(default_factory=list)
     regions: list[RegionOfInterest] = Field(default_factory=list)
     regional_geometry: list[RegionalGeometry2D] = Field(default_factory=list)
+    subject_selection: SubjectSelection | None = None
+    region_quality: list[ViewRegionQuality] = Field(default_factory=list)
     arrays: list[DenseArray] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -501,6 +542,9 @@ class Observation(ArtifactBase):
         names = {landmark.name for landmark in self.landmarks}
         if len(names) != len(self.landmarks):
             raise ValueError("observation landmark names must be unique")
+        for points in (self.wholebody_landmarks, self.refined_landmarks):
+            if len({point.name for point in points}) != len(points):
+                raise ValueError("observation source landmark names must be unique")
         if len({region.part for region in self.regional_geometry}) != len(
             self.regional_geometry
         ):
@@ -510,6 +554,10 @@ class Observation(ArtifactBase):
             for region in self.regional_geometry
         ):
             raise ValueError("regional supporting landmarks must be persisted")
+        if len({region.part for region in self.region_quality}) != len(
+            self.region_quality
+        ):
+            raise ValueError("observation region quality parts must be unique")
         return self
 
 
