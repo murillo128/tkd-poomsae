@@ -36,3 +36,5 @@ checkpoints/
 *.zarr/
 *.h5
 *.hdf5
+/datasets/**/Data/
+/datasets/**/*.zip

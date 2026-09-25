@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "source": {
+    "dataset_id": "bjy7vr4xkt",
+    "version": 1,
+    "doi": "10.17632/bjy7vr4xkt.1",
+    "url": "https://data.mendeley.com/datasets/bjy7vr4xkt/1",
+    "title": "Taekwondo Poomsae (8 Forms) — Front & Side Videos with 12‑Keypoint Pose Annotations (MediaPipe)",
+    "creator": "QingWei Zheng",
+    "published_at": "2025-08-31T04:49:20.834Z",
+    "licence": {
+      "id": "CC-BY-4.0",
+      "name": "Creative Commons Attribution 4.0 International",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    }
+  },
+  "published_description": {
+    "forms": "Taegeuk 1–8",
+    "views": [
+      "Frontal",
+      "Lateral"
+    ],
+    "reported_video": {
+      "width_px": 1920,
+      "height_px": 1080,
+      "frame_rate_fps": 30,
+      "codec": "H.264"
+    },
+    "reported_csv": {
+      "producer": "MediaPipe",
+      "joint_count": 12,
+      "coordinate_space": "normalized 2D",
+      "fields": [
+        "frame_index",
+        "time_ms",
+        "<joint>_x",
+        "<joint>_y",
+        "<joint>_score"
+      ]
+    },
+    "reported_view_synchronization": "within ±1 frame"
+  },
+  "usage_policy": {
+    "allowed": [
+      "functional integration",
+      "demo",
+      "software tests"
+    ],
+    "prohibited": [
+      "training",
+      "held-out validation",
+      "MMPose accuracy measurement",
+      "model ranking",
+      "threshold optimization against supplied CSV"
+    ],
+    "csv_is_ground_truth": false,
+    "csv_role": "MediaPipe detector observations; not detailed hands, feet, or head ground truth"
+  },
+  "inventory": {
+    "source_listing_url": "https://data.mendeley.com/public-api/datasets/bjy7vr4xkt/files?folder_id=root&version=1&%24start=0&%24limit=1000",
+    "archive": {
+      "filename": "Data.zip",
+      "file_id": "5a5bd049-cee1-4219-823b-b91305fdd63e",
+      "content_id": "4c96178a-7eb6-4220-832f-405dac31ca42",
+      "size_bytes": 286266253,
+      "sha256": "8447119933de8032296c1d60dc0ba5f5586fe9cd2d8560c267bd1d53a29c7940",
+      "content_type": "application/zip"
+    },
+    "archive_directory_method": "ZIP central directory via HTTP byte-range read of publisher file",
+    "archive_member_count": 32,
+    "members": [
+      {
+        "path": "Data/annotations/Taegeuk_1st/Frontal/1st_Frontal.csv",
+        "size_bytes": 533680,
+        "compressed_size_bytes": 217698,
+        "crc32": "95def024",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_1st/Lateral/1st_Lateral.csv",
+        "size_bytes": 529646,
+        "compressed_size_bytes": 210875,
+        "crc32": "6fd78f8f",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_2nd/Frontal/2nd_Frontal.csv",
+        "size_bytes": 616079,
+        "compressed_size_bytes": 243081,
+        "crc32": "4f5d0c1a",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_2nd/Lateral/2nd_Lateral.csv",
+        "size_bytes": 611710,
+        "compressed_size_bytes": 223076,
+        "crc32": "04390180",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_3rd/Frontal/3rd_Frontal.csv",
+        "size_bytes": 736832,
+        "compressed_size_bytes": 274626,
+        "crc32": "0143fb5c",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_3rd/Lateral/3rd_Lateral.csv",
+        "size_bytes": 735025,
+        "compressed_size_bytes": 272552,
+        "crc32": "303577b6",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_4th/Frontal/4th_Frontal.csv",
+        "size_bytes": 696631,
+        "compressed_size_bytes": 251287,
+        "crc32": "cbd99ef3",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_4th/Lateral/4th_Lateral.csv",
+        "size_bytes": 713202,
+        "compressed_size_bytes": 226823,
+        "crc32": "8651db11",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_5th/Frontal/5th_Frontal.csv",
+        "size_bytes": 690994,
+        "compressed_size_bytes": 258228,
+        "crc32": "df32ebbe",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_5th/Lateral/5th_Lateral.csv",
+        "size_bytes": 702083,
+        "compressed_size_bytes": 123130,
+        "crc32": "de0f9eb3",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_6th/Frontal/6th_Frontal.csv",
+        "size_bytes": 822990,
+        "compressed_size_bytes": 315854,
+        "crc32": "3f411c14",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_6th/Lateral/6th_Lateral.csv",
+        "size_bytes": 816067,
+        "compressed_size_bytes": 264246,
+        "crc32": "6883ed4b",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_7th/Frontal/7th_Frontal.csv",
+        "size_bytes": 826940,
+        "compressed_size_bytes": 339286,
+        "crc32": "403f9ab6",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_7th/Lateral/7th_Lateral.csv",
+        "size_bytes": 822519,
+        "compressed_size_bytes": 323262,
+        "crc32": "4d45810a",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_8th/Frontal/8th_Frontal.csv",
+        "size_bytes": 993638,
+        "compressed_size_bytes": 336398,
+        "crc32": "18264198",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/annotations/Taegeuk_8th/Lateral/8th_Lateral.csv",
+        "size_bytes": 1003894,
+        "compressed_size_bytes": 312812,
+        "crc32": "0d2ed700",
+        "kind": "detector_csv"
+      },
+      {
+        "path": "Data/video/Taegeuk_1st/Frontal/1st_Frontal.mp4",
+        "size_bytes": 12583006,
+        "compressed_size_bytes": 12579342,
+        "crc32": "6ae23c0d",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_1st/Lateral/1st_Lateral.mp4",
+        "size_bytes": 12745719,
+        "compressed_size_bytes": 12742373,
+        "crc32": "2630cd54",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_2nd/Frontal/2nd_Frontal.mp4",
+        "size_bytes": 14899936,
+        "compressed_size_bytes": 14896122,
+        "crc32": "ef69a1d2",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_2nd/Lateral/2nd_Lateral.mp4",
+        "size_bytes": 14686491,
+        "compressed_size_bytes": 14682658,
+        "crc32": "a69db4ca",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_3rd/Frontal/3rd_Frontal.mp4",
+        "size_bytes": 17713753,
+        "compressed_size_bytes": 17709314,
+        "crc32": "12e1d87f",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_3rd/Lateral/3rd_Lateral.mp4",
+        "size_bytes": 17360300,
+        "compressed_size_bytes": 17355718,
+        "crc32": "7ac0a71a",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_4th/Frontal/4th_Frontal.mp4",
+        "size_bytes": 16731698,
+        "compressed_size_bytes": 16727077,
+        "crc32": "643872e8",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_4th/Lateral/4th_Lateral.mp4",
+        "size_bytes": 16041907,
+        "compressed_size_bytes": 16037377,
+        "crc32": "f334c923",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_5th/Frontal/5th_Frontal.mp4",
+        "size_bytes": 17725652,
+        "compressed_size_bytes": 17721315,
+        "crc32": "97edbb02",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_5th/Lateral/5th_Lateral.mp4",
+        "size_bytes": 15736447,
+        "compressed_size_bytes": 15731365,
+        "crc32": "be4c3d52",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_6th/Frontal/6th_Frontal.mp4",
+        "size_bytes": 19301432,
+        "compressed_size_bytes": 19296270,
+        "crc32": "b9fd1519",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_6th/Lateral/6th_Lateral.mp4",
+        "size_bytes": 20059007,
+        "compressed_size_bytes": 20054264,
+        "crc32": "10695d5c",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_7th/Frontal/7th_Frontal.mp4",
+        "size_bytes": 20279608,
+        "compressed_size_bytes": 20274512,
+        "crc32": "50d75e45",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_7th/Lateral/7th_Lateral.mp4",
+        "size_bytes": 18461798,
+        "compressed_size_bytes": 18456288,
+        "crc32": "6db042d2",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_8th/Frontal/8th_Frontal.mp4",
+        "size_bytes": 23287711,
+        "compressed_size_bytes": 23281299,
+        "crc32": "7b4637ac",
+        "kind": "video"
+      },
+      {
+        "path": "Data/video/Taegeuk_8th/Lateral/8th_Lateral.mp4",
+        "size_bytes": 24515933,
+        "compressed_size_bytes": 24510025,
+        "crc32": "ea9a8e3d",
+        "kind": "video"
+      }
+    ]
+  },
+  "resolution": {
+    "namespace": "datasets",
+    "relative_root": "mendeley/bjy7vr4xkt/v1",
+    "layout": "Extract Data.zip into relative_root preserving archive member paths; no payload files are committed.",
+    "bootstrap_command": "tkd-poomsae datasets bootstrap mendeley-bjy7vr4xkt-v1"
+  },
+  "capabilities": {
+    "intrinsics": "not listed",
+    "extrinsics": "not listed",
+    "camera_calibration": "not listed",
+    "metric_scale": "not listed",
+    "manual_3d_annotations": "not listed",
+    "audio": "not listed",
+    "exact_synchronization": "not established by inventory"
+  }
+}
