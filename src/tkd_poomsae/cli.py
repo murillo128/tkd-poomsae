@@ -10,6 +10,7 @@ import uvicorn
 
 from pipeline import Pipeline
 from tkd_poomsae.dataset import MendeleyDatasetProvider, UnsupportedVersion
+from tkd_poomsae.dataset_bootstrap import AcquisitionError, bootstrap, verify
 
 
 def main() -> int:
@@ -28,6 +29,17 @@ def main() -> int:
         "status", help="Check the pinned local dataset"
     )
     dataset_status.add_argument("--version", type=int, default=1)
+    dataset_verify = dataset_commands.add_parser(
+        "verify", help="Hash every file against the local acquisition receipt"
+    )
+    dataset_verify.add_argument("--version", type=int, default=1)
+    dataset_bootstrap = dataset_commands.add_parser(
+        "bootstrap", help="Acquire a pinned dataset onto shared storage"
+    )
+    dataset_bootstrap.add_argument("dataset", choices=["mendeley-bjy7vr4xkt-v1"])
+    dataset_bootstrap.add_argument(
+        "--repair", action="store_true", help="Replace a corrupt local publication"
+    )
     register = subcommands.add_parser("register", help="Register a local project")
     register.add_argument("project")
     register.add_argument("--source", action="append", required=True, metavar="ID=PATH")
@@ -58,6 +70,19 @@ def main() -> int:
         payload = asdict(dataset_result)
         payload["root"] = str(dataset_result.root)
         print(json.dumps(payload, indent=2))
+        return 0
+    if args.command == "datasets" and args.dataset_command in {"bootstrap", "verify"}:
+        try:
+            if args.dataset_command == "verify":
+                if args.version != 1:
+                    raise UnsupportedVersion("only Mendeley version 1 is registered")
+                result = verify()
+            else:
+                result = bootstrap(repair=args.repair)
+        except (AcquisitionError, UnsupportedVersion, OSError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(result, sort_keys=True))
         return 0
     if args.command is None:
         parser.print_help()
