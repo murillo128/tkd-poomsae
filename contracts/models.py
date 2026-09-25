@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
@@ -690,6 +691,21 @@ def validate_artifact(data: Any) -> Artifact:
     return _adapter.validate_python(data)
 
 
+def _qualities(value: object) -> Iterator[Quality]:
+    """Find every nested quality field, including future fields in known layers."""
+    if isinstance(value, Quality):
+        yield value
+    elif isinstance(value, BaseModel):
+        for field in value.__dict__.values():
+            yield from _qualities(field)
+    elif isinstance(value, (list, tuple)):
+        for entry in value:
+            yield from _qualities(entry)
+    elif isinstance(value, dict):
+        for entry in value.values():
+            yield from _qualities(entry)
+
+
 def validate_bundle(data: list[Any]) -> list[Artifact]:
     """Validate references between artifacts in one portable interchange bundle."""
     artifacts = [validate_artifact(item) for item in data]
@@ -715,6 +731,25 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             raise ValueError("sync offsets must cover each project source once")
     offsets = {o.source_id: o for sync in syncs for o in sync.offsets}
     for item in artifacts:
+        # Contributor IDs point to the immediate evidence layer, not an arbitrary
+        # artifact with a matching string ID. Empty lists mean provenance is only
+        # available at the enclosing artifact/frame level.
+        if isinstance(item, (Synchronization, Calibration, Observation)):
+            allowed_contributors: tuple[type[ArtifactBase], ...] = (Source,)
+        elif isinstance(item, Reconstruction):
+            allowed_contributors = (Observation,)
+        elif isinstance(item, Morphology):
+            allowed_contributors = (Reconstruction,)
+        elif isinstance(item, Ground):
+            allowed_contributors = (Reconstruction,)
+        elif isinstance(item, Semantics):
+            allowed_contributors = (Reconstruction, Ground)
+        else:
+            allowed_contributors = ()
+        for quality in _qualities(item):
+            for ref in quality.source_ids:
+                if not isinstance(by_id.get(ref), allowed_contributors):
+                    raise ValueError(f"dangling or wrong-kind quality source: {ref}")
         if isinstance(item, Calibration):
             for camera in item.cameras:
                 source = require(camera.source_id, Source)
@@ -742,12 +777,6 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 or item.scale != calibration.scale
             ):
                 raise ValueError("reconstruction participant or scale mismatch")
-            for sample in item.samples:
-                for ref in sample.quality.source_ids:
-                    require(ref, Observation)
-                for lm in sample.landmarks:
-                    for ref in lm.quality.source_ids:
-                        require(ref, Observation)
         elif isinstance(item, Morphology):
             if item.participant_id not in project.participant_ids:
                 raise ValueError("morphology participant missing")

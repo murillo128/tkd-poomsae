@@ -2,7 +2,7 @@
 
 import copy
 import json
-from typing import Any
+from typing import Any, cast
 
 import jsonschema
 import pytest
@@ -174,6 +174,16 @@ def bundle() -> list[dict[str, Any]]:
                 "quality": GOOD,
             }
         ],
+        "pivots": [
+            {
+                "id": "pivot-1",
+                "foot": "left",
+                "interval": {"start": 1.4, "end": 1.7},
+                "region": "forefoot",
+                "rotation_rad": 0.2,
+                "quality": GOOD,
+            }
+        ],
         "measurements": [
             {"name": "step_length", "value": 0.5, "unit": "arbitrary", "quality": GOOD}
         ],
@@ -256,7 +266,7 @@ def bundle() -> list[dict[str, Any]]:
             }
         ],
     }
-    return [
+    artifacts = [
         project,
         *sources,
         sync,
@@ -268,6 +278,9 @@ def bundle() -> list[dict[str, Any]]:
         semantics,
         edits,
     ]
+    # JSON artifacts have value semantics; shared Python fixture dicts must not
+    # make unrelated quality fields alias one another in mutation tests.
+    return cast(list[dict[str, Any]], json.loads(json.dumps(artifacts)))
 
 
 def test_all_layers_json_round_trip_and_schema() -> None:
@@ -320,6 +333,43 @@ def test_unknown_contact_differs_from_known_no_contact() -> None:
     sample["right"] = {"state": "no_contact", "quality": GOOD}
     sample["support"] = "left"
     assert validate_bundle(data)[8].kind == "ground"
+
+
+@pytest.mark.parametrize(
+    ("index", "path", "valid_source"),
+    [
+        (3, ["offsets", 0, "quality"], "source-left"),
+        (4, ["quality"], "source-left"),
+        (4, ["cameras", 0, "quality"], "source-left"),
+        (5, ["landmarks", 0, "quality"], "source-left"),
+        (6, ["samples", 0, "quality"], "obs-left"),
+        (6, ["samples", 0, "landmarks", 0, "quality"], "obs-left"),
+        (6, ["samples", 0, "segments", 0, "quality"], "obs-left"),
+        (7, ["measurements", 0, "quality"], "motion"),
+        (8, ["samples", 0, "left", "quality"], "motion"),
+        (8, ["samples", 0, "right", "quality"], "motion"),
+        (8, ["footprints", 0, "quality"], "motion"),
+        (8, ["pivots", 0, "quality"], "motion"),
+        (8, ["measurements", 0, "quality"], "motion"),
+        (9, ["stances", 0, "quality"], "ground"),
+        (9, ["relations", 0, "quality"], "motion"),
+    ],
+)
+def test_all_quality_sources_resolve_to_the_evidence_layer(
+    index: int, path: list[str | int], valid_source: str
+) -> None:
+    data = bundle()
+    quality: Any = data[index]
+    for key in path:
+        quality = quality[key]
+    quality["source_ids"] = [valid_source]
+    validate_bundle(data)
+    quality["source_ids"] = ["nonexistent-observation"]
+    with pytest.raises(ValueError, match="quality source"):
+        validate_bundle(data)
+    quality["source_ids"] = ["project"]
+    with pytest.raises(ValueError, match="quality source"):
+        validate_bundle(data)
 
 
 @pytest.mark.parametrize(

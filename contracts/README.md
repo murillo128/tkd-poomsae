@@ -30,7 +30,11 @@ Landmarks have stable names, including individual finger joints, heels,
 forefeet, and head landmarks. Unavailable points are null with `unknown` quality.
 Raw model scores retain their original declared range and are never interpreted
 as calibrated accuracy probabilities. Derived quality is separate. Source IDs
-on reconstructed values identify contributing observation artifacts. Dense arrays
+on quality values identify contributing artifacts: synchronization, calibration,
+and observations reference `Source`; reconstruction references `Observation`;
+morphology and ground reference `Reconstruction`; semantics references
+`Reconstruction` or `Ground`. Empty contributor lists are permitted when the
+enclosing artifact or frame carries the only available provenance. Dense arrays
 have typed shape/axis/mask descriptors; the storage format and location are owned
 by producers. JSON must contain `null`, never NaN or Infinity.
 
