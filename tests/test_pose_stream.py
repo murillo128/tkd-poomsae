@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from contracts.models import (
     FrameTime,
     Landmark2D,
@@ -486,3 +488,80 @@ def test_repeated_exchanged_hands_stay_ambiguous_and_mask_wrists() -> None:
     assert recovered_quality["right_hand"].usable
     assert recovered_points["left_wrist"].xy_px == (70, 45)
     assert recovered_points["left_index_tip"].xy_px == (70, 45)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "height", "part"),
+    [
+        ("shoulder", 30, "body"),
+        ("elbow", 45, "body"),
+        ("hip", 60, "body"),
+        ("knee", 72, "body"),
+        ("ankle", 85, "body"),
+        ("eye", 15, "head"),
+        ("ear", 18, "head"),
+    ],
+)
+def test_repeated_exchanged_paired_landmarks_remain_uncertain(
+    suffix: str, height: int, part: str
+) -> None:
+    left, right = f"left_{suffix}", f"right_{suffix}"
+
+    def paired_candidate(*, exchanged: bool) -> PersonCandidate:
+        source = candidate(0, 50)
+        positions = {
+            left: (105.0 if exchanged else 75.0, float(height)),
+            right: (75.0 if exchanged else 105.0, float(height)),
+        }
+        points = tuple(
+            replace(point, xy_px=positions[point.name])
+            if point.name in positions
+            else point
+            for point in source.landmarks
+        )
+        source = replace(source, landmarks=points)
+        return replace(
+            source,
+            regional_geometry=WholebodyRegionalProvider()(canonical_landmarks(source)),
+        )
+
+    tracker = PractitionerTracker()
+    first = observe(tracker, frame(0, paired_candidate(exchanged=False)))
+    first_points: dict[str, Landmark2D] = {
+        point.name: point for point in first.landmarks
+    }
+    assert first_points[left].xy_px == (
+        75.0,
+        float(height),
+    )
+    exchanged = paired_candidate(exchanged=True)
+    for ordinal in (1, 2):
+        restored = Observation.model_validate_json(
+            observe(tracker, frame(ordinal, exchanged)).model_dump_json()
+        )
+        derived: dict[str, Landmark2D] = {
+            point.name: point for point in restored.landmarks
+        }
+        raw: dict[str, Landmark2D] = {
+            point.name: point for point in restored.wholebody_landmarks
+        }
+        quality: dict[str, ViewRegionQuality] = {
+            item.part: item for item in restored.region_quality
+        }
+        assert restored.subject_selection is not None
+        assert restored.subject_selection.state == "selected"
+        assert not quality[part].usable
+        assert "anatomical_side_ambiguous" in quality[part].reasons
+        assert derived[left].xy_px is None
+        assert derived[right].xy_px is None
+        assert raw[left].xy_px == (105.0, float(height))
+        assert raw[right].xy_px == (75.0, float(height))
+        raw_score = raw[left].raw_score
+        assert raw_score is not None
+        assert raw_score.value == 0.91
+    recovered = observe(tracker, frame(3, paired_candidate(exchanged=False)))
+    recovered_points: dict[str, Landmark2D] = {
+        point.name: point for point in recovered.landmarks
+    }
+    assert recovered_points[left].xy_px == (75.0, float(height))
+    assert recovered_points[right].xy_px == (105.0, float(height))

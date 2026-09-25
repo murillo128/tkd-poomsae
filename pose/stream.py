@@ -26,6 +26,15 @@ from pose.providers.mmpose.mapping import CANONICAL
 from pose.regions import WholebodyRegionalProvider
 
 _PARTS = ("body", "left_hand", "right_hand", "left_foot", "right_foot", "head")
+_PAIRED_LANDMARKS = (
+    "shoulder",
+    "elbow",
+    "hip",
+    "knee",
+    "ankle",
+    "eye",
+    "ear",
+)
 
 
 @dataclass(frozen=True)
@@ -138,32 +147,38 @@ def _side_ambiguous(
     return swapped + 0.05 * math.sqrt(_area(current.bbox_xyxy_px)) < same
 
 
-def _foot_side_ambiguous(
-    previous: PersonCandidate | None, current: PersonCandidate
+def _paired_side_ambiguous(
+    previous: PersonCandidate | None, current: PersonCandidate, suffix: str
 ) -> bool:
     if previous is None:
         return False
     before = {point.name: point for point in previous.landmarks}
     after = {point.name: point for point in current.landmarks}
-    for suffix in ("heel", "big_toe", "small_toe"):
-        left, right = f"left_{suffix}", f"right_{suffix}"
-        if not all(name in before and name in after for name in (left, right)):
-            continue
-        if any(
-            point.raw_score.value < 0.2
-            or (point.raw_visibility is not None and point.raw_visibility < 0.5)
-            for point in (before[left], before[right], after[left], after[right])
-        ):
-            continue
-        same = math.dist(before[left].xy_px, after[left].xy_px) + math.dist(
-            before[right].xy_px, after[right].xy_px
-        )
-        swapped = math.dist(before[left].xy_px, after[right].xy_px) + math.dist(
-            before[right].xy_px, after[left].xy_px
-        )
-        if swapped + 0.05 * math.sqrt(_area(current.bbox_xyxy_px)) < same:
-            return True
-    return False
+    left, right = f"left_{suffix}", f"right_{suffix}"
+    if not all(name in before and name in after for name in (left, right)):
+        return False
+    if any(
+        point.raw_score.value < 0.2
+        or (point.raw_visibility is not None and point.raw_visibility < 0.5)
+        for point in (before[left], before[right], after[left], after[right])
+    ):
+        return False
+    same = math.dist(before[left].xy_px, after[left].xy_px) + math.dist(
+        before[right].xy_px, after[right].xy_px
+    )
+    swapped = math.dist(before[left].xy_px, after[right].xy_px) + math.dist(
+        before[right].xy_px, after[left].xy_px
+    )
+    return swapped + 0.05 * math.sqrt(_area(current.bbox_xyxy_px)) < same
+
+
+def _foot_side_ambiguous(
+    previous: PersonCandidate | None, current: PersonCandidate
+) -> bool:
+    return any(
+        _paired_side_ambiguous(previous, current, suffix)
+        for suffix in ("heel", "big_toe", "small_toe")
+    )
 
 
 def _reconcile_geometry(
@@ -222,6 +237,7 @@ class PractitionerTracker:
         self._anchor: PersonCandidate | None = None
         self._trusted_hand_anchor: PersonCandidate | None = None
         self._trusted_foot_anchor: PersonCandidate | None = None
+        self._trusted_pair_anchors: dict[str, PersonCandidate] = {}
         self._anchor_time: float | None = None
         self._camera: str | None = None
         self._source: str | None = None
@@ -332,6 +348,7 @@ class PractitionerTracker:
             previous,
             self._trusted_hand_anchor,
             self._trusted_foot_anchor,
+            self._trusted_pair_anchors,
             selection,
             artifact_id,
             provenance,
@@ -356,6 +373,13 @@ class PractitionerTracker:
             for part in ("left_foot", "right_foot")
         ):
             self._trusted_foot_anchor = selected
+        if selected is not None:
+            for suffix in _PAIRED_LANDMARKS:
+                if all(
+                    observed[f"{side}_{suffix}"].xy_px is not None
+                    for side in ("left", "right")
+                ):
+                    self._trusted_pair_anchors[suffix] = selected
         return observation
 
 
@@ -365,6 +389,7 @@ def _assemble(
     previous: PersonCandidate | None,
     trusted_hand: PersonCandidate | None,
     trusted_foot: PersonCandidate | None,
+    trusted_pairs: dict[str, PersonCandidate],
     selection: SubjectSelection,
     artifact_id: str,
     provenance: Provenance,
@@ -521,6 +546,18 @@ def _assemble(
             for name, point in tuple(combined.items()):
                 if _part(name) in ("left_foot", "right_foot"):
                     combined[name] = point.model_copy(
+                        update={"xy_px": None, "quality": Quality(state="unknown")}
+                    )
+        for suffix in _PAIRED_LANDMARKS:
+            if not _paired_side_ambiguous(trusted_pairs.get(suffix), selected, suffix):
+                continue
+            part = "head" if suffix in ("eye", "ear") else "body"
+            reasons[part].add("anatomical_side_ambiguous")
+            for side in ("left", "right"):
+                name = f"{side}_{suffix}"
+                paired_point = combined.get(name)
+                if paired_point is not None:
+                    combined[name] = paired_point.model_copy(
                         update={"xy_px": None, "quality": Quality(state="unknown")}
                     )
         geometry = _reconcile_geometry(
