@@ -2,11 +2,10 @@
 
 import argparse
 import json
+import signal
 import sys
 from dataclasses import asdict
 from pathlib import Path
-
-import uvicorn
 
 from pipeline import Pipeline
 from tkd_poomsae.dataset import MendeleyDatasetProvider, UnsupportedVersion
@@ -58,8 +57,22 @@ def main() -> int:
     rerun.add_argument("--through", default="parsing")
     cancel = subcommands.add_parser("cancel", help="Request cancellation")
     cancel.add_argument("project")
+    subcommands.add_parser("doctor", help="Report model assets and device capability")
+    models = subcommands.add_parser(
+        "models", help="Provision or exercise pinned models"
+    )
+    model_commands = models.add_subparsers(dest="model_command", required=True)
+    model_commands.add_parser(
+        "bootstrap", help="Download and verify pinned model assets"
+    )
+    for name in ("smoke", "infer"):
+        command = model_commands.add_parser(name, help=f"Run local {name} inference")
+        command.add_argument("--input", type=Path, required=True)
+        command.add_argument("--device", default="cpu")
     args = parser.parse_args()
     if args.command == "serve":
+        import uvicorn
+
         uvicorn.run("tkd_poomsae.api:app", host=args.host, port=args.port)
         return 0
     if args.command == "datasets" and args.dataset_command == "status":
@@ -84,6 +97,72 @@ def main() -> int:
             return 1
         print(json.dumps(result, sort_keys=True))
         return 0
+    if args.command == "doctor":
+        from tkd_poomsae.vision.assets import (
+            ModelAssetError,
+            models_root,
+            verified_paths,
+        )
+
+        report: dict[str, object] = {"models_root": str(models_root())}
+        try:
+            report["assets"] = f"verified ({len(verified_paths())})"
+        except ModelAssetError as error:
+            report["assets"] = str(error)
+        try:
+            import mmcv  # type: ignore[import-not-found]
+            import mmdet  # type: ignore[import-not-found]
+            import mmengine  # type: ignore[import-not-found]
+            import mmpose  # type: ignore[import-not-found]
+            import torch  # type: ignore[import-not-found]
+
+            report["runtime"] = {
+                "torch": torch.__version__,
+                "mmcv": mmcv.__version__,
+                "mmengine": mmengine.__version__,
+                "mmdet": mmdet.__version__,
+                "mmpose": mmpose.__version__,
+                "cuda_available": torch.cuda.is_available(),
+                "cuda_device_count": torch.cuda.device_count(),
+                "cpu_threads": torch.get_num_threads(),
+            }
+        except ImportError as error:
+            report["runtime"] = f"Optional vision environment unavailable: {error}"
+        print(json.dumps(report, indent=2))
+        return 0
+    if args.command == "models":
+        from tkd_poomsae.vision.assets import ModelAssetError
+        from tkd_poomsae.vision.assets import bootstrap as bootstrap_models
+
+        try:
+            if args.model_command == "bootstrap":
+                installed = bootstrap_models()
+                print(json.dumps({"installed": installed, "cache_hit": not installed}))
+            else:
+                from tkd_poomsae.vision.inference import infer_image
+
+                interrupted = False
+
+                def cancel_inference(_signal: int, _frame: object) -> None:
+                    nonlocal interrupted
+                    interrupted = True
+
+                signal.signal(signal.SIGINT, cancel_inference)
+                signal.signal(signal.SIGTERM, cancel_inference)
+                print(
+                    json.dumps(
+                        infer_image(
+                            args.input,
+                            device=args.device,
+                            smoke=args.model_command == "smoke",
+                            cancelled=lambda: interrupted,
+                        )
+                    )
+                )
+            return 0
+        except (ModelAssetError, RuntimeError, ValueError, FileNotFoundError) as error:
+            print(f"tkd-poomsae: {error}", file=sys.stderr)
+            return 1
     if args.command is None:
         parser.print_help()
         return 0

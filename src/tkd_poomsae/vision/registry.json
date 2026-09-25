@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "license": {
+    "source_code": "Apache-2.0 (OpenMMLab MMPose/MMDetection)",
+    "weights": "OpenMMLab published checkpoints; verify training-dataset terms for redistribution. Checkpoints are provisioned into shared data storage and not committed."
+  },
+  "models": {
+    "wholebody": {
+      "config": "mmpose/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody/rtmpose-m_8xb64-270e_coco-wholebody-256x192.py",
+      "checkpoint": "checkpoints/rtmpose-m_simcc-coco-wholebody_pt-aic-coco_270e-256x192-cd5e845c_20230123.pth",
+      "topology": "COCO-WholeBody 133 (body 17, foot 6, face 68, left hand 21, right hand 21)",
+      "keypoints": 133
+    },
+    "hand": {
+      "config": "mmpose/configs/hand_2d_keypoint/rtmpose/hand5/rtmpose-m_8xb256-210e_hand5-256x256.py",
+      "checkpoint": "checkpoints/rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.pth",
+      "topology": "Hand5 21",
+      "keypoints": 21
+    },
+    "detector": {
+      "config": "mmdetection/configs/rtmdet/rtmdet_m_8xb32-300e_coco.py",
+      "checkpoint": "checkpoints/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth",
+      "topology": "COCO person class 0",
+      "keypoints": null
+    }
+  },
+  "assets": [
+    {
+      "path": "mmpose/configs/_base_/datasets/coco_wholebody.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmpose/5408bc76f5b848cf925a0d1857899011d8c5b497/configs/_base_/datasets/coco_wholebody.py",
+      "sha256": "8c73971296517eadef6b7df6de92eb8943119cb467b3f4d488a6e062470cf179",
+      "kind": "config",
+      "source_commit": "5408bc76f5b848cf925a0d1857899011d8c5b497"
+    },
+    {
+      "path": "mmpose/configs/_base_/datasets/coco_wholebody_hand.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmpose/5408bc76f5b848cf925a0d1857899011d8c5b497/configs/_base_/datasets/coco_wholebody_hand.py",
+      "sha256": "558d450f859058d23172fe82efb720c3311044cd11b335728ab7f2dc0a95d030",
+      "kind": "config",
+      "source_commit": "5408bc76f5b848cf925a0d1857899011d8c5b497"
+    },
+    {
+      "path": "mmpose/configs/_base_/default_runtime.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmpose/5408bc76f5b848cf925a0d1857899011d8c5b497/configs/_base_/default_runtime.py",
+      "sha256": "bb7df18270b1ca337192faae7a416b2dea23b45e798e832caab5781f41189d06",
+      "kind": "config",
+      "source_commit": "5408bc76f5b848cf925a0d1857899011d8c5b497"
+    },
+    {
+      "path": "mmpose/configs/hand_2d_keypoint/rtmpose/hand5/rtmpose-m_8xb256-210e_hand5-256x256.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmpose/5408bc76f5b848cf925a0d1857899011d8c5b497/configs/hand_2d_keypoint/rtmpose/hand5/rtmpose-m_8xb256-210e_hand5-256x256.py",
+      "sha256": "bda61adbc430825b176a5d5a45e3ee620105cc8c3096d7e2a06a847c3d9d2366",
+      "kind": "config",
+      "source_commit": "5408bc76f5b848cf925a0d1857899011d8c5b497"
+    },
+    {
+      "path": "mmpose/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody/rtmpose-m_8xb64-270e_coco-wholebody-256x192.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmpose/5408bc76f5b848cf925a0d1857899011d8c5b497/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody/rtmpose-m_8xb64-270e_coco-wholebody-256x192.py",
+      "sha256": "eb90c8d0816330b27f42740249d5c8210885d4b3086649828529036434377aa7",
+      "kind": "config",
+      "source_commit": "5408bc76f5b848cf925a0d1857899011d8c5b497"
+    },
+    {
+      "path": "mmdetection/configs/_base_/datasets/coco_detection.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/_base_/datasets/coco_detection.py",
+      "sha256": "331362fd27f59bc08d911eb8bd959a14dd8ed8fd8b048d7e11ec692ebd7ae985",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "mmdetection/configs/_base_/default_runtime.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/_base_/default_runtime.py",
+      "sha256": "f4ed2ce5d49aadf0f14f13e7726ac79fda698e8312242ed70add4420ea2a69df",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "mmdetection/configs/_base_/schedules/schedule_1x.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/_base_/schedules/schedule_1x.py",
+      "sha256": "29c25800f6a955f137dcd301f559deff3dc37363ae31cbdfedd1df7665f6f23e",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "mmdetection/configs/rtmdet/rtmdet_l_8xb32-300e_coco.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/rtmdet/rtmdet_l_8xb32-300e_coco.py",
+      "sha256": "71ba745a1d08f734d94797a98e5ee2be0bcf30dc98b3b2a89aa1ce211174d274",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "mmdetection/configs/rtmdet/rtmdet_m_8xb32-300e_coco.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/rtmdet/rtmdet_m_8xb32-300e_coco.py",
+      "sha256": "c04a67ac0fbb48df14ada534f16186e1e4eb6cd5bb5ad0c32b1c64835f4e39e4",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "mmdetection/configs/rtmdet/rtmdet_tta.py",
+      "url": "https://raw.githubusercontent.com/open-mmlab/mmdetection/44ebd17b145c2372c4b700bfb9cb20dbd28ab64a/configs/rtmdet/rtmdet_tta.py",
+      "sha256": "48444851ab0224cd732ded92da61a781315b5c12538f6e57aa9b842623002927",
+      "kind": "config",
+      "source_commit": "44ebd17b145c2372c4b700bfb9cb20dbd28ab64a"
+    },
+    {
+      "path": "checkpoints/rtmpose-m_simcc-coco-wholebody_pt-aic-coco_270e-256x192-cd5e845c_20230123.pth",
+      "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/rtmpose-m_simcc-coco-wholebody_pt-aic-coco_270e-256x192-cd5e845c_20230123.pth",
+      "sha256": "3da02694cd6479d3b333ff42ebd0723f96bfa06adac1db1e2e815ed2e9e1b02d",
+      "kind": "checkpoint",
+      "source_commit": null
+    },
+    {
+      "path": "checkpoints/rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.pth",
+      "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.pth",
+      "sha256": "b74fb5941684fe13c337b8d4fce644293e12903fed5407f8b27921f107dc6003",
+      "kind": "checkpoint",
+      "source_commit": null
+    },
+    {
+      "path": "checkpoints/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth",
+      "url": "https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_m_8xb32-300e_coco/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth",
+      "sha256": "229f527ca88498e8894a778a62a878a322b4a3ea2cae09ea537d34b7e907792b",
+      "kind": "checkpoint",
+      "source_commit": null
+    }
+  ]
+}
