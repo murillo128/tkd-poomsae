@@ -2218,8 +2218,50 @@
       "additionalProperties": false,
       "properties": {
         "automatic_seconds": {
-          "title": "Automatic Seconds",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Automatic Seconds"
+        },
+        "exclusion_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exclusion Reason"
+        },
+        "global_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "manual_author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Author"
         },
         "manual_correction_seconds": {
           "anyOf": [
@@ -2233,12 +2275,69 @@
           "default": null,
           "title": "Manual Correction Seconds"
         },
+        "manual_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Reason"
+        },
+        "manual_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Seconds"
+        },
+        "manual_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Source"
+        },
         "quality": {
           "$ref": "#/$defs/Quality"
+        },
+        "retained": {
+          "default": true,
+          "title": "Retained",
+          "type": "boolean"
         },
         "source_id": {
           "title": "Source Id",
           "type": "string"
+        },
+        "source_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timing_reference": {
+          "default": false,
+          "title": "Timing Reference",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2249,9 +2348,102 @@
       "title": "SyncOffset",
       "type": "object"
     },
+    "SyncPairEstimate": {
+      "additionalProperties": false,
+      "properties": {
+        "cue_kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cue Kinds",
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "first": {
+          "title": "First",
+          "type": "string"
+        },
+        "overlap_seconds": {
+          "title": "Overlap Seconds",
+          "type": "number"
+        },
+        "peak_separation": {
+          "title": "Peak Separation",
+          "type": "number"
+        },
+        "reliable": {
+          "title": "Reliable",
+          "type": "boolean"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "second": {
+          "title": "Second",
+          "type": "string"
+        },
+        "shift_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Shift Seconds"
+        },
+        "window_scores": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Window Scores",
+          "type": "array"
+        }
+      },
+      "required": [
+        "first",
+        "second",
+        "shift_seconds",
+        "score",
+        "peak_separation",
+        "overlap_seconds",
+        "window_scores",
+        "cue_kinds",
+        "reliable",
+        "diagnostics"
+      ],
+      "title": "SyncPairEstimate",
+      "type": "object"
+    },
     "Synchronization": {
       "additionalProperties": false,
       "properties": {
+        "common_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
         "id": {
           "minLength": 1,
           "title": "Id",
@@ -2270,8 +2462,27 @@
           "title": "Offsets",
           "type": "array"
         },
+        "pair_estimates": {
+          "items": {
+            "$ref": "#/$defs/SyncPairEstimate"
+          },
+          "title": "Pair Estimates",
+          "type": "array"
+        },
         "provenance": {
           "$ref": "#/$defs/Provenance"
+        },
+        "reference_source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Source Id"
         },
         "schema_version": {
           "const": "1.0.0",

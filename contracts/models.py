@@ -186,18 +186,50 @@ class Source(ArtifactBase):
 
 class SyncOffset(StrictModel):
     source_id: str
-    automatic_seconds: float
+    automatic_seconds: float | None
     manual_correction_seconds: float | None = None
+    manual_seconds: float | None = None
+    manual_author: str | None = None
+    manual_source: str | None = None
+    manual_reason: str | None = None
+    timing_reference: bool = False
+    retained: bool = True
+    exclusion_reason: str | None = None
+    source_interval: Interval | None = None
+    global_interval: Interval | None = None
     quality: Quality
 
     @property
     def effective_seconds(self) -> float:
+        if self.manual_seconds is not None:
+            return self.manual_seconds
+        if self.timing_reference and self.automatic_seconds is None:
+            return 0.0
+        if self.automatic_seconds is None:
+            raise ValueError("excluded source has no effective offset")
         return self.automatic_seconds + (self.manual_correction_seconds or 0.0)
+
+
+class SyncPairEstimate(StrictModel):
+    first: str
+    second: str
+    shift_seconds: float | None
+    score: float
+    peak_separation: float
+    overlap_seconds: float
+    window_scores: list[float]
+    cue_kinds: list[str]
+    reliable: bool
+    diagnostics: list[str]
 
 
 class Synchronization(ArtifactBase):
     kind: Literal["synchronization"]
     offsets: list[SyncOffset] = Field(min_length=2)
+    reference_source_id: str | None = None
+    common_interval: Interval | None = None
+    pair_estimates: list[SyncPairEstimate] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_sources(self) -> Synchronization:

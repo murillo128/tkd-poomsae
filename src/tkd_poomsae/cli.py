@@ -81,6 +81,15 @@ def main() -> int:
     rerun.add_argument("--through", default="parsing")
     cancel = subcommands.add_parser("cancel", help="Request cancellation")
     cancel.add_argument("project")
+    offset = subcommands.add_parser("sync-offset", help="Revise a camera offset")
+    offset.add_argument("project")
+    offset.add_argument("source_id")
+    offset.add_argument("offset_seconds", type=float)
+    offset.add_argument("--author", required=True)
+    offset.add_argument("--source", required=True)
+    offset.add_argument("--reason", required=True)
+    solve = subcommands.add_parser("sync-solve", help="Publish camera alignment")
+    solve.add_argument("project")
     subcommands.add_parser("doctor", help="Report model assets and device capability")
     models = subcommands.add_parser(
         "models", help="Provision or exercise pinned models"
@@ -255,6 +264,18 @@ def main() -> int:
         elif args.command == "cancel":
             pipeline.cancel(args.project)
             result = {"cancel_requested": True}
+        elif args.command == "sync-offset":
+            result = pipeline.revise_sync_offset(
+                args.project,
+                args.source_id,
+                args.offset_seconds,
+                author=args.author,
+                source=args.source,
+                reason=args.reason,
+            )
+        elif args.command == "sync-solve":
+            handle = pipeline.solve_sync(args.project)
+            result = handle.metadata.model_dump(mode="json")
         elif args.command == "rerun":
             result = pipeline.analyze(args.project, args.through, rerun=args.stage)
         else:

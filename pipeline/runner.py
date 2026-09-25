@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import math
 import os
 import re
 import tempfile
@@ -19,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from contracts.models import ArtifactBase
+from contracts.models import ArtifactBase, Synchronization
 from storage import (
     ArtifactHandle,
     ArtifactKey,
@@ -117,6 +118,7 @@ def default_stages() -> tuple[Stage, ...]:
             STAGE_LAYERS[name],
             DEPENDENCIES[name],
             capability_reason=f"{name} producer is not installed; provision it offline",
+            revision="solver-v1-cues-v1" if name == "sync" else "1",
         )
         for name in STAGE_ORDER
     )
@@ -286,6 +288,111 @@ class Pipeline:
         # Cancellation is a separate file so it can be set while the run lock is held.
         self._directory(project).joinpath("cancel.request").touch()
 
+    def revise_sync_offset(
+        self,
+        project: str,
+        source_id: str,
+        offset_seconds: float,
+        *,
+        author: str,
+        source: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Persist an auditable absolute manual offset and stale timed descendants."""
+        if not math.isfinite(offset_seconds) or not all(
+            isinstance(value, str) and value.strip()
+            for value in (author, source, reason)
+        ):
+            raise ValueError("finite offset, author, source, and reason required")
+        project_path, state_path = self._files(project)
+        with (state_path.parent / "run.lock").open("a+b") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            project_data = _read_json(project_path)
+            if source_id not in project_data["sources"]:
+                raise ValueError(f"unknown source: {source_id}")
+            state = self._load_status(project, runner_active=False)
+            sync_key = self._expected_keys(project_data, state)["sync"]
+            try:
+                current_sync = self.store.get(sync_key).metadata
+            except MissingResource:
+                current_sync = None
+            if (
+                isinstance(current_sync, Synchronization)
+                and current_sync.reference_source_id
+                == f"source:{hash_file(Path(project_data['sources'][source_id]))}"
+                and offset_seconds != 0
+            ):
+                raise ValueError("timing reference offset must remain zero")
+            revision = {
+                "source_id": source_id,
+                "offset_seconds": offset_seconds,
+                "author": author.strip(),
+                "source": source.strip(),
+                "reason": reason.strip(),
+            }
+            state.setdefault("sync_revisions", []).append(revision)
+            settings = state["config"].setdefault("sync", {})
+            settings.setdefault("manual_offsets", {})[source_id] = revision
+            for stage in ("sync", "attachment", "reconstruction", "ground", "parsing"):
+                state["stages"][stage].update(
+                    status="stale",
+                    progress=0,
+                    diagnostics=["manual synchronization revision"],
+                )
+            _write_json(state_path, state)
+            return revision
+
+    def solve_sync(self, project: str) -> ArtifactHandle:
+        """Extract native cues and publish the project's immutable sync result."""
+        from media import ingest
+        from sync import extract_cues, publish_offsets, sources_from_manifest
+
+        project_path, state_path = self._files(project)
+        with (state_path.parent / "run.lock").open("a+b") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            project_data = _read_json(project_path)
+            state = self._load_status(project, runner_active=False)
+            key = self._expected_keys(project_data, state)["sync"]
+            record = state["stages"]["sync"]
+            record.update(status="running", progress=0, diagnostics=[], key=key.digest)
+            _write_json(state_path, state)
+            try:
+                manifest = ingest(list(project_data["sources"].items()))
+                cues = {
+                    recording.source_id: extract_cues(
+                        recording,
+                        cache_dir=self.store.root.namespace("runs") / "cues",
+                    )
+                    for recording in manifest
+                }
+                sources = sources_from_manifest(manifest, cues)
+                by_camera = {
+                    recording.camera_id: recording.source_id for recording in manifest
+                }
+                manual = state["config"].get("sync", {}).get("manual_offsets", {})
+                overrides = {
+                    by_camera[camera]: revision for camera, revision in manual.items()
+                }
+                handle = publish_offsets(
+                    self.store,
+                    key,
+                    sources,
+                    overrides=overrides,
+                )
+            except Exception as exc:
+                record.update(status="failed", progress=0, diagnostics=[str(exc)])
+                _write_json(state_path, state)
+                raise
+            record.update(
+                status="complete",
+                progress=1,
+                diagnostics=[],
+                cached=False,
+                result_version="1",
+            )
+            _write_json(state_path, state)
+            return handle
+
     def report_progress(self, project: str, stage: str, fraction: float) -> None:
         """Let an active producer persist bounded progress between publications."""
         if not 0 <= fraction < 1:
@@ -333,7 +440,10 @@ class Pipeline:
                     not isinstance(value, Mapping) for value in config.values()
                 ):
                     raise ValueError("config must map stage names to settings objects")
+                manual = state["config"].get("sync", {}).get("manual_offsets")
                 state["config"] = {name: dict(value) for name, value in config.items()}
+                if manual:
+                    state["config"].setdefault("sync", {})["manual_offsets"] = manual
             if rerun is not None:
                 state["generation"][rerun] = state["generation"].get(rerun, 0) + 1
             if reset_cancellation:
