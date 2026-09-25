@@ -8,16 +8,6 @@ The project's durable mission and product/domain scope belong in `README.md` and
 
 This file owns repository-wide agent invariants and routes work to reusable skills. Skills define reusable procedure, issues define bounded task contracts, and repository documents define durable project knowledge.
 
-## One-time template bootstrap
-
-This section exists only in the canonical Skillforge template and repositories not yet initialized.
-
-- Never execute `repository-bootstrap` inside canonical `murillo128/skillforge` itself.
-- In a repository created from this template, presence of `skills/repository-bootstrap/SKILL.md` means initialization is incomplete.
-- Before normal non-trivial project work, run that skill once with actual mission/scope/established constraints.
-- Successful bootstrap creates/verifies required labels, makes README project-specific, adapts project invariants, deletes bootstrap skill, and removes this section/routing entry.
-- Local Codex runner provisioning is optional and is a separate post-bootstrap capability.
-
 ## Load context progressively
 
 For non-trivial work start with `AGENTS.md` and the controlling issue. Then load only accepted decisions/spec sections, source/tests/config/evidence, and the one workflow skill needed by the current role/action. Do not preload every document, skill, issue/PR history, result directory, or derived wiki.
@@ -43,7 +33,6 @@ Do not promote `OPEN`, `SPECULATIVE`, exploratory, or wiki-derived statements in
 
 Load skills lazily by role:
 
-- one-time initialization: `skills/repository-bootstrap/SKILL.md`;
 - optional local runner provisioning/repair: `skills/codex-local-runner/SKILL.md`;
 - design authority: `skills/design-github-issue/SKILL.md`;
 - ordinary issue executor: `skills/spec-driven-codex-loop/SKILL.md`;
@@ -108,7 +97,7 @@ Keep evidence proportional. Commit source, tests, configuration, small determini
 - Keep changes scoped and use explicit paths.
 - Agent-created commits follow `codex-github-operations` conventions.
 - Do not rewrite shared valid history without explicit authority. The standing exception is the executor-owned `codex/issue-N` branch, before `review-ready`, using the exact-old-head `--force-with-lease` integration-rebase protocol.
-- Direct commits to default branch require explicit user instruction except the narrow wiki-curator authority and one-time bootstrap authority.
+- Direct commits to default branch require explicit user instruction except the narrow wiki-curator authority.
 - An implementation workflow ends with a ready PR and `review-ready` handoff to audit.
 - Before handoff, an epic child executor performs the final integration-freshness gate: if integration advances, reconcile/revalidate/republish and require fresh exact-head CI until stable.
 - Replacing `in-progress` with `review-ready` is the executor's final GitHub mutation. Afterward only local teardown/bookkeeping/response composition is allowed until another controller returns it to execution.
