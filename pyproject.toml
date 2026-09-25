@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tkd_poomsae", "contracts", "storage"]
+packages = ["src/tkd_poomsae", "contracts", "storage", "datasets"]
 
 [tool.ruff]
 target-version = "py311"

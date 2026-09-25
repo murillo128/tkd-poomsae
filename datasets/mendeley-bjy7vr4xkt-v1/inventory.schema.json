@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mendeley bjy7vr4xkt version-1 publisher inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_listing_url",
+    "archive",
+    "archive_directory_method",
+    "archive_member_count",
+    "members"
+  ],
+  "properties": {
+    "source_listing_url": {"type": "string", "format": "uri"},
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename", "file_id", "content_id", "size_bytes", "sha256", "content_type"
+      ],
+      "properties": {
+        "filename": {"const": "Data.zip"},
+        "file_id": {"type": "string", "format": "uuid"},
+        "content_id": {"type": "string", "format": "uuid"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "content_type": {"const": "application/zip"}
+      }
+    },
+    "archive_directory_method": {"type": "string", "minLength": 1},
+    "archive_member_count": {"const": 32},
+    "members": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path", "size_bytes", "compressed_size_bytes", "crc32", "kind"
+        ],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "compressed_size_bytes": {"type": "integer", "minimum": 1},
+          "crc32": {"type": "string", "pattern": "^[0-9a-f]{8}$"},
+          "kind": {"enum": ["video", "detector_csv"]}
+        }
+      }
+    }
+  }
+}
