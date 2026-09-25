@@ -25,9 +25,12 @@ def recording(
     camera_shift: bool = False,
     video_gap_after: int | None = None,
     clipped_audio: bool = False,
+    duration: float | None = None,
+    visual_column: int = 12,
+    vfr: bool = False,
 ) -> Path:
     """Write a short clip with native millisecond video PTS and sample audio PTS."""
-    duration = max(events, default=1.0) + 0.7
+    duration = max(max(events, default=1.0) + 0.7, duration or 0)
     with av.open(str(path), "w") as container:
         video = container.add_stream("mpeg4", rate=video_rate)
         video.width = 64
@@ -51,10 +54,17 @@ def recording(
             elif not static:
                 # Two short, repeated actions. A still subject is visible between them.
                 active = any(event <= t < event + 0.15 for event in events)
-                image[12:36, 12 : 36 if active else 24] = 230
+                image[12:36, visual_column : visual_column + (24 if active else 12)] = (
+                    230
+                )
             frame = av.VideoFrame.from_ndarray(image, format="rgb24")
             gap = 0.5 if video_gap_after is not None and index > video_gap_after else 0
-            frame.pts = round((pre_roll + t + gap) * 1000)
+            jitter = (
+                (0.35 if index % 3 == 1 else -0.2 if index % 3 == 2 else 0) / video_rate
+                if vfr
+                else 0
+            )
+            frame.pts = round((pre_roll + t + gap + jitter) * 1000)
             frame.time_base = Fraction(1, 1000)
             for packet in video.encode(frame):
                 container.mux(packet)

@@ -65,3 +65,22 @@ the rejected pair diagnostics and marks automatic quality `unknown`; the
 reference's zero is a timing convention, not an automatic estimate. A nonzero
 manual revision of the selected reference is rejected, including through the
 runner once that reference is known.
+
+## Regression evidence
+
+`tests/test_sync_integration.py` encodes independent synthetic recordings and
+checks decode, cue extraction, offset solving, and frame lookup at known global
+event times. It covers two to four views, visual-only and audio-assisted cues,
+unequal and variable frame timing, nonzero PTS, different durations, repeated
+events, a bad camera, disjoint manually imposed intervals, and manual revisions.
+Offset acceptance is one 50 ms visual sample plus one source frame and a 50 ms
+encoding/window margin. This bound applies to the synthetic event oracle, not to
+the Mendeley pair.
+
+Pytest writes `.pytest_cache/sync-regression-results.json` with test status,
+source SHA-256 identities for executed cases, and a cue-config digest. Pass
+`--sync-results=PATH` to save it elsewhere. Marker-filtered cases have explicit
+`skipped` status. `pytest -m local_data tests/test_sync_integration.py` uses the
+registered `smoke-short` selection and a shared imposed-shift variant as an
+offline functional smoke test; it does not certify synchronization or pose
+accuracy.
