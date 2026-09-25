@@ -34,6 +34,36 @@ provenance records the chosen model/configuration. No foot-only crop is sent to
 the wholebody model.
 Artifact IDs and final observation assembly belong to the integration stage.
 
+`pose.stream.PractitionerTracker` assembles one camera/source stream in native
+frame order. Call `observe` for each `PoseFrame` with an artifact ID and producer
+provenance; keep one tracker per camera. Its initial automatic selection requires
+a clearly larger practitioner box. Later selections use box and torso continuity,
+not candidate index or detector score. Ambiguous matches and gaps retain the
+prior identity anchor without choosing a spectator. Pass an explicit
+`operator_candidate_index` to recover and record that selection. The tracker
+does not join cameras in global time or interpolate a missing frame.
+
+The resulting `Observation` stores subject candidate boxes, raw detector scores,
+match costs and selection reasons. `wholebody_landmarks` preserves coarse named
+coordinates, scores and visibility; `refined_landmarks` preserves independent
+hand evidence, including unknown points and their original scores. `landmarks`
+is the selected derived view: unsupported coordinates become null with unknown
+quality, including low raw visibility. Detailed hand points require usable
+refinement; coarse wholebody fingers remain source evidence when a crop is too
+small or refinement is unavailable. Rapid valid movement remains unsmoothed. `region_quality`
+contains independent body, hand, foot and head usability masks and reason codes.
+These fields are per view; downstream reconstruction can combine useful regions
+from different cameras. No optional temporal filter is applied.
+Plausible left/right foot exchanges mark both foot regions ambiguous without
+renaming source landmarks. A separate trusted foot-side anchor prevents repeated
+exchanged detector labels from becoming accepted on the next frame; recovery
+requires renewed consistent foot evidence. `source_regional_geometry` retains the provider's
+unmodified projection; `regional_geometry` is the accepted projection and does
+not expose axes for masked or out-of-frame source landmarks.
+A separate trusted wrist-side anchor similarly keeps repeated exchanged hand
+labels uncertain. Both derived wrists are masked while handedness is ambiguous;
+their raw wholebody coordinates remain available for inspection.
+
 The adapter uses verified local registry paths. It never provisions assets and
 has no whole-frame production fallback. OpenMMLab's topdown API receives the
 original display-oriented pixels and returns coordinates in that same image;

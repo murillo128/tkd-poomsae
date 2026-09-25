@@ -108,6 +108,7 @@ def canonical_landmarks(candidate: PersonCandidate) -> list[Landmark2D]:
             name=CANONICAL[point.name],  # type: ignore[arg-type]
             xy_px=point.xy_px,
             raw_score=point.raw_score,
+            raw_visibility=point.raw_visibility,
             quality=Quality(state="observed"),
         )
         for point in candidate.landmarks
