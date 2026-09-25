@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from contracts.models import (
     Landmark2D,
@@ -18,6 +19,7 @@ from contracts.models import (
     ViewRegionQuality,
 )
 from pose.providers.mmpose.adapter import (
+    NamedPoint,
     PersonCandidate,
     PoseFrame,
     canonical_landmarks,
@@ -243,6 +245,82 @@ class PractitionerTracker:
         self._source: str | None = None
         self._last_ordinal: int | None = None
         self._last_time: float | None = None
+
+    def snapshot(self) -> dict[str, Any]:
+        """Persist only the raw candidate evidence needed across windows."""
+
+        def candidate(item: PersonCandidate | None) -> dict[str, Any] | None:
+            if item is None:
+                return None
+            return {
+                "index": item.index,
+                "bbox_xyxy_px": item.bbox_xyxy_px,
+                "detector_score": item.detector_score.model_dump(mode="json"),
+                "landmarks": [
+                    {
+                        "name": point.name,
+                        "xy_px": point.xy_px,
+                        "raw_score": point.raw_score.model_dump(mode="json"),
+                        "raw_visibility": point.raw_visibility,
+                    }
+                    for point in item.landmarks
+                ],
+            }
+
+        return {
+            "version": 1,
+            "camera": self._camera,
+            "source": self._source,
+            "last_ordinal": self._last_ordinal,
+            "last_time": self._last_time,
+            "anchor_time": self._anchor_time,
+            "anchor": candidate(self._anchor),
+            "trusted_hand_anchor": candidate(self._trusted_hand_anchor),
+            "trusted_foot_anchor": candidate(self._trusted_foot_anchor),
+            "trusted_pair_anchors": {
+                name: candidate(item)
+                for name, item in self._trusted_pair_anchors.items()
+            },
+        }
+
+    def restore(self, state: Mapping[str, Any]) -> None:
+        """Resume temporal identity from a verified completed window."""
+        if state.get("version") != 1:
+            raise ValueError("unsupported practitioner tracker state")
+
+        def candidate(value: Any) -> PersonCandidate | None:
+            if value is None:
+                return None
+            return PersonCandidate(
+                index=int(value["index"]),
+                bbox_xyxy_px=tuple(value["bbox_xyxy_px"]),
+                detector_score=RawScore.model_validate(value["detector_score"]),
+                landmarks=tuple(
+                    NamedPoint(
+                        name=point["name"],
+                        xy_px=tuple(point["xy_px"]),
+                        raw_score=RawScore.model_validate(point["raw_score"]),
+                        raw_visibility=point["raw_visibility"],
+                    )
+                    for point in value["landmarks"]
+                ),
+                refined_hands={},
+                refined_hand_boxes={},
+            )
+
+        self._camera = state["camera"]
+        self._source = state["source"]
+        self._last_ordinal = state["last_ordinal"]
+        self._last_time = state["last_time"]
+        self._anchor_time = state["anchor_time"]
+        self._anchor = candidate(state["anchor"])
+        self._trusted_hand_anchor = candidate(state["trusted_hand_anchor"])
+        self._trusted_foot_anchor = candidate(state["trusted_foot_anchor"])
+        self._trusted_pair_anchors = {
+            name: restored
+            for name, value in state["trusted_pair_anchors"].items()
+            if (restored := candidate(value)) is not None
+        }
 
     def observe(
         self,

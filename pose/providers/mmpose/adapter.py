@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -199,6 +200,21 @@ class MMPoseAdapter:
         self.cancelled = cancelled
         self._backend_factory = _backend_factory
         self.regional_provider = regional_provider or WholebodyRegionalProvider()
+        self._session_backend: Any | None = None
+
+    @contextmanager
+    def session(self) -> Iterator[MMPoseAdapter]:
+        """Keep verified local models loaded across bounded inference windows."""
+        if self._session_backend is not None:
+            raise RuntimeError("an inference session is already active")
+        if self._backend_factory is _OpenMMLab:
+            verified_paths()
+        with inference_job(self.device, cancelled=self.cancelled):
+            self._session_backend = self._backend_factory(self.device)
+            try:
+                yield self
+            finally:
+                self._session_backend = None
 
     def infer(
         self, recording: Recording, frames: Iterable[DecodedFrame]
@@ -207,11 +223,13 @@ class MMPoseAdapter:
         import cv2
         import torch  # type: ignore[import-not-found]
 
-        with (
-            inference_job(self.device, cancelled=self.cancelled),
-            torch.inference_mode(),
-        ):
-            backend = self._backend_factory(self.device)
+        lease = (
+            nullcontext()
+            if self._session_backend is not None
+            else inference_job(self.device, cancelled=self.cancelled)
+        )
+        with lease, torch.inference_mode():
+            backend = self._session_backend or self._backend_factory(self.device)
             for count, decoded in enumerate(frames):
                 if count >= self.max_frames:
                     raise ValueError("pose input exceeds max_frames window")

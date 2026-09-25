@@ -217,6 +217,18 @@ class Pipeline:
                 "stage registry must implement the explicit pipeline graph"
             )
 
+    def observe_selection(
+        self, selection: str, *, device: str = "cpu", max_frames: int = 32
+    ) -> dict[str, Any]:
+        """Run the native-time observation producer on a registered local selection."""
+        from pose.observation_run import ObservationSettings, run_selection
+
+        return run_selection(
+            selection,
+            store=self.store,
+            settings=ObservationSettings(device=device, max_frames=max_frames),
+        )
+
     def _directory(self, project: str) -> Path:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", project) or project in {
             ".",

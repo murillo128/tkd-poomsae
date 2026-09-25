@@ -34,6 +34,27 @@ provenance records the chosen model/configuration. No foot-only crop is sent to
 the wholebody model.
 Artifact IDs and final observation assembly belong to the integration stage.
 
+`tkd-poomsae observations smoke-short` runs the registered two-view native-time
+selection through the adapter and tracker. After that succeeds, run
+`tkd-poomsae observations demo-full`. Both commands accept `--device` and
+`--max-frames` (1–128, default 32). They use `TKD_DATA_ROOT` for the existing
+dataset, verified local model assets, hand crop cache, and immutable observation
+windows. No model or media download occurs. The command prints a compact run
+receipt path under `derived/observation-runs/`; raw observations stay outside Git.
+The vision interpreter must also have the core PyAV media dependency available.
+
+`Pipeline.observe_selection()` provides the same runner entry point. Each
+window is keyed by source hash, native frame bounds, pinned model/runtime
+revision, preprocessing, tracking and refinement settings. It is published only
+after every native frame has a typed observation. A killed process leaves
+completed windows reusable; missing windows retry. The tracker state is restored
+from each verified window, including when resuming after interruption. A final
+receipt appears only after all selected views are verified and at least one
+practitioner frame was selected. `pose.observation_run.verify_receipt()` checks
+the full run one window at a time; `load_receipt()` reloads typed observations
+offline for inspection. Source PTS, per-region masks, raw scores, model identities,
+hand crop transforms and settings are retained in the window records.
+
 `pose.stream.PractitionerTracker` assembles one camera/source stream in native
 frame order. Call `observe` for each `PoseFrame` with an artifact ID and producer
 provenance; keep one tracker per camera. Its initial automatic selection requires

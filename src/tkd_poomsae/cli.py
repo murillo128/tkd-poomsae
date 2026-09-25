@@ -78,6 +78,14 @@ def main() -> int:
     rerun = subcommands.add_parser("rerun", help="Force one stage and its descendants")
     rerun.add_argument("project")
     rerun.add_argument("stage")
+    observations = subcommands.add_parser(
+        "observations", help="Infer or reuse a local native-time selection"
+    )
+    observations.add_argument(
+        "selection", choices=["smoke-short", "demo-full", "all-forms"]
+    )
+    observations.add_argument("--device", default="cpu")
+    observations.add_argument("--max-frames", type=int, default=32)
     rerun.add_argument("--through", default="parsing")
     cancel = subcommands.add_parser("cancel", help="Request cancellation")
     cancel.add_argument("project")
@@ -103,6 +111,16 @@ def main() -> int:
         command.add_argument("--input", type=Path, required=True)
         command.add_argument("--device", default="cpu")
     args = parser.parse_args()
+    if args.command == "observations":
+        try:
+            result = Pipeline().observe_selection(
+                args.selection, device=args.device, max_frames=args.max_frames
+            )
+        except (ImportError, OSError, ValueError, RuntimeError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(result, sort_keys=True))
+        return 0
     if args.command == "serve":
         if args.host not in {"localhost", "127.0.0.1", "::1"}:
             parser.error("the local API must bind to a loopback address")
