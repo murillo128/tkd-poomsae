@@ -43,6 +43,9 @@ availability and orientation state, supporting landmark names, optional
 pixel-space axis and projected orientation. A degenerate orientation retains
 usable axis endpoints when available but has no angle;
 these 2D values make no contact, 3D direction, or technique claim.
+`source_regional_geometry` retains the regional provider's original output;
+`regional_geometry` is reconciled against accepted in-frame derived landmarks.
+Source axes that depend on masked landmarks remain evidence, not usable geometry.
 `Observation.subject_selection` retains one per-camera practitioner track's
 selected, ambiguous or missing state plus every candidate's box, detector score
 and temporal match cost. `wholebody_landmarks` and `refined_landmarks` retain

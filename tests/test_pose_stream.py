@@ -319,3 +319,79 @@ def test_good_refined_hand_remains_usable_when_foot_is_missing() -> None:
     assert coarse["left_index_tip"].raw_score is not None
     assert selected["left_index_tip"].raw_score.value == 0.8
     assert coarse["left_index_tip"].raw_score.value == 0.91
+
+
+def test_crossed_foot_sides_are_ambiguous_without_relabeling_raw_points() -> None:
+    first = candidate(0, 50)
+    tracker = PractitionerTracker()
+    observe(tracker, frame(0, first))
+    source = candidate(0, 50)
+    before = {point.name: point for point in source.landmarks}
+    points = tuple(
+        replace(
+            point,
+            xy_px=before[point.name.replace("left_", "right_", 1)].xy_px,
+        )
+        if point.name in {"left_heel", "left_big_toe", "left_small_toe"}
+        else replace(
+            point,
+            xy_px=before[point.name.replace("right_", "left_", 1)].xy_px,
+        )
+        if point.name in {"right_heel", "right_big_toe", "right_small_toe"}
+        else point
+        for point in source.landmarks
+    )
+    source = replace(
+        source,
+        landmarks=points,
+        regional_geometry=WholebodyRegionalProvider()(
+            canonical_landmarks(replace(source, landmarks=points))
+        ),
+    )
+    restored = Observation.model_validate_json(
+        observe(tracker, frame(1, source)).model_dump_json()
+    )
+    selected = {point.name: point for point in restored.landmarks}
+    raw = {point.name: point for point in restored.wholebody_landmarks}
+    quality = {part.part: part for part in restored.region_quality}
+    assert restored.subject_selection is not None
+    assert restored.subject_selection.state == "selected"
+    for part in ("left_foot", "right_foot"):
+        assert not quality[part].usable
+        assert "anatomical_side_ambiguous" in quality[part].reasons
+    assert selected["left_heel"].xy_px is None
+    assert selected["right_heel"].xy_px is None
+    assert raw["left_heel"].xy_px == before["right_heel"].xy_px
+    assert raw["right_heel"].xy_px == before["left_heel"].xy_px
+    assert {item.part: item.availability for item in restored.regional_geometry}[
+        "left_foot"
+    ] == "missing"
+
+
+def test_out_of_frame_foot_geometry_is_retained_only_as_source() -> None:
+    source = candidate(0, 50)
+    names = {"left_heel", "left_big_toe", "left_small_toe"}
+    points = tuple(
+        replace(point, xy_px=(480.0, point.xy_px[1])) if point.name in names else point
+        for point in source.landmarks
+    )
+    source = replace(
+        source,
+        landmarks=points,
+        regional_geometry=WholebodyRegionalProvider()(
+            canonical_landmarks(replace(source, landmarks=points))
+        ),
+    )
+    restored = Observation.model_validate_json(
+        observe(PractitionerTracker(), frame(0, source)).model_dump_json()
+    )
+    quality = {part.part: part for part in restored.region_quality}
+    derived = {item.part: item for item in restored.regional_geometry}
+    source_geometry = {item.part: item for item in restored.source_regional_geometry}
+    assert not quality["left_foot"].usable
+    assert "out_of_frame" in quality["left_foot"].reasons
+    assert derived["left_foot"].availability == "missing"
+    assert derived["left_foot"].axis_start_px is None
+    assert source_geometry["left_foot"].availability == "complete"
+    assert source_geometry["left_foot"].axis_start_px == (480, 85)
+    assert quality["right_foot"].usable

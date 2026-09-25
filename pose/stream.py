@@ -12,6 +12,7 @@ from contracts.models import (
     Provenance,
     Quality,
     RawScore,
+    RegionalGeometry2D,
     SubjectCandidateEvidence,
     SubjectSelection,
     ViewRegionQuality,
@@ -22,6 +23,7 @@ from pose.providers.mmpose.adapter import (
     canonical_landmarks,
 )
 from pose.providers.mmpose.mapping import CANONICAL
+from pose.regions import WholebodyRegionalProvider
 
 _PARTS = ("body", "left_hand", "right_hand", "left_foot", "right_foot", "head")
 
@@ -134,6 +136,82 @@ def _side_ambiguous(
         before[right].xy_px, after[left].xy_px
     )
     return swapped + 0.05 * math.sqrt(_area(current.bbox_xyxy_px)) < same
+
+
+def _foot_side_ambiguous(
+    previous: PersonCandidate | None, current: PersonCandidate
+) -> bool:
+    if previous is None:
+        return False
+    before = {point.name: point for point in previous.landmarks}
+    after = {point.name: point for point in current.landmarks}
+    for suffix in ("heel", "big_toe", "small_toe"):
+        left, right = f"left_{suffix}", f"right_{suffix}"
+        if not all(name in before and name in after for name in (left, right)):
+            continue
+        if any(
+            point.raw_score.value < 0.2
+            or (point.raw_visibility is not None and point.raw_visibility < 0.5)
+            for point in (before[left], before[right], after[left], after[right])
+        ):
+            continue
+        same = math.dist(before[left].xy_px, after[left].xy_px) + math.dist(
+            before[right].xy_px, after[right].xy_px
+        )
+        swapped = math.dist(before[left].xy_px, after[right].xy_px) + math.dist(
+            before[right].xy_px, after[left].xy_px
+        )
+        if swapped + 0.05 * math.sqrt(_area(current.bbox_xyxy_px)) < same:
+            return True
+    return False
+
+
+def _reconcile_geometry(
+    source: tuple[RegionalGeometry2D, ...],
+    landmarks: dict[str, Landmark2D],
+    image_size: tuple[int, int],
+    reasons: dict[str, set[str]],
+    config: TrackingConfig,
+) -> list[RegionalGeometry2D]:
+    projected = {
+        item.part: item
+        for item in WholebodyRegionalProvider(
+            min_raw_score=config.min_raw_score,
+            min_raw_visibility=config.min_raw_visibility,
+        )(list(landmarks.values()))
+    }
+    width, height = image_size
+
+    def in_frame(xy: tuple[float, float] | None) -> bool:
+        return xy is None or 0 <= xy[0] < width and 0 <= xy[1] < height
+
+    result = []
+    for part in ("left_foot", "right_foot", "head"):
+        original = next((item for item in source if item.part == part), None)
+        if original is None:
+            result.append(projected[part])
+        elif original.availability == "missing":
+            result.append(original)
+        elif (
+            original.supporting_landmarks
+            and "anatomical_side_ambiguous" not in reasons[part]
+            and all(
+                landmarks[name].xy_px is not None
+                for name in original.supporting_landmarks
+                if name in landmarks
+            )
+            and all(name in landmarks for name in original.supporting_landmarks)
+            and in_frame(original.axis_start_px)
+            and in_frame(original.axis_end_px)
+            and (
+                original.availability != "complete"
+                or projected[part].availability == "complete"
+            )
+        ):
+            result.append(original)
+        else:
+            result.append(projected[part])
+    return result
 
 
 class PractitionerTracker:
@@ -262,6 +340,7 @@ def _assemble(
 ) -> Observation:
     raw: list[Landmark2D] = []
     refined: list[Landmark2D] = []
+    geometry: list[RegionalGeometry2D] = []
     combined: dict[str, Landmark2D] = {}
     reasons: dict[str, set[str]] = {part: set() for part in _PARTS}
     if selected is None:
@@ -394,18 +473,27 @@ def _assemble(
                         combined[name] = point.model_copy(
                             update={"xy_px": None, "quality": Quality(state="unknown")}
                         )
+        if _foot_side_ambiguous(previous, selected):
+            for part in ("left_foot", "right_foot"):
+                reasons[part].add("anatomical_side_ambiguous")
+            for name, point in tuple(combined.items()):
+                if _part(name) in ("left_foot", "right_foot"):
+                    combined[name] = point.model_copy(
+                        update={"xy_px": None, "quality": Quality(state="unknown")}
+                    )
+        geometry = _reconcile_geometry(
+            selected.regional_geometry, combined, frame.image_size, reasons, config
+        )
         for side in ("left", "right"):
             part = f"{side}_foot"
-            geometry = next(
-                (g for g in selected.regional_geometry if g.part == part), None
-            )
-            if geometry is None or geometry.availability == "missing":
+            foot_geometry = next((g for g in geometry if g.part == part), None)
+            if foot_geometry is None or foot_geometry.availability == "missing":
                 reasons[part].add("missing_geometry")
-            elif geometry.availability == "partial":
+            elif foot_geometry.availability == "partial":
                 reasons[part].add("partial_geometry")
-            elif geometry.orientation_state != "available":
+            elif foot_geometry.orientation_state != "available":
                 reasons[part].add("degenerate_geometry")
-        head = next((g for g in selected.regional_geometry if g.part == "head"), None)
+        head = next((g for g in geometry if g.part == "head"), None)
         if head is None or head.availability == "missing":
             reasons["head"].add("missing_geometry")
         elif head.orientation_state != "available":
@@ -439,7 +527,8 @@ def _assemble(
         landmarks=list(combined.values()),
         wholebody_landmarks=raw,
         refined_landmarks=refined,
-        regional_geometry=list(selected.regional_geometry) if selected else [],
+        regional_geometry=geometry,
+        source_regional_geometry=list(selected.regional_geometry) if selected else [],
         subject_selection=selection,
         region_quality=quality,
     )

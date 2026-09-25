@@ -1467,6 +1467,13 @@
           "title": "Schema Version",
           "type": "string"
         },
+        "source_regional_geometry": {
+          "items": {
+            "$ref": "#/$defs/RegionalGeometry2D"
+          },
+          "title": "Source Regional Geometry",
+          "type": "array"
+        },
         "subject_selection": {
           "anyOf": [
             {

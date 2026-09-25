@@ -533,6 +533,7 @@ class Observation(ArtifactBase):
     refined_landmarks: list[Landmark2D] = Field(default_factory=list)
     regions: list[RegionOfInterest] = Field(default_factory=list)
     regional_geometry: list[RegionalGeometry2D] = Field(default_factory=list)
+    source_regional_geometry: list[RegionalGeometry2D] = Field(default_factory=list)
     subject_selection: SubjectSelection | None = None
     region_quality: list[ViewRegionQuality] = Field(default_factory=list)
     arrays: list[DenseArray] = Field(default_factory=list)
@@ -549,6 +550,10 @@ class Observation(ArtifactBase):
             self.regional_geometry
         ):
             raise ValueError("observation regional parts must be unique")
+        if len({region.part for region in self.source_regional_geometry}) != len(
+            self.source_regional_geometry
+        ):
+            raise ValueError("source regional parts must be unique")
         if any(
             not set(region.supporting_landmarks) <= names
             for region in self.regional_geometry
