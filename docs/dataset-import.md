@@ -61,3 +61,6 @@ manual 3D labels, or detailed hand/foot/head observations. Frontal/lateral
 labels alone do not establish geometric overlap or exact synchronization.
 Those capabilities remain unknown. This inventory is a functional input check,
 not an evaluation of pose accuracy.
+
+Shared virtual test windows and opt-in derived variants are documented in
+[Shared test media selections](test-media-selections.md).

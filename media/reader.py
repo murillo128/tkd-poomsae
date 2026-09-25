@@ -296,6 +296,11 @@ def _probe(camera_id: str, path: Path) -> Recording:
         raise DecodeError(f"{path}: video probe/decode failed: {exc}") from exc
 
 
+def index_recording(camera_id: str, path: Path | str) -> Recording:
+    """Index one verified source for bounded, single-view media operations."""
+    return _probe(camera_id, Path(path).expanduser().resolve(strict=False))
+
+
 def ingest(sources: Sequence[tuple[str, Path | str]]) -> IngestManifest:
     """Probe local files without editing or copying them; require two distinct views."""
     if len(sources) < 2:

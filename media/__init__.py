@@ -9,6 +9,7 @@ from .reader import (
     IngestManifest,
     MediaReader,
     Recording,
+    index_recording,
     ingest,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "IngestError",
     "MediaReader",
     "Recording",
+    "index_recording",
     "ingest",
 ]
