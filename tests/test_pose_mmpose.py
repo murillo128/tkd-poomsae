@@ -87,6 +87,7 @@ class _Backend:
         self.hand_calls = 0
         self.crossed = False
         self.empty_hand = False
+        self.occluded_thumb_tip = False
         self.framework_versions = {"mmpose": "test", "mmdet": "test"}
 
     def detect(self, image: np.ndarray) -> Any:
@@ -126,6 +127,9 @@ class _Backend:
         sample.pred_instances.keypoints[0, 10] = [right_x, 50]
         sample.pred_instances.keypoints[0, 7] = [35, 25]
         sample.pred_instances.keypoints[0, 8] = [right_x, 25]
+        if self.occluded_thumb_tip:
+            sample.pred_instances.keypoint_scores[0, 95] = 0.01
+            sample.pred_instances.keypoints_visible[0, 95] = 0
         return [sample for _ in boxes]
 
 
@@ -302,3 +306,36 @@ def test_empty_hand_model_result_keeps_explicit_missing_state(
         point.reason == "empty_model_result"
         for point in candidate.hand_observations["left"].refined
     )
+
+
+def test_adapter_does_not_promote_one_occluded_thumb_tip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pose.providers.mmpose.adapter as module
+
+    monkeypatch.setattr(module, "inference_job", lambda *_a, **_kw: nullcontext())
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(inference_mode=nullcontext)
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "cv2",
+        SimpleNamespace(COLOR_RGB2BGR=1, cvtColor=lambda image, _code: image),
+    )
+    backend = _Backend("cpu")
+    backend.occluded_thumb_tip = True
+    recording, decoded = _frame()
+    candidate = list(
+        MMPoseAdapter(max_people=1, _backend_factory=lambda _device: backend).infer(
+            recording, [decoded]
+        )
+    )[0].candidates[0]
+    left = candidate.hand_observations["left"]
+    assert left.roi is not None
+    assert left.roi.coarse_support_fraction == pytest.approx(20 / 21)
+    assert left.refined[4].state == "inferred"
+    assert left.refined[4].raw_score == 0.75
+    assert left.refined[4].name == "left_hand_thumb_4"
+    assert "left_hand_thumb_4" not in {
+        point.name for point in candidate.refined_hands["left"]
+    }

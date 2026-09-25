@@ -15,8 +15,9 @@ entry retains the independent 21 coarse and 21 refined points, per-point raw
 scores/visibility and observed/inferred/unknown state, anatomical side,
 ambiguity flag, model hash, ROI bounds, source overlap, padding, and reversible
 ROI-to-source affine transform. A tiny or poorly supported hand stays unknown;
-an edge-truncated or mostly occluded hand cannot become observed from model
-confidence alone. Overlapping left/right ROIs flag ambiguous handedness without
+an edge-truncated, mostly occluded, or individually unsupported finger cannot
+become observed from model confidence alone. Overlapping left/right ROIs flag
+ambiguous handedness without
 swapping names. `refined_hands` is a compatibility view of observed points only.
 The optional `canonical_landmarks(candidate)` projection maps the 63 supported
 points to the shared `Landmark2D` contract. It does not invent pelvis, spine,

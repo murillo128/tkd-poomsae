@@ -141,6 +141,39 @@ def test_sparse_coarse_support_does_not_promote_model_points() -> None:
     assert all(point.state == "inferred" for point in refined)
 
 
+def test_one_occluded_finger_stays_uncertain_with_high_model_score() -> None:
+    points = list(_wholebody())
+    thumb_tip = 91 + 4
+    points[thumb_tip] = replace(
+        points[thumb_tip],
+        raw_score=RawScore(value=0.01, range_min=0, range_max=1),
+        raw_visibility=0.0,
+    )
+    coarse_hand = tuple(points[91:112])
+    config = HandROIConfig()
+    roi = localize_hand(tuple(points), "left", (100, 100), config)
+    assert roi is not None and roi.coarse_support_fraction == pytest.approx(20 / 21)
+    xy = np.tile(np.asarray(roi.transform.to_model((20, 50))), (21, 1))
+    refined = map_refinement(
+        "left",
+        xy,
+        np.full(21, 0.9),
+        None,
+        roi,
+        (100, 100),
+        config,
+        coarse_hand[0].xy_px,
+        coarse_hand,
+    )
+    assert len(refined) == 21
+    assert refined[4].name == "left_hand_thumb_4"
+    assert refined[4].state == "inferred"
+    assert refined[4].reason == "unsupported_coarse_point"
+    assert refined[4].raw_score == 0.9
+    assert refined[4].xy_px == pytest.approx((20, 50))
+    assert all(point.state == "observed" for i, point in enumerate(refined) if i != 4)
+
+
 def test_tiny_hand_and_crossing_identity() -> None:
     config = HandROIConfig()
     assert localize_hand(_wholebody(flat=True), "left", (100, 100), config) is None

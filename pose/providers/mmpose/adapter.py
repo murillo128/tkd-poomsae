@@ -390,6 +390,7 @@ class MMPoseAdapter:
                                     (width, height),
                                     self.hand_roi,
                                     wrist,
+                                    coarse,
                                 )
                                 if ambiguous:
                                     mapped = tuple(

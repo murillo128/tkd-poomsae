@@ -233,6 +233,7 @@ def map_refinement(
     image_size: tuple[int, int],
     config: HandROIConfig,
     coarse_wrist: tuple[float, float] | None,
+    coarse_hand: tuple[CoarsePoint, ...] | None = None,
 ) -> tuple[RefinedPoint, ...]:
     if (
         xy.shape != (21, 2)
@@ -240,6 +241,8 @@ def map_refinement(
         or (visibility is not None and visibility.shape != (21,))
     ):
         raise ValueError("malformed 21-point hand topology")
+    if coarse_hand is not None and len(coarse_hand) != 21:
+        raise ValueError("malformed coarse hand topology")
     width, height = image_size
     mapped = [roi.transform.to_source((float(p[0]), float(p[1]))) for p in xy]
     implausible = coarse_wrist is not None and math.dist(mapped[0], coarse_wrist) > max(
@@ -268,19 +271,33 @@ def map_refinement(
             and roi.xyxy_px[1] <= point[1] < roi.xyxy_px[3]
         ):
             reason = "outside_roi"
+        coarse_point = None if coarse_hand is None else coarse_hand[index]
+        coarse_visibility = (
+            None if coarse_point is None else coarse_point.raw_visibility
+        )
+        unsupported_coarse = coarse_point is not None and (
+            coarse_point.raw_score.value < config.coarse_threshold
+            or (coarse_visibility is not None and coarse_visibility <= 0)
+        )
         state: HandState = (
             "unknown"
             if reason
             else (
                 "inferred"
-                if roi.visible_fraction < 0.8 or roi.coarse_support_fraction < 0.5
+                if (
+                    roi.visible_fraction < 0.8
+                    or roi.coarse_support_fraction < 0.5
+                    or unsupported_coarse
+                )
                 else "observed"
             )
         )
+        if state == "inferred" and unsupported_coarse:
+            reason = "unsupported_coarse_point"
         result.append(
             RefinedPoint(
                 f"{side}_hand_{name}",
-                None if reason else point,
+                None if state == "unknown" else point,
                 score,
                 visible,
                 state,
