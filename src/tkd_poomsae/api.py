@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from pipeline import Pipeline
@@ -115,14 +115,54 @@ def create_app(
         origin = request.headers.get("origin")
         if origin is not None and origin not in origins:
             return JSONResponse({"detail": "untrusted origin"}, status_code=403)
-        if request.method not in {"GET", "HEAD", "OPTIONS"}:
-            if request.headers.get("x-tkd-local-request") != "1" or (
-                request.headers.get("sec-fetch-site") == "cross-site"
+
+        def with_cors(response: Response) -> Response:
+            if origin is not None:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                vary = response.headers.get("Vary", "")
+                if "origin" not in {part.strip().lower() for part in vary.split(",")}:
+                    response.headers["Vary"] = f"{vary}, Origin" if vary else "Origin"
+            return response
+
+        if request.method == "OPTIONS" and request.headers.get(
+            "access-control-request-method"
+        ):
+            requested_method = request.headers["access-control-request-method"]
+            requested_headers = {
+                name.strip().lower()
+                for name in request.headers.get(
+                    "access-control-request-headers", ""
+                ).split(",")
+                if name.strip()
+            }
+            if (
+                origin is None
+                or not request.url.path.startswith("/api/")
+                or requested_method not in {"GET", "POST"}
+                or requested_headers - {"x-tkd-local-request", "content-type"}
             ):
                 return JSONResponse(
-                    {"detail": "local request header required"}, status_code=403
+                    {"detail": "unsupported preflight"}, status_code=403
                 )
-        return await call_next(request)
+            response = Response(status_code=204)
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST"
+            response.headers["Access-Control-Allow-Headers"] = (
+                "X-TKD-Local-Request, Content-Type"
+            )
+            response.headers["Vary"] = (
+                "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            )
+            return with_cors(response)
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            if request.headers.get("x-tkd-local-request") != "1" or (
+                request.headers.get("sec-fetch-site") == "cross-site" and origin is None
+            ):
+                return with_cors(
+                    JSONResponse(
+                        {"detail": "local request header required"}, status_code=403
+                    )
+                )
+        return with_cors(await call_next(request))
 
     @service.get("/health")
     def health() -> dict[str, str]:

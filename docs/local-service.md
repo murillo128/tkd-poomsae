@@ -24,10 +24,13 @@ The API endpoints are:
   results, and errors; `POST /api/runs/{run_id}/cancel` for cancellation.
 
 Every state-changing HTTP request needs `X-TKD-Local-Request: 1`. The service
-checks the Host and Origin headers, rejects cross-site requests, and does not
-enable wildcard CORS. The default accepted browser origins are the local Vite
-and API ports; `create_app(..., trusted_origins=...)` can set them for an
-embedded client. This is a local operator service, not multiuser auth.
+checks the Host and Origin headers and answers CORS preflight only for trusted
+origins, `GET`/`POST`, and the `X-TKD-Local-Request`/`Content-Type` headers.
+Actual responses echo only a trusted Origin; there is no wildcard CORS. The
+default accepted browser origins are the local Vite and API ports;
+`create_app(..., trusted_origins=...)` can set them for an embedded client.
+Cross-site requests without a trusted Origin remain rejected. This is a local
+operator service, not multiuser auth.
 
 The service keeps at most 16 pending jobs and two workers by default. One job
 per project can be pending or active. Workers hold a shared local analysis

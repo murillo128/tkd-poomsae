@@ -197,6 +197,58 @@ def test_origin_host_and_csrf_policy(tmp_path: Path) -> None:
         assert response.status_code == 403
 
 
+def test_trusted_browser_origin_can_preflight_and_write(tmp_path: Path) -> None:
+    pipe = setup(tmp_path, Counter())
+    app = create_app(pipe, allowed_roots={"shared": tmp_path})
+    origin = "http://localhost:5173"
+    preflight = {
+        "origin": origin,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "x-tkd-local-request,content-type",
+    }
+    with TestClient(app, base_url="http://localhost:8000") as client:
+        response = client.options("/api/projects", headers=preflight)
+        assert response.status_code == 204
+        assert response.headers["access-control-allow-origin"] == origin
+        assert "POST" in response.headers["access-control-allow-methods"]
+        assert (
+            "x-tkd-local-request"
+            in response.headers["access-control-allow-headers"].lower()
+        )
+        response = client.get("/api/projects", headers={"origin": origin})
+        assert response.headers["access-control-allow-origin"] == origin
+        response = client.post(
+            "/api/projects/demo/runs",
+            json={"through": "ingest"},
+            headers={**WRITE, "origin": origin, "sec-fetch-site": "cross-site"},
+        )
+        assert response.status_code == 202
+        assert response.headers["access-control-allow-origin"] == origin
+        assert (
+            client.options(
+                "/api/projects", headers={**preflight, "origin": "https://evil.example"}
+            ).status_code
+            == 403
+        )
+        assert (
+            client.options(
+                "/api/projects",
+                headers={
+                    **preflight,
+                    "access-control-request-headers": "authorization",
+                },
+            ).status_code
+            == 403
+        )
+        assert (
+            client.options(
+                "/api/projects",
+                headers={**preflight, "host": "evil.example"},
+            ).status_code
+            == 400
+        )
+
+
 def test_conflict_cancellation_and_restart_recovery(tmp_path: Path) -> None:
     pipe = setup(tmp_path, Counter())
     entered, release = Event(), Event()
