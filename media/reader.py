@@ -296,9 +296,14 @@ def _probe(camera_id: str, path: Path) -> Recording:
         raise DecodeError(f"{path}: video probe/decode failed: {exc}") from exc
 
 
-def index_recording(camera_id: str, path: Path | str) -> Recording:
-    """Index one verified source for bounded, single-view media operations."""
-    return _probe(camera_id, Path(path).expanduser().resolve(strict=False))
+def index_recording(
+    camera_id: str, path: Path | str, *, preserve_path: bool = False
+) -> Recording:
+    """Index one source; preserve a caller-pinned descriptor path when requested."""
+    candidate = Path(path).expanduser()
+    return _probe(
+        camera_id, candidate if preserve_path else candidate.resolve(strict=False)
+    )
 
 
 def ingest(sources: Sequence[tuple[str, Path | str]]) -> IngestManifest:
