@@ -32,3 +32,7 @@ npm run build
 Core pytest cases reject network connections. To verify locked dependencies are already cached before running tests, use `UV_OFFLINE=1 uv run --frozen pytest`.
 
 The first package and client are skeletons. They do not ingest videos or produce motion artifacts. Product behavior and component ownership remain in `spec/`.
+
+The optional MMPose environment and model setup are documented in
+[`vision/README.md`](../vision/README.md). Core checks do not download models or
+install the vision stack.
