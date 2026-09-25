@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -16,8 +18,20 @@ from contracts.models import (
     RawScore,
     RegionalGeometry2D,
 )
+from pose.providers.mmpose.hand import (
+    SIDES,
+    HandObservation,
+    HandRefinementCache,
+    HandROIConfig,
+    crop_original,
+    identity_ambiguous,
+    localize_hand,
+    map_refinement,
+    missing_points,
+)
 from pose.providers.mmpose.mapping import CANONICAL, NAMES
 from pose.regions import RegionalProvider, WholebodyRegionalProvider
+from storage.store import StorageRoot, hash_config
 from tkd_poomsae.vision.assets import registry, verified_paths
 from tkd_poomsae.vision.device import DeviceCancelled, inference_job
 
@@ -43,6 +57,7 @@ class PersonCandidate:
     landmarks: tuple[NamedPoint, ...]
     refined_hands: dict[str, tuple[NamedPoint, ...]]
     refined_hand_boxes: dict[str, tuple[float, float, float, float]]
+    hand_observations: dict[str, HandObservation] = field(default_factory=dict)
     regional_geometry: tuple[RegionalGeometry2D, ...] = ()
 
 
@@ -166,6 +181,8 @@ class MMPoseAdapter:
         max_people: int = 4,
         detector_threshold: float = 0.3,
         max_frames: int = 32,
+        hand_roi: HandROIConfig | None = None,
+        hand_cache_root: Path | None = None,
         cancelled: Callable[[], bool] | None = None,
         _backend_factory: Callable[[str], Any] = _OpenMMLab,
         regional_provider: RegionalProvider | None = None,
@@ -176,6 +193,8 @@ class MMPoseAdapter:
         self.max_people = max_people
         self.detector_threshold = detector_threshold
         self.max_frames = max_frames
+        self.hand_roi = hand_roi or HandROIConfig()
+        self.hand_cache_root = hand_cache_root
         self.cancelled = cancelled
         self._backend_factory = _backend_factory
         self.regional_provider = regional_provider or WholebodyRegionalProvider()
@@ -247,51 +266,171 @@ class MMPoseAdapter:
                         points = _points(pose, NAMES)
                         refined: dict[str, tuple[NamedPoint, ...]] = {}
                         refined_boxes: dict[str, tuple[float, float, float, float]] = {}
-                        for side, start in (("left", 91), ("right", 112)):
-                            visible = np.array(
-                                [
-                                    p.xy_px
-                                    for p in points[start : start + 21]
-                                    if p.raw_score.value >= 0.2
-                                ]
+                        width, height = (
+                            recording.source.width_px,
+                            recording.source.height_px,
+                        )
+                        rois = {
+                            side: localize_hand(
+                                points, side, (width, height), self.hand_roi
                             )
-                            if len(visible) < 2:
-                                continue
-                            lo, hi = visible.min(axis=0), visible.max(axis=0)
-                            center = (lo + hi) / 2
-                            span = max(float(max(hi - lo)) * 1.5, 16.0)
-                            width, height = (
-                                recording.source.width_px,
-                                recording.source.height_px,
-                            )
-                            hand_box = np.array(
-                                [
-                                    [
-                                        max(0.0, center[0] - span / 2),
-                                        max(0.0, center[1] - span / 2),
-                                        min(float(width), center[0] + span / 2),
-                                        min(float(height), center[1] + span / 2),
-                                    ]
+                            for side in SIDES
+                        }
+                        ambiguous = identity_ambiguous(rois["left"], rois["right"])
+                        observations: dict[str, HandObservation] = {}
+                        manifest = registry()
+                        hand_spec = manifest["models"]["hand"]
+                        asset_hashes = {
+                            asset["path"]: asset["sha256"]
+                            for asset in manifest["assets"]
+                        }
+                        model_hash = hash_config(
+                            {
+                                "checkpoint_sha256": asset_hashes[
+                                    hand_spec["checkpoint"]
                                 ],
-                                dtype=np.float32,
-                            )
-                            if (
-                                hand_box[0, 2] <= hand_box[0, 0]
-                                or hand_box[0, 3] <= hand_box[0, 1]
-                            ):
-                                continue
-                            hand_samples = backend.pose(bgr, hand_box, hand=True)
-                            if len(hand_samples) != 1:
-                                raise ValueError(
-                                    "hand refinement returned wrong sample count"
+                                "config_sha256": asset_hashes[hand_spec["config"]],
+                                "framework_version": backend.framework_versions[
+                                    "mmpose"
+                                ],
+                            }
+                        )
+                        for side in SIDES:
+                            start = 91 if side == "left" else 112
+                            roi = rois[side]
+                            coarse = points[start : start + 21]
+                            if roi is None:
+                                observations[side] = HandObservation(
+                                    side,
+                                    coarse,
+                                    missing_points(side, "insufficient_source_detail"),
+                                    None,
+                                    "skipped",
+                                    ambiguous,
                                 )
-                            hand_names = NAMES[start : start + 21]
-                            refined[side] = _points(hand_samples[0], hand_names)
+                                continue
+                            crop = crop_original(bgr, roi)
+
+                            def run_hand() -> (
+                                tuple[np.ndarray, np.ndarray, np.ndarray | None] | None
+                            ):
+                                sample = backend.pose(
+                                    crop,
+                                    np.array(
+                                        [[0, 0, crop.shape[1], crop.shape[0]]],
+                                        dtype=np.float32,
+                                    ),
+                                    hand=True,
+                                )
+                                if not sample:
+                                    return None
+                                if len(sample) != 1:
+                                    raise ValueError(
+                                        "hand refinement returned wrong sample count"
+                                    )
+                                instances = sample[0].pred_instances
+                                xy = np.asarray(instances.keypoints)
+                                scores = np.asarray(instances.keypoint_scores)
+                                visible = getattr(instances, "keypoints_visible", None)
+                                if xy.shape != (1, 21, 2) or scores.shape != (1, 21):
+                                    raise ValueError("malformed 21-point hand topology")
+                                if visible is not None:
+                                    visible = np.asarray(visible)
+                                    if visible.shape != (1, 21):
+                                        raise ValueError(
+                                            "malformed hand visibility topology"
+                                        )
+                                return (
+                                    xy[0],
+                                    scores[0],
+                                    None if visible is None else visible[0],
+                                )
+
+                            cache_identity = None
+                            cache_root = self.hand_cache_root
+                            if cache_root is None and getattr(
+                                recording, "sha256", None
+                            ):
+                                cache_root = (
+                                    StorageRoot.from_env().namespace("derived")
+                                    / "hand-refinement-cache"
+                                )
+                            if cache_root is not None:
+                                identity = {
+                                    "source_sha256": getattr(recording, "sha256", None),
+                                    "frame_ordinal": decoded.ref.ordinal,
+                                    "frame_pts": decoded.ref.pts,
+                                    "side": side,
+                                    "crop_sha256": hashlib.sha256(
+                                        crop.tobytes()
+                                    ).hexdigest(),
+                                    "roi": asdict(roi),
+                                    "config": asdict(self.hand_roi),
+                                    "model_sha256": model_hash,
+                                }
+                                cache_identity, output = HandRefinementCache(
+                                    cache_root
+                                ).get_or_compute(identity, crop, run_hand)
+                            else:
+                                output = run_hand()
+                            if output is None:
+                                mapped = missing_points(side, "empty_model_result")
+                                status = "empty"
+                            else:
+                                wrist = (
+                                    coarse[0].xy_px
+                                    if coarse[0].raw_score.value
+                                    >= self.hand_roi.coarse_threshold
+                                    else None
+                                )
+                                mapped = map_refinement(
+                                    side,
+                                    *output,
+                                    roi,
+                                    (width, height),
+                                    self.hand_roi,
+                                    wrist,
+                                    coarse,
+                                )
+                                if ambiguous:
+                                    mapped = tuple(
+                                        replace(point, state="inferred")
+                                        if point.state == "observed"
+                                        else point
+                                        for point in mapped
+                                    )
+                                status = (
+                                    "refined"
+                                    if any(p.state == "observed" for p in mapped)
+                                    else "low_evidence"
+                                )
+                            observations[side] = HandObservation(
+                                side,
+                                coarse,
+                                mapped,
+                                roi,
+                                status,
+                                ambiguous,
+                                model_hash,
+                                cache_identity,
+                            )
+                            refined[side] = tuple(
+                                NamedPoint(
+                                    p.name,
+                                    p.xy_px,
+                                    _score(p.raw_score),
+                                    p.raw_visibility,
+                                )
+                                for p in mapped
+                                if p.state == "observed"
+                                and p.xy_px is not None
+                                and p.raw_score is not None
+                            )
                             refined_boxes[side] = (
-                                float(hand_box[0, 0]),
-                                float(hand_box[0, 1]),
-                                float(hand_box[0, 2]),
-                                float(hand_box[0, 3]),
+                                float(roi.xyxy_px[0]),
+                                float(roi.xyxy_px[1]),
+                                float(roi.xyxy_px[2]),
+                                float(roi.xyxy_px[3]),
                             )
                         candidate = PersonCandidate(
                             index,
@@ -300,6 +439,7 @@ class MMPoseAdapter:
                             points,
                             refined,
                             refined_boxes,
+                            observations,
                         )
                         candidates.append(
                             replace(
@@ -336,7 +476,7 @@ class MMPoseAdapter:
                         "max_people": self.max_people,
                         "detector_threshold": self.detector_threshold,
                         "max_frames": self.max_frames,
-                        "hand_threshold": 0.2,
+                        "hand_roi": asdict(self.hand_roi),
                         "coordinates": "display-oriented original pixels",
                     },
                 )

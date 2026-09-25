@@ -7,11 +7,21 @@ from pose.providers.mmpose.adapter import (
     PoseFrame,
     canonical_landmarks,
 )
+from pose.providers.mmpose.hand import (
+    HandObservation,
+    HandROI,
+    HandROIConfig,
+    RefinedPoint,
+)
 
 __all__ = [
     "MMPoseAdapter",
     "NamedPoint",
     "PersonCandidate",
     "PoseFrame",
+    "HandObservation",
+    "HandROI",
+    "HandROIConfig",
+    "RefinedPoint",
     "canonical_landmarks",
 ]
