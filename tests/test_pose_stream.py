@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from contracts.models import FrameTime, Observation, Provenance, RawScore
+from contracts.models import (
+    FrameTime,
+    Landmark2D,
+    Observation,
+    Provenance,
+    RawScore,
+    ViewRegionQuality,
+)
 from pose.providers.mmpose.adapter import (
     NamedPoint,
     PersonCandidate,
@@ -410,3 +417,72 @@ def test_out_of_frame_foot_geometry_is_retained_only_as_source() -> None:
     assert source_geometry["left_foot"].availability == "complete"
     assert source_geometry["left_foot"].axis_start_px == (480, 85)
     assert quality["right_foot"].usable
+
+
+def test_repeated_exchanged_hands_stay_ambiguous_and_mask_wrists() -> None:
+    def with_refined_hands(*, crossing: bool) -> PersonCandidate:
+        source = candidate(0, 50, crossing=crossing)
+        wrists = {point.name: point.xy_px for point in source.landmarks}
+        hands = {}
+        for side, coarse in (
+            ("left", source.landmarks[91:112]),
+            ("right", source.landmarks[112:133]),
+        ):
+            x = int(wrists[f"{side}_wrist"][0])
+            box = (x - 20, 0, x + 20, 100)
+            roi = HandROI(
+                side,  # type: ignore[arg-type]
+                box,
+                box,
+                PixelTransform(crop_x=x - 20, crop_width=40, crop_height=100),
+                1.0,
+                30.0,
+            )
+            start = 91 if side == "left" else 112
+            hands[side] = HandObservation(
+                side,  # type: ignore[arg-type]
+                coarse,
+                tuple(
+                    RefinedPoint(name, (float(x), 45.0), 0.8, 1.0, "observed")
+                    for name in NAMES[start : start + 21]
+                ),
+                roi,
+                "refined",
+                False,
+            )
+        return replace(source, hand_observations=hands)
+
+    tracker = PractitionerTracker()
+    initial = observe(tracker, frame(0, with_refined_hands(crossing=False)))
+    initial_quality = {item.part: item for item in initial.region_quality}
+    assert initial_quality["left_hand"].usable
+    assert initial_quality["right_hand"].usable
+    crossed = with_refined_hands(crossing=True)
+    for ordinal in (1, 2):
+        restored = Observation.model_validate_json(
+            observe(tracker, frame(ordinal, crossed)).model_dump_json()
+        )
+        quality: dict[str, ViewRegionQuality] = {
+            item.part: item for item in restored.region_quality
+        }
+        derived: dict[str, Landmark2D] = {
+            point.name: point for point in restored.landmarks
+        }
+        coarse = {point.name: point for point in restored.wholebody_landmarks}
+        assert restored.subject_selection is not None
+        assert restored.subject_selection.state == "selected"
+        for side in ("left", "right"):
+            assert not quality[f"{side}_hand"].usable
+            assert "anatomical_side_ambiguous" in quality[f"{side}_hand"].reasons
+            assert derived[f"{side}_index_tip"].xy_px is None
+            assert derived[f"{side}_wrist"].xy_px is None
+        assert "anatomical_side_ambiguous" in quality["body"].reasons
+        assert coarse["left_wrist"].xy_px == (110, 45)
+        assert coarse["right_wrist"].xy_px == (70, 45)
+    recovered = observe(tracker, frame(3, with_refined_hands(crossing=False)))
+    recovered_quality = {item.part: item for item in recovered.region_quality}
+    recovered_points = {point.name: point for point in recovered.landmarks}
+    assert recovered_quality["left_hand"].usable
+    assert recovered_quality["right_hand"].usable
+    assert recovered_points["left_wrist"].xy_px == (70, 45)
+    assert recovered_points["left_index_tip"].xy_px == (70, 45)

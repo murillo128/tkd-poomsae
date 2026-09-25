@@ -215,11 +215,12 @@ def _reconcile_geometry(
 
 
 class PractitionerTracker:
-    """One camera/source track with separate subject and trusted foot-side anchors."""
+    """One camera/source track with separate trusted anatomical side anchors."""
 
     def __init__(self, config: TrackingConfig | None = None) -> None:
         self.config = config or TrackingConfig()
         self._anchor: PersonCandidate | None = None
+        self._trusted_hand_anchor: PersonCandidate | None = None
         self._trusted_foot_anchor: PersonCandidate | None = None
         self._anchor_time: float | None = None
         self._camera: str | None = None
@@ -329,12 +330,20 @@ class PractitionerTracker:
             frame,
             selected,
             previous,
+            self._trusted_hand_anchor,
             self._trusted_foot_anchor,
             selection,
             artifact_id,
             provenance,
             self.config,
         )
+        observed: dict[str, Landmark2D] = {
+            point.name: point for point in observation.landmarks
+        }
+        if selected is not None and all(
+            observed[name].xy_px is not None for name in ("left_wrist", "right_wrist")
+        ):
+            self._trusted_hand_anchor = selected
         if selected is not None and all(
             any(
                 quality.part == part and quality.usable
@@ -354,6 +363,7 @@ def _assemble(
     frame: PoseFrame,
     selected: PersonCandidate | None,
     previous: PersonCandidate | None,
+    trusted_hand: PersonCandidate | None,
     trusted_foot: PersonCandidate | None,
     selection: SubjectSelection,
     artifact_id: str,
@@ -424,6 +434,7 @@ def _assemble(
             combined[point.name] = point.model_copy(
                 update={"xy_px": None, "quality": Quality(state="unknown")}
             )
+        ambiguous_hands = False
         for side in ("left", "right"):
             part = f"{side}_hand"
             hand = selected.hand_observations.get(side)
@@ -488,13 +499,22 @@ def _assemble(
                         and refined_point.raw_visibility < config.min_raw_visibility
                     ):
                         reasons[part].add("low_raw_visibility")
-            if _side_ambiguous(previous, selected, side):
+            if _side_ambiguous(trusted_hand, selected, side):
+                ambiguous_hands = True
                 reasons[part].add("anatomical_side_ambiguous")
                 for name, point in tuple(combined.items()):
                     if _part(name) == part:
                         combined[name] = point.model_copy(
                             update={"xy_px": None, "quality": Quality(state="unknown")}
                         )
+        if ambiguous_hands:
+            reasons["body"].add("anatomical_side_ambiguous")
+            for name in ("left_wrist", "right_wrist"):
+                wrist_point = combined.get(name)
+                if wrist_point is not None:
+                    combined[name] = wrist_point.model_copy(
+                        update={"xy_px": None, "quality": Quality(state="unknown")}
+                    )
         if _foot_side_ambiguous(trusted_foot, selected):
             for part in ("left_foot", "right_foot"):
                 reasons[part].add("anatomical_side_ambiguous")

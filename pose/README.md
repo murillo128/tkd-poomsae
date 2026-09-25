@@ -60,6 +60,9 @@ exchanged detector labels from becoming accepted on the next frame; recovery
 requires renewed consistent foot evidence. `source_regional_geometry` retains the provider's
 unmodified projection; `regional_geometry` is the accepted projection and does
 not expose axes for masked or out-of-frame source landmarks.
+A separate trusted wrist-side anchor similarly keeps repeated exchanged hand
+labels uncertain. Both derived wrists are masked while handedness is ambiguous;
+their raw wholebody coordinates remain available for inspection.
 
 The adapter uses verified local registry paths. It never provisions assets and
 has no whole-frame production fallback. OpenMMLab's topdown API receives the
