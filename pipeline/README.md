@@ -25,7 +25,7 @@ the named stage's generation to force a new immutable artifact and descendants.
 `stale`, with progress and diagnostics. A process killed during a stage has no
 published result; the next status/resume reports interruption and retries it.
 
-The explicit graph is `ingest → sync`, `ingest → calibration`, and
+The explicit graph is `ingest → sync → calibration`, and
 `ingest → observations`; `sync + observations → attachment` adds global time;
 `calibration + attachment → reconstruction → ground → parsing` follows. Thus
 `--through observations` can produce native-time 2D evidence without sync or
@@ -33,6 +33,13 @@ calibration. When 3D capability is unavailable, completed 2D artifacts remain
 readable. Feature packages install actual stage producers through `Pipeline`'s
 stage registry. Until then, default CLI producers return actionable `unavailable`
 status, never placeholder motion artifacts.
+
+The calibration slot can consume a persisted natural-scene candidate via stage
+settings `candidate`, optional `evidence`, and optional stricter `thresholds`.
+It requires the exact synchronization artifact and hashes candidate/evidence
+bytes into its key. A missing candidate leaves calibration unavailable; failed
+geometry or mismatched revisions are reported as failed while upstream artifacts
+remain available.
 
 Each producer receives its `ArtifactKey`, verified dependency handles, and
 effective settings, and returns `StageOutput` with a contract artifact, arrays,

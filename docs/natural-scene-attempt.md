@@ -37,3 +37,13 @@ or ground frame were accepted. Measured intrinsics were unavailable as well.
 
 The local diagnostic JSON files retain source hashes, sync identity, native
 frame PTS, and the observed outcomes without image pixels or copied media.
+
+Issue #18's publication gate was applied to those retained candidate records.
+The synchronized `smoke-short` record remains `unavailable` because its selected
+windows have no common global interval. The `demo-full` records remain
+`unavailable` because reciprocal matches were below the 24-point minimum; none
+contains accepted cameras or a bundle suitable for publication. The resulting
+capabilities are: camera geometry unavailable, ground/world frame unresolved,
+metric scale unresolved, and downstream world projection unavailable. The sync
+artifact and candidate diagnostic JSON remain usable for inspection. No
+calibration or reconstruction was fabricated from the frontal/lateral filenames.

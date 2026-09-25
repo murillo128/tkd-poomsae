@@ -711,11 +711,10 @@ def estimate_scene(
             break
     evidence["connected_cameras"] = sorted(poses)
     if pending:
-        return SceneCandidate(
-            "weak",
-            ["disconnected or unscaled camera overlap: " + ", ".join(sorted(pending))],
-            evidence=evidence,
-        )
+        evidence["excluded_cameras"] = {
+            camera: "disconnected or insufficient geometric overlap"
+            for camera in sorted(pending)
+        }
     if len(points) < 24:
         return SceneCandidate(
             "weak", ["insufficient triangulated static points"], evidence=evidence
@@ -794,6 +793,8 @@ def estimate_scene(
         reasons.append("bundle solution includes points behind a camera")
     camera_output = {}
     for view in views:
+        if view.camera_id not in poses:
+            continue
         pose = poses[view.camera_id]
         pixels = np.asarray(
             [
@@ -835,8 +836,13 @@ def estimate_scene(
         for pid, point in points.items()
     ]
     return SceneCandidate(
-        "weak" if reasons else "candidate",
-        reasons,
+        "weak" if reasons or pending else "candidate",
+        reasons
+        + (
+            ["disconnected camera overlap: " + ", ".join(sorted(pending))]
+            if pending
+            else []
+        ),
         camera_output,
         point_output,
         evidence,

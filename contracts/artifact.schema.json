@@ -69,6 +69,15 @@
     "Calibration": {
       "additionalProperties": false,
       "properties": {
+        "camera_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Camera Status",
+          "type": "string"
+        },
         "cameras": {
           "items": {
             "$ref": "#/$defs/CameraCalibration"
@@ -76,6 +85,20 @@
           "minItems": 2,
           "title": "Cameras",
           "type": "array"
+        },
+        "evidence_links": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Links",
+          "type": "array"
+        },
+        "excluded_cameras": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Excluded Cameras",
+          "type": "object"
         },
         "ground_frame": {
           "anyOf": [
@@ -119,11 +142,35 @@
           "title": "Kind",
           "type": "string"
         },
+        "projection_debug": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Projection Debug",
+          "type": "array"
+        },
         "provenance": {
           "$ref": "#/$defs/Provenance"
         },
+        "publication_status": {
+          "default": "partial",
+          "enum": [
+            "complete",
+            "partial"
+          ],
+          "title": "Publication Status",
+          "type": "string"
+        },
         "quality": {
           "$ref": "#/$defs/Quality"
+        },
+        "quality_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
         },
         "scale": {
           "enum": [

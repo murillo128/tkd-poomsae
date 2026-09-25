@@ -53,7 +53,7 @@ STAGE_LAYERS = {
 DEPENDENCIES = {
     "ingest": (),
     "sync": ("ingest",),
-    "calibration": ("ingest",),
+    "calibration": ("ingest", "sync"),
     "observations": ("ingest",),
     "attachment": ("sync", "observations"),
     "reconstruction": ("calibration", "attachment"),
@@ -109,16 +109,65 @@ def _unavailable(name: str) -> Producer:
     return produce
 
 
+def _scene_calibration(
+    _key: ArtifactKey,
+    inputs: Mapping[str, ArtifactHandle],
+    settings: Mapping[str, Any],
+) -> StageOutput:
+    """Publish a precomputed natural-scene candidate under the runner key."""
+    from calibration.ground import GroundEvidence, SizeEvidence, resolve_scene
+    from calibration.natural import SceneCandidate
+    from calibration.quality import QualityThresholds, require_synchronization
+
+    if "candidate" not in settings:
+        raise CapabilityUnavailable("calibration requires a persisted scene candidate")
+    candidate_path = Path(settings["candidate"])
+    if not candidate_path.is_file():
+        raise CapabilityUnavailable(
+            f"calibration candidate is missing: {candidate_path}"
+        )
+    data = _read_json(candidate_path)
+    if data.get("schema_version") != 1 or data.get("route") != "natural_scene_v1":
+        raise ValueError("unsupported natural-scene candidate")
+    candidate = SceneCandidate(
+        status=data["status"],
+        reasons=data["reasons"],
+        cameras=data["cameras"],
+        static_points=data["static_points"],
+        evidence=data["evidence"],
+    )
+    sync = inputs["sync"].metadata
+    if not isinstance(sync, Synchronization):
+        raise ValueError("calibration requires a synchronization artifact")
+    require_synchronization(candidate, sync)
+    if "evidence" in settings and not Path(settings["evidence"]).is_file():
+        raise CapabilityUnavailable("calibration evidence file is missing")
+    supplied = _read_json(Path(settings["evidence"])) if "evidence" in settings else {}
+    if set(supplied) - {"ground", "size"}:
+        raise ValueError("calibration evidence may contain only ground and size")
+    ground = GroundEvidence(**supplied["ground"]) if "ground" in supplied else None
+    size = SizeEvidence(**supplied["size"]) if "size" in supplied else None
+    thresholds = QualityThresholds(**settings.get("thresholds", {}))
+    calibration = resolve_scene(candidate, ground, size, thresholds)
+    return StageOutput(calibration, diagnostics=tuple(calibration.quality_flags))
+
+
 def default_stages() -> tuple[Stage, ...]:
     """Explicit stage slots; feature packages replace producers as they land."""
     return tuple(
         Stage(
             name,
-            _unavailable(name),
+            _scene_calibration if name == "calibration" else _unavailable(name),
             STAGE_LAYERS[name],
             DEPENDENCIES[name],
             capability_reason=f"{name} producer is not installed; provision it offline",
-            revision="solver-v1-cues-v1" if name == "sync" else "1",
+            revision=(
+                "solver-v1-cues-v1"
+                if name == "sync"
+                else "scene-quality-v1"
+                if name == "calibration"
+                else "1"
+            ),
         )
         for name in STAGE_ORDER
     )
@@ -238,6 +287,16 @@ class Pipeline:
             inputs = {dep: keys[dep].digest for dep in stage.dependencies}
             if name == "ingest":
                 inputs.update(source_hashes)
+            if name == "calibration":
+                settings = state["config"].get("calibration", {})
+                for asset in ("candidate", "evidence"):
+                    if asset in settings:
+                        path = Path(settings[asset])
+                        inputs[asset] = (
+                            hash_file(path)
+                            if path.is_file()
+                            else hash_config({"missing": asset, "path": str(path)})
+                        )
             keys[name] = ArtifactKey(
                 layer=stage.layer,
                 inputs=inputs,
