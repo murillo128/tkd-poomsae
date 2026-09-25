@@ -287,6 +287,22 @@ def test_pending_queue_is_bounded_and_can_cancel_before_execution(
             )
             cancelled = client.post(f"/api/runs/{second}/cancel", headers=WRITE)
             assert cancelled.json()["status"] == "cancelled"
+            replacement = client.post(
+                "/api/projects/third/runs",
+                json={"through": "ingest"},
+                headers=WRITE,
+            )
+            assert replacement.status_code == 202
+            replacement_id = replacement.json()["id"]
+            assert (
+                client.get(f"/api/runs/{replacement_id}").json()["status"] == "queued"
+            )
+            assert (
+                client.post(f"/api/runs/{replacement_id}/cancel", headers=WRITE).json()[
+                    "status"
+                ]
+                == "cancelled"
+            )
         finally:
             release.set()
         assert wait_for(client, first, "complete")["status"] == "complete"

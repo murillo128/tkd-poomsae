@@ -5,11 +5,11 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-import queue
 import re
 import tempfile
 import threading
 import uuid
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -59,8 +59,11 @@ class JobQueue:
         self.pipeline = pipeline
         self.directory = pipeline.store.root.namespace("runs") / "service-jobs"
         self.workers = workers
-        self.pending: queue.Queue[str | None] = queue.Queue(maxsize=capacity)
+        self.capacity = capacity
+        self.pending: deque[str] = deque()
         self.lock = threading.RLock()
+        self.ready = threading.Condition(self.lock)
+        self.stopping = False
         self.threads: list[threading.Thread] = []
         self.active: dict[str, str] = {}
         self.service_lock: Any = None
@@ -74,6 +77,7 @@ class JobQueue:
             self.service_lock.close()
             raise RuntimeError("another local service owns this data root") from exc
         with self.lock:
+            self.stopping = False
             for path in self.directory.glob("*.json"):
                 record = json.loads(path.read_text(encoding="utf-8"))
                 if record["status"] in {"queued", "running"}:
@@ -90,24 +94,16 @@ class JobQueue:
             self.threads.append(worker)
 
     def stop(self) -> None:
-        with self.lock:
-            while True:
-                try:
-                    job_id = self.pending.get_nowait()
-                except queue.Empty:
-                    break
-                if job_id is not None:
-                    record = self._read(job_id)
-                    if record["status"] == "queued":
-                        record.update(
-                            status="interrupted",
-                            error=INTERRUPTED,
-                        )
-                        _save(self._path(job_id), record)
-                        self.active.pop(record["project"], None)
-                self.pending.task_done()
-        for _ in self.threads:
-            self.pending.put(None)
+        with self.ready:
+            self.stopping = True
+            while self.pending:
+                job_id = self.pending.popleft()
+                record = self._read(job_id)
+                if record["status"] == "queued":
+                    record.update(status="interrupted", error=INTERRUPTED)
+                    _save(self._path(job_id), record)
+                    self.active.pop(record["project"], None)
+            self.ready.notify_all()
         for worker in self.threads:
             worker.join()
         self.threads.clear()
@@ -131,7 +127,7 @@ class JobQueue:
         with self.lock:
             if project in self.active:
                 raise BusyProject(f"project {project} already has an active run")
-            if self.pending.full():
+            if len(self.pending) >= self.capacity:
                 raise QueueFull("local analysis queue is full")
             self.pipeline._directory(project).joinpath("cancel.request").unlink(
                 missing_ok=True
@@ -149,7 +145,8 @@ class JobQueue:
                 },
             )
             self.active[project] = job_id
-            self.pending.put_nowait(job_id)
+            self.pending.append(job_id)
+            self.ready.notify()
             return job_id
 
     def get(self, job_id: str) -> dict[str, Any]:
@@ -163,6 +160,7 @@ class JobQueue:
         with self.lock:
             record = self._read(job_id)
             if record["status"] == "queued":
+                self.pending.remove(job_id)
                 record.update(status="cancelled", error="cancelled before execution")
                 _save(self._path(job_id), record)
                 self.active.pop(record["project"], None)
@@ -173,12 +171,14 @@ class JobQueue:
             return record
 
     def _work(self) -> None:
-        while (job_id := self.pending.get()) is not None:
-            with self.lock:
+        while True:
+            with self.ready:
+                while not self.pending and not self.stopping:
+                    self.ready.wait()
+                if self.stopping:
+                    return
+                job_id = self.pending.popleft()
                 record = self._read(job_id)
-                if record["status"] != "queued":
-                    self.pending.task_done()
-                    continue
                 record["status"] = "running"
                 _save(self._path(job_id), record)
             try:
@@ -216,4 +216,3 @@ class JobQueue:
                     _save(self._path(job_id), record)
                     if self.active.get(record["project"]) == job_id:
                         del self.active[record["project"]]
-                self.pending.task_done()
