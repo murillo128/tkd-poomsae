@@ -24,3 +24,37 @@ Silence, absent audio, low motion, low contrast, clipping, missing spans,
 continuous noise and probable camera shake are reported rather than promoted
 to confident anchors. A camera-shake diagnostic signals a possible violation
 of the fixed-camera assumption; it does not silently repair the recording.
+
+## Constant-offset alignment
+
+`sources_from_manifest(manifest, cues_by_source_id)` binds cues to the exact
+ingested source hashes and native frame intervals. `solve_offsets(sources)`
+correlates audio and motion over candidate fractional shifts, checks useful
+overlap windows and competing peaks, then solves a connected set of pairwise
+offsets. The selected timing reference has offset zero. Pair estimates retain
+scores, peak separation, window scores, cue kinds, overlap and rejection reasons.
+An ambiguous or weak pair is not treated as reliable. Cameras with inconsistent
+or insufficient evidence are excluded only when two usable overlapping views
+remain; otherwise `TimelineFailure` explains why no timeline was published.
+
+`global_time = source_time + effective_seconds`. Candidate resolution is the
+slower sample interval of each cue pair; tests accept errors within two 50 ms
+sample intervals. There is one constant offset per source. `source_interval`,
+`global_interval`, `common_interval`, and explicit exclusion reasons are stored
+in the synchronization artifact. An excluded source has no automatic offset;
+its quality is `unknown`.
+
+`publish_offsets(store, key, sources)` writes the result through the immutable
+artifact store. For a registered project, `tkd-poomsae sync-solve PROJECT`
+indexes the source recordings, extracts cached cues, and publishes that artifact
+under the runner's synchronization key. It fails explicitly if a reliable shared
+timeline cannot be established. Original media and native-time cues remain
+untouched.
+
+`tkd-poomsae sync-offset PROJECT SOURCE_ID OFFSET_SECONDS --author NAME
+--source METHOD --reason TEXT` records an absolute manual revision in runner
+state. A later `sync-solve` publishes its effective offset while retaining the
+automatic estimate and its quality separately. The CLI source ID here is the
+registered camera name. Revision history survives reload and invalidates sync,
+attachment, reconstruction, ground and parsing. Ingest, calibration, and
+native-time observations remain reusable.

@@ -12,6 +12,8 @@ tkd-poomsae status demo
 tkd-poomsae resume demo --through parsing
 tkd-poomsae rerun demo observations --through parsing
 tkd-poomsae cancel demo
+tkd-poomsae sync-solve demo
+tkd-poomsae sync-offset demo right -0.125 --author operator --source visual --reason "event alignment"
 ```
 
 `--config settings.json` on `analyze` accepts stage-specific effective settings,

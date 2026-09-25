@@ -27,8 +27,9 @@ export interface Quality { score?: number | null; uncertainty?: number | null; s
 export interface DenseArray { id: string; dtype: 'float32' | 'float64' | 'int32' | 'int64' | 'uint8' | 'bool'; shape: number[]; axes: string[]; unit?: string | null; missing_mask_id?: string | null }
 export interface Project extends ArtifactBase { kind: 'project'; source_ids: string[]; participant_ids: string[] }
 export interface Source extends ArtifactBase { kind: 'source'; camera_id: string; width_px: number; height_px: number; time_base_num: number; time_base_den: number }
-export interface SyncOffset { source_id: string; automatic_seconds: number; manual_correction_seconds?: number | null; quality: Quality }
-export interface Synchronization extends ArtifactBase { kind: 'synchronization'; offsets: SyncOffset[] }
+export interface SyncOffset { source_id: string; automatic_seconds: number | null; manual_correction_seconds?: number | null; manual_seconds?: number | null; manual_author?: string | null; manual_source?: string | null; manual_reason?: string | null; retained?: boolean; exclusion_reason?: string | null; source_interval?: Interval | null; global_interval?: Interval | null; quality: Quality }
+export interface PairEstimate { first: string; second: string; shift_seconds: number | null; score: number; peak_separation: number; overlap_seconds: number; window_scores: number[]; cue_kinds: string[]; reliable: boolean; diagnostics: string[] }
+export interface Synchronization extends ArtifactBase { kind: 'synchronization'; offsets: SyncOffset[]; reference_source_id?: string | null; common_interval?: Interval | null; pair_estimates?: PairEstimate[]; diagnostics?: string[] }
 export interface FrameTime { source_id: string; camera_id: string; frame_index?: number | null; pts?: number | null; time_base_num?: number | null; time_base_den?: number | null; source_seconds: number; offset_seconds: number; global_seconds: number }
 export interface Intrinsics { fx: number; fy: number; cx: number; cy: number; distortion?: number[] }
 export interface CameraCalibration { camera_id: string; source_id: string; intrinsics: Intrinsics; world_to_camera: number[][]; quality: Quality; intrinsic_source?: 'estimated' | 'imported' | null; capture_ids?: string[]; corner_count?: number | null; rms_reprojection_px?: number | null; pose_ambiguity_px?: number | null }
