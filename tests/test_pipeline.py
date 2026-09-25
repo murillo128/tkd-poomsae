@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 
 import pytest
@@ -169,6 +170,34 @@ def test_resume_interruption_and_cancel(tmp_path: Path) -> None:
     assert cancelled["cancel_requested"]
     pipe.stages["sync"] = original
     assert pipe.analyze("demo", "attachment")["stages"]["sync"]["status"] == "complete"
+
+
+def test_status_keeps_active_producer_running(tmp_path: Path) -> None:
+    counts: Counter[str] = Counter()
+    pipe = setup(tmp_path, counts)
+    entered, release = Event(), Event()
+    original = pipe.stages["ingest"]
+
+    def wait_in_producer(key: ArtifactKey, inputs: Any, settings: Any) -> StageOutput:
+        entered.set()
+        assert release.wait(5)
+        return original.producer(key, inputs, settings)
+
+    pipe.stages["ingest"] = Stage(
+        "ingest", wait_in_producer, STAGE_LAYERS["ingest"], DEPENDENCIES["ingest"]
+    )
+    worker = Thread(target=lambda: pipe.analyze("demo", "ingest"))
+    worker.start()
+    try:
+        assert entered.wait(5)
+        live = pipe.status("demo")["stages"]["ingest"]
+        assert live["status"] == "running"
+        assert live["diagnostics"] == []
+    finally:
+        release.set()
+        worker.join(5)
+    assert not worker.is_alive()
+    assert pipe.status("demo")["stages"]["ingest"]["status"] == "complete"
 
 
 def test_unavailable_calibration_preserves_native_observations(tmp_path: Path) -> None:

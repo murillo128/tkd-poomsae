@@ -227,16 +227,15 @@ class Pipeline:
             )
         return keys
 
-    def status(self, project: str) -> dict[str, Any]:
+    def _load_status(self, project: str, *, runner_active: bool) -> dict[str, Any]:
         project_path, state_path = self._files(project)
         state = _read_json(state_path)
         state["cancel_requested"] = state["cancel_requested"] or self._cancelled(
             project
         )
-        # A killed process cannot leave a truthful running status.
         keys = self._expected_keys(_read_json(project_path), state)
         for name, record in state["stages"].items():
-            if record["status"] == "running":
+            if record["status"] == "running" and not runner_active:
                 record["status"] = "failed"
                 record["diagnostics"] = ["interrupted before artifact publication"]
             elif record.get("key") and record["key"] != keys[name].digest:
@@ -244,6 +243,20 @@ class Pipeline:
                 record["progress"] = 0
                 record["diagnostics"] = ["inputs or revision changed"]
         return state
+
+    def status(self, project: str) -> dict[str, Any]:
+        lock_path = self._directory(project) / "run.lock"
+        with lock_path.open("a+b") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                # An analyzer still owns the project lease. Read its atomic
+                # snapshot without classifying the live stage as interrupted.
+                return self._load_status(project, runner_active=True)
+            try:
+                return self._load_status(project, runner_active=False)
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
     def cancel(self, project: str) -> None:
         # Cancellation is a separate file so it can be set while the run lock is held.
@@ -289,7 +302,7 @@ class Pipeline:
         directory = state_path.parent
         with (directory / "run.lock").open("a+b") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            state = self.status(project)
+            state = self._load_status(project, runner_active=False)
             if config is not None:
                 if set(config) - set(STAGE_ORDER) or any(
                     not isinstance(value, Mapping) for value in config.values()
