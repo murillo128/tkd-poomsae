@@ -47,3 +47,10 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = '-m "not local_data and not full_data and not model_required"'
+markers = [
+  "synthetic: generated or in-memory unit inputs",
+  "local_data: requires registered local dataset; never fetches",
+  "full_data: processes every registered form; requires local data",
+  "model_required: requires provisioned model assets/runtime",
+]

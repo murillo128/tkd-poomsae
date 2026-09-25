@@ -8,9 +8,12 @@ from dataclasses import asdict
 from pathlib import Path
 
 from pipeline import Pipeline
+from storage.store import StorageError
 from tkd_poomsae.dataset import MendeleyDatasetProvider, UnsupportedVersion
 from tkd_poomsae.dataset_bootstrap import AcquisitionError, bootstrap, verify
 from tkd_poomsae.dataset_import import inventory, register_all
+from tkd_poomsae.media_variants import VariantRecipe, materialize
+from tkd_poomsae.selections import catalog, resolve
 
 
 def main() -> int:
@@ -49,6 +52,17 @@ def main() -> int:
     dataset_commands.add_parser(
         "register", help="Register all local Mendeley projects and shared sources"
     )
+    dataset_selections = dataset_commands.add_parser(
+        "selections", help="List or resolve pinned virtual media windows"
+    )
+    dataset_selections.add_argument("name", nargs="?")
+    dataset_variant = dataset_commands.add_parser(
+        "variant", help="Generate or reuse a shared derived media variant"
+    )
+    dataset_variant.add_argument("selection")
+    dataset_variant.add_argument("execution")
+    dataset_variant.add_argument("camera")
+    dataset_variant.add_argument("--recipe", type=Path, required=True)
     register = subcommands.add_parser("register", help="Register a local project")
     register.add_argument("project")
     register.add_argument("--source", action="append", required=True, metavar="ID=PATH")
@@ -109,6 +123,42 @@ def main() -> int:
             args.output.write_text(output, encoding="utf-8")
         else:
             print(output, end="")
+        return 0
+    if args.command == "datasets" and args.dataset_command in {"selections", "variant"}:
+        try:
+            if args.dataset_command == "selections":
+                result = (
+                    {"selections": catalog()}
+                    if args.name is None
+                    else {
+                        "name": args.name,
+                        "windows": [
+                            {**asdict(window), "source_path": str(window.source_path)}
+                            for window in resolve(args.name)
+                        ],
+                    }
+                )
+            else:
+                windows = resolve(args.selection)
+                matches = [
+                    window
+                    for window in windows
+                    if window.execution_id == args.execution
+                    and window.camera_id == args.camera
+                ]
+                if len(matches) != 1:
+                    raise ValueError("selection has no unique execution/camera window")
+                recipe = VariantRecipe(**json.loads(args.recipe.read_text()))
+                variant = materialize(matches[0], recipe)
+                result = {
+                    "path": str(variant.path),
+                    "cache_hit": variant.cache_hit,
+                    "manifest": variant.manifest,
+                }
+        except (OSError, ValueError, RuntimeError, TypeError, StorageError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     if args.command == "datasets" and args.dataset_command in {"bootstrap", "verify"}:
         try:
