@@ -66,6 +66,10 @@ class CapabilityUnavailable(RuntimeError):
     """A required offline producer, model, or resource is unavailable."""
 
 
+class RevisionConflict(ValueError):
+    """An application mutation targeted an outdated revision."""
+
+
 class RunCancelled(RuntimeError):
     """A persisted cancellation request stopped the run."""
 
@@ -380,6 +384,8 @@ class Pipeline:
         author: str,
         source: str,
         reason: str,
+        expected_revision: int | None = None,
+        synchronization: Synchronization | None = None,
     ) -> dict[str, Any]:
         """Persist an auditable absolute manual offset and stale timed descendants."""
         if not math.isfinite(offset_seconds) or not all(
@@ -394,11 +400,29 @@ class Pipeline:
             if source_id not in project_data["sources"]:
                 raise ValueError(f"unknown source: {source_id}")
             state = self._load_status(project, runner_active=False)
+            current_revision = len(state.get("sync_revisions", []))
+            if expected_revision is not None and (
+                isinstance(expected_revision, bool)
+                or not isinstance(expected_revision, int)
+                or expected_revision != current_revision
+            ):
+                raise RevisionConflict(
+                    f"stale sync revision: expected {expected_revision}, "
+                    f"current {current_revision}"
+                )
             sync_key = self._expected_keys(project_data, state)["sync"]
+            current_sync: ArtifactBase | None
             try:
                 current_sync = self.store.get(sync_key).metadata
             except MissingResource:
-                current_sync = None
+                current_sync = synchronization
+            if synchronization is not None:
+                source_ids = {
+                    f"source:{hash_file(Path(path))}"
+                    for path in project_data["sources"].values()
+                }
+                if {o.source_id for o in synchronization.offsets} != source_ids:
+                    raise RevisionConflict("registered synchronization sources changed")
             if (
                 isinstance(current_sync, Synchronization)
                 and current_sync.reference_source_id

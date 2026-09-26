@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -111,10 +112,45 @@ class MediaAccess:
         self._indexes: OrderedDict[
             tuple[str, str, str, int, int, int, int, int], Recording
         ] = OrderedDict()
+        self._source_hashes: OrderedDict[
+            tuple[str, tuple[int, int, int, int, int]], str
+        ] = OrderedDict()
         self._previews: OrderedDict[tuple[str, int], bytes] = OrderedDict()
         self.streams = BoundedSemaphore(4)
         self.decoders = BoundedSemaphore(2)
         self._preview_dir = pipe.store.root.namespace("derived") / "media-previews-v1"
+
+    def source_hashes(self, project: str) -> dict[str, str]:
+        """Authorize registered files before hashing; retain 128 inode identities.
+
+        No decoder or video index is needed to authorize persisted artifact reads.
+        Every cache hit still pins and authorizes the actual open file descriptor.
+        """
+        project_file, _ = self.pipe._files(project)
+        sources = json.loads(project_file.read_text(encoding="utf-8"))["sources"]
+        hashes: dict[str, str] = {}
+        for camera, registered in sources.items():
+            path = Path(registered).resolve(strict=True)
+            identity = self._identity(path.stat())
+            key = (str(path), identity)
+            with self._open_checked(path, identity) as stream:
+                with self._lock:
+                    digest = self._source_hashes.get(key)
+                    if digest is not None:
+                        self._source_hashes.move_to_end(key)
+                if digest is None:
+                    hasher = hashlib.sha256()
+                    for block in iter(lambda: stream.read(1024 * 1024), b""):
+                        hasher.update(block)
+                    if self._identity(os.fstat(stream.fileno())) != identity:
+                        raise MediaAccessError(409, "source changed while hashing")
+                    digest = hasher.hexdigest()
+                    with self._lock:
+                        self._source_hashes[key] = digest
+                        while len(self._source_hashes) > 128:
+                            self._source_hashes.popitem(last=False)
+                hashes[camera] = digest
+        return hashes
 
     def _remember(self, key: tuple[str, int], content: bytes) -> None:
         with self._lock:

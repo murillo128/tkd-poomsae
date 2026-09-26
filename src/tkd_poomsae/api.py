@@ -473,6 +473,10 @@ def create_app(
         except (ValueError, FileNotFoundError) as exc:
             raise HTTPException(404, "unknown run") from exc
 
+    from tkd_poomsae.inspection import Inspection
+    from tkd_poomsae.inspection_api import routes
+
+    routes(service, Inspection(pipe, source_hashes=media.source_hashes), media)
     return service
 
 

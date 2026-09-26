@@ -67,6 +67,11 @@ def main() -> int:
     register = subcommands.add_parser("register", help="Register a local project")
     register.add_argument("project")
     register.add_argument("--source", action="append", required=True, metavar="ID=PATH")
+    inspection = subcommands.add_parser(
+        "inspection-register", help="Index existing products for bounded inspection"
+    )
+    inspection.add_argument("project")
+    inspection.add_argument("--artifacts", type=Path, required=True)
     analyze = subcommands.add_parser("analyze", help="Analyze through a stage")
     analyze.add_argument("project")
     analyze.add_argument("--through", default="parsing")
@@ -318,6 +323,23 @@ def main() -> int:
                 raise ValueError("source identifiers must be unique")
             pipeline.register(args.project, sources)
             result = pipeline.status(args.project)
+        elif args.command == "inspection-register":
+            from storage import ArtifactKey
+            from tkd_poomsae.inspection import Inspection
+
+            data = json.loads(args.artifacts.read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or set(data) - {"products", "observations"}:
+                raise ValueError(
+                    "artifact bundle must contain products and observations"
+                )
+            Inspection(pipeline).register(
+                args.project,
+                {name: ArtifactKey(**key) for name, key in data["products"].items()},
+                observations=(
+                    ArtifactKey(**key) for key in data.get("observations", [])
+                ),
+            )
+            result = {"project": args.project, "inspection_registered": True}
         elif args.command == "status":
             result = pipeline.status(args.project)
         elif args.command == "cancel":
@@ -353,7 +375,14 @@ def main() -> int:
             )
             else 0
         )
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (
+        OSError,
+        ValueError,
+        RuntimeError,
+        TypeError,
+        KeyError,
+        StorageError,
+    ) as exc:
         print(f"tkd-poomsae: {exc}", file=sys.stderr)
         return 1
 
