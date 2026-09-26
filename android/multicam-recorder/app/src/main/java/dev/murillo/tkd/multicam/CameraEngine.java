@@ -3,6 +3,8 @@ package dev.murillo.tkd.multicam;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContentValues;
+import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCaptureSession;
@@ -18,6 +20,8 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Environment;
+import android.provider.MediaStore;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
@@ -30,6 +34,9 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -614,7 +621,10 @@ public final class CameraEngine {
         }
 
         writeMetadata();
-        String videoPath = videoFile == null ? null : videoFile.getAbsolutePath();
+        String videoPath = publishVideoToGallery();
+        if (videoPath == null && videoFile != null) {
+            videoPath = videoFile.getAbsolutePath();
+        }
         String jsonPath = metadataFile == null ? null : metadataFile.getAbsolutePath();
 
         closeAll();
@@ -623,6 +633,62 @@ public final class CameraEngine {
 
         status("STOPPED · " + (videoPath == null ? "no video" : videoPath));
         activity.runOnUiThread(() -> listener.onCameraStopped(videoPath, jsonPath));
+    }
+
+    private String publishVideoToGallery() {
+        if (videoFile == null || !videoFile.exists() || videoFile.length() == 0) {
+            status("Gallery publish skipped: no video file");
+            return null;
+        }
+
+        if (Build.VERSION.SDK_INT < 29) {
+            status("Gallery publish uses app path on Android < 10");
+            return videoFile.getAbsolutePath();
+        }
+
+        ContentResolver resolver = activity.getContentResolver();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Video.Media.DISPLAY_NAME, videoFile.getName());
+        values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+        values.put(MediaStore.Video.Media.RELATIVE_PATH,
+                Environment.DIRECTORY_MOVIES + "/TKDPoomsae");
+        values.put(MediaStore.Video.Media.IS_PENDING, 1);
+
+        Uri uri = null;
+        try {
+            uri = resolver.insert(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) {
+                status("Gallery publish failed: MediaStore insert returned null");
+                return null;
+            }
+
+            try (InputStream in = new FileInputStream(videoFile);
+                 OutputStream out = resolver.openOutputStream(uri, "w")) {
+                if (out == null) {
+                    throw new IllegalStateException("MediaStore output stream is null");
+                }
+                byte[] buffer = new byte[1024 * 1024];
+                int read;
+                while ((read = in.read(buffer)) >= 0) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+            }
+
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.Video.Media.IS_PENDING, 0);
+            resolver.update(uri, done, null, null);
+
+            status("Published to Gallery: Movies/TKDPoomsae/" + videoFile.getName());
+            return uri.toString();
+        } catch (Exception e) {
+            status("Gallery publish warning: " + describe(e));
+            if (uri != null) {
+                try { resolver.delete(uri, null, null); } catch (Exception ignored) {}
+            }
+            return null;
+        }
     }
 
     private void writeMetadata() {
