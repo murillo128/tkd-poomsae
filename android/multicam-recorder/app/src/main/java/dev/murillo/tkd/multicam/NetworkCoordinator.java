@@ -486,18 +486,35 @@ public final class NetworkCoordinator {
 
     private void sendBroadcast(JSONObject j) throws Exception {
         byte[] data = j.toString().getBytes(StandardCharsets.UTF_8);
-
-        List<InetAddress> targets = new ArrayList<>();
-        targets.add(InetAddress.getByName("255.255.255.255"));
+        Exception lastError = null;
+        boolean sent = false;
 
         InetAddress subnet = getWifiBroadcastAddress();
-        if (subnet != null && !"255.255.255.255".equals(subnet.getHostAddress())) {
-            targets.add(subnet);
+        if (subnet != null) {
+            try {
+                DatagramPacket packet = new DatagramPacket(data, data.length, subnet, PORT);
+                socket.send(packet);
+                sent = true;
+            } catch (Exception e) {
+                lastError = e;
+            }
         }
 
-        for (InetAddress target : targets) {
-            DatagramPacket packet = new DatagramPacket(data, data.length, target, PORT);
-            socket.send(packet);
+        try {
+            InetAddress global = InetAddress.getByName("255.255.255.255");
+            if (subnet == null || !global.equals(subnet)) {
+                DatagramPacket packet = new DatagramPacket(data, data.length, global, PORT);
+                socket.send(packet);
+                sent = true;
+            }
+        } catch (Exception e) {
+            // Some Samsung/Android builds reject limited broadcast with EPERM.
+            // Subnet broadcast above is enough when available.
+            lastError = e;
+        }
+
+        if (!sent && lastError != null) {
+            throw lastError;
         }
     }
 
