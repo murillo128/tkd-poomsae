@@ -42,6 +42,8 @@ The browser suite captures `test-results/**/rendered-panel.png`; CI retains it
 as the `web-browser-evidence` artifact. Compact recorded evidence is in
 [docs/evidence/issue-45](../docs/evidence/issue-45/README.md).
 
-The browser suite always launches its own Vite server with a strict port. If
-another worktree uses 5173, run `TKD_BROWSER_PORT=5185 npm run test:browser`
-(or choose another free port); an unrelated server is never reused as evidence.
+The browser projects run both the ground and 3D suites, each owning a Vite server
+with a strict port. If another worktree uses 5173 or 5186, run
+`TKD_BROWSER_PORT=5185 GROUND_PORT=5286 npm run test:browser` (or choose other free
+ports); an unrelated server is never reused as evidence. Ground evidence and
+custom browser settings retain `GROUND_EVIDENCE_DIR` and `CHROMIUM_PATH`.
