@@ -32,3 +32,8 @@ revision conflicts, unavailable/stale state and incompatible reconstruction fram
 Intentional limits: bounded native trajectory page (256 rows / two seconds),
 16 displayed cameras, no off-grid pose interpolation, pinhole frusta without lens
 distortion, no fitted mesh. Limits and missing inputs remain visible in the panel.
+
+Local validation: 13 web unit tests, 2 browser tests, 19 focused API tests,
+581 Python tests (6 capability suites deselected by the repository defaults),
+web/portable-contract type checks, build, Ruff and mypy passed. The Vite build
+reports the existing default chunk-size warning for the renderer bundle.

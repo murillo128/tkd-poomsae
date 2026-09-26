@@ -12,6 +12,7 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
 }) {
   const [data, setData] = useState<GeometryData | null>(null)
   const [message, setMessage] = useState('Open a project to inspect 3D geometry.')
+  const [rendererError, setRendererError] = useState<string | null>(null)
   const [layers, setLayers] = useState({ ...defaultLayers })
   const [retry, setRetry] = useState(0)
   const host = useRef<HTMLDivElement>(null)
@@ -42,11 +43,12 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
 
   useEffect(() => {
     const element = host.current
+    setRendererError(null)
     if (!element || !project) return
-    if (typeof WebGL2RenderingContext === 'undefined') { setMessage('3D rendering unavailable: WebGL2 is not supported.'); return }
+    if (typeof WebGL2RenderingContext === 'undefined') { setRendererError('3D rendering unavailable: WebGL2 is not supported.'); return }
     let renderer: THREE.WebGLRenderer
     try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }) }
-    catch { setMessage('3D rendering unavailable: WebGL could not initialize.'); return }
+    catch { setRendererError('3D rendering unavailable: WebGL could not initialize.'); return }
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101d29)
     const camera = new THREE.PerspectiveCamera(45, 1, .01, 1000)
     camera.up.set(0, 0, 1); camera.position.set(3, -4, 2.8)
@@ -113,6 +115,7 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
     <p>Pinhole camera frusta use registered image bounds; lens distortion is not shown.</p>
     <p>Drag to orbit · right drag to pan · scroll to zoom. <button onClick={() => { sceneRef.current?.controls.reset() }}>Reset view</button></p>
     <p className="evidence-legend">Cyan observed · red low/unspecified score · purple interpolated · orange inferred · gray wire unknown. Dashed edges carry uncertain evidence.</p>
+    {rendererError && <p role="status">{rendererError}</p>}
     {message && <p role="status">{message} <button onClick={() => setRetry(value => value + 1)}>Retry 3D</button></p>}
     {data && <>
       <p>Cursor {playback.cursorSeconds.toFixed(3)} s · {sample ? `native sample ${sample.global_seconds.toFixed(3)} s` : 'No native sample at this cursor; pose unavailable.'}</p>
@@ -126,6 +129,8 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
         <option value="">Select landmark</option>{sample.landmarks.filter(point => point.xyz_world && !sample.missing_mask?.[point.name]).map(point => <option key={point.name} value={point.name}>{point.name}</option>)}</select></label>}
       <details><summary>Missing geometry ({missing.length})</summary>{missing.map(name => { const point = sample?.landmarks.find(value => value.name === name); return <p key={name}>{name}: unavailable coordinates · evidence {point?.quality.state ?? 'unknown'}; source IDs {point?.quality.source_ids?.join(', ') || 'unavailable'}</p> })}
         {!sample && <p>No pose invented between native instants.</p>}
+        {sample && !sample.root_xyz_world && <p>Root trajectory unavailable at this instant: no root coordinates.</p>}
+        {sample && sample.quality.state === 'unknown' && <p>Root path gaps: native sample evidence is unknown.</p>}
         {sample && !sample.segments?.some(segment => segment.segment === 'head' && segment.parent === 'world' && segment.orientation) && <p>Head orientation unavailable: no world-parent frame.</p>}
       </details>
       {data.actions.length > 0 && <div className="scene-actions" aria-label="3D actions">{data.actions.map(action => <button key={action.id} aria-pressed={playback.selection?.id === action.id} onClick={() => {

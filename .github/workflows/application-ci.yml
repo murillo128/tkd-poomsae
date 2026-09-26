@@ -42,7 +42,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler ../contracts/types.ts
+      - run: npx tsc --project ../contracts/tsconfig.json
       - run: npm run test
       - run: npm run build
       - uses: astral-sh/setup-uv@v6

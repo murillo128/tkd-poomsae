@@ -132,7 +132,7 @@ export function buildScene(data: GeometryData, seconds: number, selection: Selec
     const { center, corners } = calibratedFrustum(camera, size ?? [0, 0])
     if (size) for (const corner of corners) line([center, corner], camera.quality, camera.camera_id, 'Cameras')
     if (size) line([...corners, corners[0]], camera.quality, camera.camera_id, 'Cameras')
-    const marker = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .07), new THREE.MeshBasicMaterial({ color: evidenceColor(camera.quality) }))
+    const marker = new THREE.Mesh(new THREE.BoxGeometry(.07, .07, .07), new THREE.MeshBasicMaterial({ color: evidenceColor(camera.quality), wireframe: camera.quality.state === 'unknown' }))
     marker.position.copy(center); marker.name = camera.camera_id; marker.userData.layer = 'Cameras'; group.add(marker)
   }
   const axes = new THREE.AxesHelper(.5); group.add(axes)
