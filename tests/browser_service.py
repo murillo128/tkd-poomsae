@@ -30,7 +30,9 @@ from contracts.models import (
 from media import ingest
 from pipeline import Pipeline
 from storage import ArtifactKey, ArtifactStore, StorageRoot, hash_file
+from tests.fixtures.controlled_acceptance import build as build_controlled
 from tests.fixtures.integrated_browser import register_integrated
+from tests.functional_smoke import InventoryStore
 from tests.test_inspection_api import persist
 from tkd_poomsae.api import create_app
 from tkd_poomsae.inspection import Inspection
@@ -203,3 +205,6 @@ app = create_app(
     allowed_roots={"fixture": root},
     trusted_origins={os.environ.get("TKD_BROWSER_ORIGIN", "http://127.0.0.1:5173")},
 )
+
+# A separate positive acceptance project runs production physical/parser stages.
+build_controlled(root / "controlled", InventoryStore(pipe.store.root))
