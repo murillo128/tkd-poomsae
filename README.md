@@ -4,6 +4,11 @@ TKD Poomsae is a research and prototyping project for analyzing Taekwondo poomsa
 
 The project aims to reconstruct a practitioner's movement in 3D over time and turn the resulting motion into a structured representation that can be inspected, visualized, and later used for comparison and technical evaluation. The initial focus is on faithfully capturing and understanding the execution itself rather than assigning scores or corrections.
 
+Start with the [local setup and inspection runbook](docs/local-runbook.md) for
+shared assets, the reproducible demo and observed limitations. Product requirements
+remain in [spec/](spec/README.md); the current real-video demo supports 2D inspection,
+while metric 3D/ground evidence comes from a separate synthetic fixture.
+
 The pinned Mendeley demo/test dataset and its usage limits are documented in
 [the dataset registration](datasets/mendeley-bjy7vr4xkt-v1/README.md).
 

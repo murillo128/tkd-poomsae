@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "purpose": "Functional inspection only; no accuracy or scoring claim",
+  "dataset": {
+    "id": "mendeley-bjy7vr4xkt-v1",
+    "creator": "QingWei Zheng",
+    "doi": "https://doi.org/10.17632/bjy7vr4xkt.1",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "policy": "Integration, demos and software tests only; CSVs are detector output, not ground truth. No training, held-out validation, accuracy evaluation, model ranking or threshold tuning."
+  },
+  "real": {
+    "project": "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+    "selection": "demo-full",
+    "sources": [
+      {
+        "camera": "mendeley-frontal",
+        "sha256": "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+        "native_seconds": [
+          0.0,
+          25.566666666666666
+        ]
+      },
+      {
+        "camera": "mendeley-lateral",
+        "sha256": "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+        "native_seconds": [
+          0.0,
+          25.566666666666666
+        ]
+      }
+    ],
+    "observation_receipt": {
+      "relative_path": "derived/observation-runs/9d0f5f1f302eafdbd9b352753b9e540d8d25e0d706a9caec4068e8c0a04cbbf7.json",
+      "sha256": "2efd1a36729d7b9a84953305737ecec006a65d96032191e349ad2f5dacb00e67"
+    },
+    "inspection_bundle": {
+      "relative_path": "runs/functional-issue-50/mendeley-bjy7vr4xkt-v1-taegeuk-1-bundle.json",
+      "sha256": "36fd958716804ca5b1f4534d850877606e78f2ba626e854e1d01bb87b7e7c976"
+    },
+    "available": "Native 2D observations and automatic sync estimate; real calibration/3D/metric ground/semantics unavailable"
+  },
+  "synthetic": {
+    "project": "issue-50-synthetic",
+    "inspection_bundle": {
+      "relative_path": "runs/functional-issue-50/synthetic-bundle.json",
+      "sha256": "61e4b73d64932c3c673eaabd2f969901a4ccf8dce40b06e1a83c43cd7d785772"
+    },
+    "available": "Supplied metric cameras, production 3D/ground publishers, empty automatic semantics; not real camera estimation"
+  },
+  "evidence": "../evidence/issue-50/README.md"
+}

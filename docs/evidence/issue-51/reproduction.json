@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "date": "2026-09-26",
+  "source_revision": "78a3bf23596b2612e0bf351b0983c5ef6f9a2f6f",
+  "environment": {
+    "python": "3.11.16",
+    "node": "22.20.0",
+    "model_assets_verified": 14,
+    "cuda_available": false
+  },
+  "dataset_integrity": {
+    "archive_sha256": "8447119933de8032296c1d60dc0ba5f5586fe9cd2d8560c267bd1d53a29c7940",
+    "bytes": 293982328,
+    "files": 32,
+    "receipt_sha256": "3eeea9e4b101ea15822b14781919a64d48b206cebf0c3549f63c27c4a2e964ea",
+    "state": "verified"
+  },
+  "observations": {
+    "demo-full": {
+      "frame_count": 1536,
+      "window_count": 48,
+      "first_run_calls": {},
+      "repeat_from_another_cwd": {
+        "cached": true,
+        "inference_calls": 0,
+        "network_calls": 0
+      },
+      "receipt_sha256": "2efd1a36729d7b9a84953305737ecec006a65d96032191e349ad2f5dacb00e67"
+    },
+    "all-forms-smoke": {
+      "frame_count": 976,
+      "window_count": 32,
+      "first_run_calls": {},
+      "repeat_from_another_cwd": {
+        "cached": true,
+        "inference_calls": 0,
+        "network_calls": 0
+      },
+      "receipt_sha256": "552588973a9142b7e836c7e04d80ba4efe4dbe801301ad4b517259da3d78616c"
+    }
+  },
+  "functional_repeat": {
+    "identical_outcomes": true,
+    "network_connect_attempts": 0,
+    "new_artifacts": 0,
+    "verified_artifacts": 315
+  },
+  "parser_only_physical_hashes_unchanged": true,
+  "synthetic": {
+    "raw_samples": 141,
+    "ground_samples": 141,
+    "steps": 0,
+    "actions": 0
+  },
+  "inspection_repeat": {
+    "second_cwd": "/tmp",
+    "projects_registered": 2,
+    "verified_existing_manifests": 1604,
+    "new_artifacts": 0,
+    "manifest_hashes_unchanged": true,
+    "network_connect_attempts": 0
+  },
+  "default_cli_lifecycle": [
+    {
+      "command": "tkd-poomsae analyze issue-51-cli-capability --through observations",
+      "exit_code": 1,
+      "stages": {
+        "attachment": "not-run",
+        "calibration": "not-run",
+        "ground": "not-run",
+        "ingest": "unavailable",
+        "observations": "unavailable",
+        "parsing": "not-run",
+        "reconstruction": "not-run",
+        "sync": "not-run"
+      }
+    },
+    {
+      "command": "tkd-poomsae status issue-51-cli-capability",
+      "exit_code": 1,
+      "stages": {
+        "attachment": "not-run",
+        "calibration": "not-run",
+        "ground": "not-run",
+        "ingest": "unavailable",
+        "observations": "unavailable",
+        "parsing": "not-run",
+        "reconstruction": "not-run",
+        "sync": "not-run"
+      }
+    },
+    {
+      "command": "tkd-poomsae resume issue-51-cli-capability --through parsing",
+      "exit_code": 1,
+      "stages": {
+        "attachment": "unavailable",
+        "calibration": "unavailable",
+        "ground": "unavailable",
+        "ingest": "unavailable",
+        "observations": "unavailable",
+        "parsing": "unavailable",
+        "reconstruction": "unavailable",
+        "sync": "unavailable"
+      }
+    },
+    {
+      "command": "tkd-poomsae rerun issue-51-cli-capability parsing --through parsing",
+      "exit_code": 1,
+      "stages": {
+        "attachment": "unavailable",
+        "calibration": "unavailable",
+        "ground": "unavailable",
+        "ingest": "unavailable",
+        "observations": "unavailable",
+        "parsing": "unavailable",
+        "reconstruction": "unavailable",
+        "sync": "unavailable"
+      }
+    }
+  ],
+  "checks": {
+    "python": {
+      "passed": 584,
+      "deselected": 6
+    },
+    "ruff": "passed",
+    "mypy_source_files": 152,
+    "web_unit_tests_passed": 24,
+    "web_typecheck": "passed",
+    "contracts_typecheck": "passed",
+    "local_browser_typecheck": "passed",
+    "web_build": "passed"
+  },
+  "browser": {
+    "expected": 9,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "duration": 104611.184
+  },
+  "browser_screenshot_sha256": {
+    "real-form-1.png": "7aa4ce1d631efc5b65794b978364efd795e7cbc17708a54b6d770a9c45e347df",
+    "real-form-2.png": "7896b403684f6e5c463ceccf69ec869ccab2bdea24e190ddccf7bbf1fef578fb",
+    "real-form-3.png": "209567abf35bf3137f82cb4dec07c8bd2d68df559bf039a2c8c2e1a1814a60a5",
+    "real-form-4.png": "44d68d583e83f8dc99e5044dac286b747ded2f3941bd83e953279595372aaaa6",
+    "real-form-5.png": "7a803919d4211a5aa7d1686f81d9ff0845541373b23173dffe0f648c8481ecf8",
+    "real-form-6.png": "0d70bfdb9825bd8990bf0f7ad8d9a7ca899c66973a3fff5160644e8b566deeb9",
+    "real-form-7.png": "7e64251bc42758d9c0e50999e91e008e752531d327edd29a0d1bbaa59122edfb",
+    "real-form-8.png": "8aa0a62a294245b6d60bf40d4eb0fd336172db93bbb68ab556e7ab1181656ab0",
+    "synthetic-production.png": "e42ca0a7587ad53b754875a8d95f84984e8feba3916800e69097ad8e397d3bae"
+  }
+}
