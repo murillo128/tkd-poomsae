@@ -58,7 +58,14 @@ export function CameraPanel({ project, camera, seconds, playing, speed, selected
       callbacks.current.onClock({ id: camera, offsetSeconds: mapped.effective_offset_seconds,
         frames: page.frames.map(frame => ({ pts: frame.pts, timeBaseNum: frame.time_base_num, timeBaseDen: frame.time_base_den })) })
       if (mapped.interpolation === 'outside_coverage') { setStatus('Unavailable — outside camera coverage'); return }
-      if (playing) { setStatus('Playback uses presented frames; skipped frames are not temporal evidence.'); return }
+      if (playing) {
+        setStatus(!metadata!.browser_playback || metadata!.first_frame.source_seconds !== 0
+          ? 'Browser playback unsupported for this source timeline. Pause for exact inspection.'
+          : !video.current?.requestVideoFrameCallback
+            ? 'Presented frame metadata unavailable; pause for exact inspection. Overlays hidden.'
+            : 'Playback uses presented frames; skipped frames are not temporal evidence.')
+        return
+      }
       const url = await exactImage(project, camera, mapped.nearest, controller.signal)
       if (controller.signal.aborted || generation !== epoch.current) { URL.revokeObjectURL(url); return }
       imageUrl.current = url
