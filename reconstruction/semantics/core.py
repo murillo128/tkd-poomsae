@@ -28,7 +28,7 @@ from reconstruction.lower_body import LowerBodyResult
 from reconstruction.segmentation import SegmentationResult
 from storage import hash_config
 
-REVISION = "semantic-assembly-v1"
+REVISION = "semantic-assembly-v2"
 
 
 class AssemblyConfig(StrictModel):
@@ -183,6 +183,10 @@ def assemble_semantics(
             quality=quality,
             motion_links=[link(track, interval, quality)],
         )
+        # Several physical events can describe the same phase interval. Keep one
+        # canonical phase; the event pass below retains every source keyframe.
+        if any(existing.id == phase.id for existing in result.phases):
+            return
         result.phases.append(phase)
         for suffix, time in (("start", interval.start), ("end", interval.end)):
             result.keyframes.append(

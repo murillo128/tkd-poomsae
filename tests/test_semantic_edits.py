@@ -545,7 +545,7 @@ def test_new_persisted_parser_revision_rejects_existing_session(
     editor = SemanticEditor(store, "parser-version")
     editor.apply(automatic, 0, [add_frame(automatic)], **PROVENANCE)
     payload = load_semantic_evidence(automatic)
-    revision = "semantic-assembly-v2"
+    revision = "semantic-assembly-v3"
     key = ArtifactKey(
         layer="semantics",
         inputs=payload["input_revisions"],
@@ -562,4 +562,4 @@ def test_new_persisted_parser_revision_rejects_existing_session(
     with pytest.raises(IncompatibleAutomaticBase):
         editor.apply(future, 1, [add_frame(future)], **PROVENANCE)
     assert editor.view(automatic).revision == 1
-    assert editor.revision(1).automatic_parser_revision == "semantic-assembly-v1"
+    assert editor.revision(1).automatic_parser_revision == "semantic-assembly-v2"
