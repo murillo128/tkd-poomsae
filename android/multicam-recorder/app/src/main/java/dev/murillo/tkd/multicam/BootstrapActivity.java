@@ -26,7 +26,7 @@ public final class BootstrapActivity extends Activity {
         scroll.addView(root);
 
         TextView title = new TextView(this);
-        title.setText("TKD MultiCam bootstrap v0.5");
+        title.setText("TKD MultiCam bootstrap v0.6");
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER);
         root.addView(title, new LinearLayout.LayoutParams(
@@ -91,7 +91,14 @@ public final class BootstrapActivity extends Activity {
             intent.setClassName(
                     getPackageName(),
                     "dev.murillo.tkd.multicam.MainActivity");
-            startActivity(intent);
+            try {
+                startActivity(intent);
+            } catch (Throwable t) {
+                java.io.StringWriter sw = new java.io.StringWriter();
+                t.printStackTrace(new java.io.PrintWriter(sw));
+                prefs.edit().putString("last_crash", sw.toString()).commit();
+                recreate();
+            }
         });
         root.addView(open, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
