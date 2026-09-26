@@ -3,7 +3,7 @@ import { GroundView } from './GroundView'
 import { Timeline } from './Timeline'
 import { CameraPanel } from './CameraPanel'
 import { canStep, initialPlayback, playbackReducer } from './playback'
-import { API_ROOT, listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
+import { API_ROOT, listProjects, readProject, type ProjectSnapshot } from './projectApi'
 
 import { ThreePanel } from './ThreePanel'
 import { GeometryInspector, selectedLandmarkName } from './GeometryInspector'
@@ -12,14 +12,6 @@ import type { GeometryData } from './geometryApi'
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; value: T }
 const stages = ['ingest', 'sync', 'calibration', 'observations', 'attachment', 'reconstruction', 'ground', 'parsing']
 
-function stageMessage(stage: StageCapability | undefined): string {
-  if (!stage) return 'No stage metadata from the local service.'
-  const status = stage.status.status
-  if (status === 'complete') return 'Artifact recorded. Data view endpoint is not available in this shell.'
-  if (status === 'stale') return `Stale analysis — ${stage.reason || stage.status.diagnostics?.join('; ') || 'revision changed'}`
-  if (!stage.available) return `Unavailable — ${stage.reason || 'producer or input unavailable'}`
-  return `${status.replaceAll('-', ' ')} — no current analysis to display.`
-}
 function formatTime(seconds: number): string { return `${seconds.toFixed(3)} s` }
 
 export function App() {

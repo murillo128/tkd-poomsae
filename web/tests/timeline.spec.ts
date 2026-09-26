@@ -190,9 +190,11 @@ test('fractional long bounds page gap-free within the real API limit', async ({ 
   const invalid = await request.get(`${fixtureRoot}/api/projects/demo/inspection/semantics/window?collection=steps&start=2.2&end=32.2`)
   expect(invalid.status()).toBe(422)
   const windows: { collection: string; start: number; end: number; status: number }[] = []
+  // Timeline paging carries a cursor; the synchronized 3D panel's separate
+  // short action windows must not be counted as timeline collection pages.
   page.on('response', response => {
     const url = new URL(response.url())
-    if (url.pathname.includes('/demo/inspection/semantics/window')) {
+    if (url.pathname.includes('/demo/inspection/semantics/window') && url.searchParams.has('cursor')) {
       windows.push({ collection: url.searchParams.get('collection')!, start: Number(url.searchParams.get('start')), end: Number(url.searchParams.get('end')), status: response.status() })
     }
   })
