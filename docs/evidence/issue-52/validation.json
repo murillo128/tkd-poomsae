@@ -1,0 +1,683 @@
+{
+  "acceptance": "not_met",
+  "checks": [
+    {
+      "command": ".venv/bin/python -m pytest -q",
+      "conclusion": "success",
+      "log_sha256": "3bef9237d68f7560fa431d2d1d7b1c502be9e022551d11a5f25853eb6af853d0",
+      "result": "584 passed; 6 opt-in cases deselected"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q -m 'local_data or full_data' tests/test_dataset_import.py tests/test_selections.py",
+      "conclusion": "success",
+      "log_sha256": "e044b831969c0dfadf93c8ea90a2ab755f05565ce82f5ec69a78dc02c7e62100",
+      "result": "2 passed; 17 deselected"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q -m local_data tests/test_alignment.py tests/test_sync_integration.py --sync-results=/tmp/issue52-sync-results.json",
+      "conclusion": "success",
+      "log_sha256": "610c47e04a642700089ec1c840d89cdf4bce6d7b4b39ccd3db06c03a7733941c",
+      "result": "2 passed; 26 deselected"
+    },
+    {
+      "command": "Shared CPU vision interpreter + developer pytest: tests/test_pose_mmpose_model.py -m model_required; exact invocation in README",
+      "conclusion": "success",
+      "log_sha256": "e91d7fce68a8a688bdf4997225b1275270a2af1415b8d30a191213f9d32ed1bc",
+      "result": "2 passed; no skips"
+    },
+    {
+      "command": "TKD_BROWSER_WEB_PORT=5252 TKD_BROWSER_SERVICE_PORT=18552 npm run test:browser",
+      "conclusion": "success",
+      "log_sha256": "dd7be43569df10894d88c5763a17320d302e30a87bbc62bbb205e525c1e2ca62",
+      "result": "23 integrated + 15 component Chromium cases passed; no skips/retries"
+    },
+    {
+      "command": "REQUIRE_TMUX_TEST=1 .venv/bin/python -m unittest discover -s .github/scripts -p 'test_*.py' -v",
+      "conclusion": "success",
+      "log_sha256": "1058cb1e33a56d40f7777a50b5fc9a6b69757dde2d57aff248c900d7275a0266",
+      "result": "126 passed; real tmux exercised"
+    },
+    {
+      "command": "./node_modules/.bin/playwright test --config=playwright.local.config.ts --reporter=list,json",
+      "conclusion": "success",
+      "log_sha256": "cd201f97af7d6a8a5435e1fe588620227acf023effdd0324c36aa5d82d4249c0",
+      "result": "9 shared-project Chromium cases passed; no skips/retries"
+    },
+    {
+      "command": ".venv/bin/ruff check src tests contracts storage media sync calibration pose reconstruction",
+      "conclusion": "success",
+      "result": "All checks passed"
+    },
+    {
+      "command": ".venv/bin/mypy",
+      "conclusion": "success",
+      "result": "152 source files checked"
+    },
+    {
+      "command": ".venv/bin/tkd-poomsae --help",
+      "conclusion": "success",
+      "result": "exit 0"
+    },
+    {
+      "command": "npm run typecheck; tsc --project ../contracts/tsconfig.json; tsc --project tsconfig.local.json",
+      "conclusion": "success",
+      "result": "all passed"
+    },
+    {
+      "command": "npm run test",
+      "conclusion": "success",
+      "result": "24 tests passed in 6 files"
+    },
+    {
+      "command": "npm run build",
+      "conclusion": "success",
+      "result": "passed; existing large-chunk advisory"
+    },
+    {
+      "command": "uv sync --frozen --group dev --offline; npm ci --offline",
+      "conclusion": "success",
+      "result": "locked developer packages reused, no dataset/model bootstrap"
+    }
+  ],
+  "date": "2026-09-26",
+  "environment": {
+    "browser": "Chromium; software WebGL",
+    "node": "22.20.0",
+    "playwright": "1.63.0",
+    "python": "3.11.16",
+    "vision": "existing shared CPU runtime; developer pytest appended after runtime site-packages"
+  },
+  "functional_replay": {
+    "dataset_integrity": {
+      "archive_sha256": "8447119933de8032296c1d60dc0ba5f5586fe9cd2d8560c267bd1d53a29c7940",
+      "bytes": 293982328,
+      "files": 32,
+      "receipt_sha256": "3eeea9e4b101ea15822b14781919a64d48b206cebf0c3549f63c27c4a2e964ea",
+      "state": "verified"
+    },
+    "full_report_sha256": "e57d6cafe4e811b51106245daf8aa2bb52f7320558c811290ca3201de7c83202",
+    "matches_committed_issue50_report": true,
+    "models": {
+      "asset_sha256": {
+        "checkpoints/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth": "229f527ca88498e8894a778a62a878a322b4a3ea2cae09ea537d34b7e907792b",
+        "checkpoints/rtmpose-m_simcc-coco-wholebody_pt-aic-coco_270e-256x192-cd5e845c_20230123.pth": "3da02694cd6479d3b333ff42ebd0723f96bfa06adac1db1e2e815ed2e9e1b02d",
+        "checkpoints/rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.pth": "b74fb5941684fe13c337b8d4fce644293e12903fed5407f8b27921f107dc6003",
+        "mmdetection/configs/_base_/datasets/coco_detection.py": "331362fd27f59bc08d911eb8bd959a14dd8ed8fd8b048d7e11ec692ebd7ae985",
+        "mmdetection/configs/_base_/default_runtime.py": "f4ed2ce5d49aadf0f14f13e7726ac79fda698e8312242ed70add4420ea2a69df",
+        "mmdetection/configs/_base_/schedules/schedule_1x.py": "29c25800f6a955f137dcd301f559deff3dc37363ae31cbdfedd1df7665f6f23e",
+        "mmdetection/configs/rtmdet/rtmdet_l_8xb32-300e_coco.py": "71ba745a1d08f734d94797a98e5ee2be0bcf30dc98b3b2a89aa1ce211174d274",
+        "mmdetection/configs/rtmdet/rtmdet_m_8xb32-300e_coco.py": "c04a67ac0fbb48df14ada534f16186e1e4eb6cd5bb5ad0c32b1c64835f4e39e4",
+        "mmdetection/configs/rtmdet/rtmdet_tta.py": "48444851ab0224cd732ded92da61a781315b5c12538f6e57aa9b842623002927",
+        "mmpose/configs/_base_/datasets/coco_wholebody.py": "8c73971296517eadef6b7df6de92eb8943119cb467b3f4d488a6e062470cf179",
+        "mmpose/configs/_base_/datasets/coco_wholebody_hand.py": "558d450f859058d23172fe82efb720c3311044cd11b335728ab7f2dc0a95d030",
+        "mmpose/configs/_base_/default_runtime.py": "bb7df18270b1ca337192faae7a416b2dea23b45e798e832caab5781f41189d06",
+        "mmpose/configs/hand_2d_keypoint/rtmpose/hand5/rtmpose-m_8xb256-210e_hand5-256x256.py": "bda61adbc430825b176a5d5a45e3ee620105cc8c3096d7e2a06a847c3d9d2366",
+        "mmpose/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody/rtmpose-m_8xb64-270e_coco-wholebody-256x192.py": "eb90c8d0816330b27f42740249d5c8210885d4b3086649828529036434377aa7"
+      },
+      "registry_sha256": "36b1eca4ddac85dfff6738024024769e379b1eecf464b492e4dffcaa687098f7",
+      "verified_assets": 14
+    },
+    "network_connect_attempts": 0,
+    "offline_second_cwd": {
+      "identical_outcomes": true,
+      "network_connect_attempts": 0,
+      "new_artifacts": 0,
+      "verified_artifacts": 315
+    },
+    "original_source_hashes_unchanged": {
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_1st/Frontal/1st_Frontal.mp4": "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_1st/Lateral/1st_Lateral.mp4": "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_2nd/Frontal/2nd_Frontal.mp4": "c6ffa9499cd5547f16e08d84ef727d7b5c2a980d63ea593e540a3df6f12111fd",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_2nd/Lateral/2nd_Lateral.mp4": "45ad4df965461c0b87299e653f26167cfe87f3c19d76d0d19cc93bd195d707c7",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_3rd/Frontal/3rd_Frontal.mp4": "3dcc9a0ae987d484f11999f589a9ace6644bfce5fa38166adbffb4fa0c7cc932",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_3rd/Lateral/3rd_Lateral.mp4": "f926c639603729a724bacc9ba06f741d618f305046244906f15f4f7cec2907b9",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_4th/Frontal/4th_Frontal.mp4": "dbbf5e3243130a255a7365f341f2e3c411f8da2384400500a0a17ac70544285a",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_4th/Lateral/4th_Lateral.mp4": "1f460ee78e113f5a1a4fcc5a098f44615ef378b32731e6d076ce86a7b124ff26",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_5th/Frontal/5th_Frontal.mp4": "a34f759ffe2be51cccdb31f66f11bfff9a1918f47b7ac0efcd0fd900dd2b8729",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_5th/Lateral/5th_Lateral.mp4": "f561e2955f664d5fdb139e4b515bced20731c8e9fd57611f6d5b9f3f16766970",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_6th/Frontal/6th_Frontal.mp4": "a75bd1d922545d9287567dac0ac4ec294a9cb5436a1551c77d5e8ccacfc44816",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_6th/Lateral/6th_Lateral.mp4": "a19228a948d2bddf8ba5d1d421c2bb5e975765eab81a285329e07efdfa5af505",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_7th/Frontal/7th_Frontal.mp4": "0adde34223f2991ab493cb2cd6bfa7f2944877e83df9a1078ee6e461938a9d7b",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_7th/Lateral/7th_Lateral.mp4": "dcc1a205b57d3c0ad41ee20fcaf931f54592ea04c64c1672fa40425ffd93cfb1",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_8th/Frontal/8th_Frontal.mp4": "3765be05c7aa531b165f0a64b460df6c8858d768c7a234c6e608f2899ee92005",
+      "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_8th/Lateral/8th_Lateral.mp4": "1c81a0ee6a4e33d91cfeeaad0454a18b8b29e23b2e53f36bbba10efb2368763f"
+    },
+    "real": {
+      "mendeley-bjy7vr4xkt-v1-taegeuk-1": {
+        "calibration": {
+          "candidate_sha256": "f0e2bc81908a56a60908990f23764d13874da030a05d15fac829ed36251404aa",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "5378877c0fb55c70020d07b23e3605bb0c2054b3c36b56e8c9fc6d1a357aa4dc",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-2": {
+        "calibration": {
+          "candidate_sha256": "6e0acc26ac13e449342fe60122cda697ca8e57bbc16210e86c691504d00e0270",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "5a6f5011aaba9cb2ee26a8b6bbeb61898387050a950a6759b3adea3a8b3f468b",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-3": {
+        "calibration": {
+          "candidate_sha256": "64f73e82c752b7c9e9b82b900dd1c93e9f015e587dbf01a6dcefa97a92135950",
+          "reasons": [
+            "automatic synchronization unavailable: manual timeline needs two attributed views"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": true,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "59bc605a18349bbe32643499bbd986658649c9af701087fcdf00e6070cc4e94c",
+        "synchronization_reason": "manual timeline needs two attributed views",
+        "synchronization_status": "unavailable"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-4": {
+        "calibration": {
+          "candidate_sha256": "e1600879645a30b46cb451f88df7d39ce776a8738f44da37345a618e5d74b036",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "d30516df3d86c107e8ba439ddec0f712aa2ee31ec6760c2bf0f89d979f1591be",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-5": {
+        "calibration": {
+          "candidate_sha256": "b6542faf9adf557b6a74ea5789d2b4f6cbd96a3b31d2b35a408d1a73b82aba2d",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "300a235551e4b5191549d0d25f627a51ba497056a975673379358831951c81fc",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-6": {
+        "calibration": {
+          "candidate_sha256": "02c328b1145a770d1f7441ab04b0fe21de8665269a420e91d05cbbb974634c94",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "3eceb08447b7740939fde2b83f65c4b695e70b6d01f93148da6ff902cd4dd86e",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-7": {
+        "calibration": {
+          "candidate_sha256": "eb6d99b11f0f49af8e0f52d9a9d39aad212995cca087e11c4fcb06e2be02c445",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "836b57c0f18fd07dce69ee72dee709f6aff73726c81c2996432e084bd75ddab8",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      },
+      "mendeley-bjy7vr4xkt-v1-taegeuk-8": {
+        "calibration": {
+          "candidate_sha256": "abe3c8444eb65e0ab90f22a711eeb10fabd847429399e1a149ee6c28f7762e39",
+          "reasons": [
+            "insufficient matched texture"
+          ],
+          "status": "unavailable"
+        },
+        "ingest_diagnostics": [
+          "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+        ],
+        "native_reference_only": false,
+        "stage_states": {
+          "attachment": "unavailable",
+          "calibration": "unavailable",
+          "ground": "unavailable",
+          "ingest": "unavailable",
+          "observations": "unavailable",
+          "parsing": "unavailable",
+          "reconstruction": "unavailable",
+          "sync": "unavailable"
+        },
+        "sync_manifest_sha256": "b134d406902a3f174588018dd1079bcc77a67ddbf07891e53e02e99f85f99cac",
+        "synchronization_reason": null,
+        "synchronization_status": "automatic-estimate"
+      }
+    },
+    "synthetic": {
+      "actions": 0,
+      "ground_samples": 141,
+      "input": "projected compound motion with supplied synthetic metric cameras",
+      "model_inference": false,
+      "parser_config_changed_physical_hashes_unchanged": true,
+      "product_configs": {
+        "calibration": {
+          "algorithm_revision": "functional-synthetic-v1",
+          "calibration_revision": null,
+          "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "inputs": {
+            "fixture": "91165b25d6a2784392ed4424556ad42fecc9ce78abb5982e41f2a313af7016bf"
+          },
+          "layer": "calibration",
+          "model_revision": null,
+          "schema_version": "1.0.0",
+          "sync_revision": null
+        },
+        "ground": {
+          "algorithm_revision": "ground-view-v2",
+          "calibration_revision": null,
+          "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+          "inputs": {
+            "calibration": "d3bf41abc87d4f0b3022b64b753ac93bd4dd1f5ee6b38036c95286862d45723e",
+            "motion": "9e874aa89992c70d00d1dcb477154ff014e8ed67105a5a37351011dca6c6db98",
+            "pivots": "98de7c151297c8021a42cc26fd81e236bac3c71e60a24e30d81f1431241c83ad"
+          },
+          "layer": "ground",
+          "model_revision": null,
+          "schema_version": "1.0.0",
+          "sync_revision": null
+        },
+        "reconstruction": {
+          "algorithm_revision": "temporal-motion-v1",
+          "calibration_revision": null,
+          "config_digest": "28d66a36397390f422eac7ded01f958e8b2f902194263a389e8d6d76ada47bf7",
+          "inputs": {
+            "fit": "22a1416aabdb7c1901a71e3ae42a3dd05dd68ceef8612046a2911e65a638f754",
+            "morphology": "396d902273d30a27ec5fdc690ef9c72e5e971febe769ce0f113554348a022076",
+            "raw": "d39f0fee343e300264e28afc2158f5bb3b9256d0b32c2acb7bdc59ec412a4d92"
+          },
+          "layer": "reconstruction",
+          "model_revision": null,
+          "schema_version": "1.0.0",
+          "sync_revision": null
+        },
+        "semantics": {
+          "algorithm_revision": "semantic-assembly-v2",
+          "calibration_revision": null,
+          "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+          "inputs": {
+            "arms": "d64f2cc7acea1025392f0a1aac04e0d046efa80b5f1ec7efed62ecbd27ac91e1",
+            "features": "27eff283b9acf728cdafd45d6643e389ec366cccbd5c0901c62cb372c37eed76",
+            "lower_body": "c4a11e5054ddf7be644c24718e4d0a5c09f072279e51740a44229e59a901fa5f",
+            "segmentation": "abccc8895a56673971ace9870abb7b554c02e89db7cd063025fec811b2acaeae"
+          },
+          "layer": "semantics",
+          "model_revision": null,
+          "schema_version": "1.0.0",
+          "sync_revision": null
+        },
+        "sync": {
+          "algorithm_revision": "functional-synthetic-v1",
+          "calibration_revision": null,
+          "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "inputs": {
+            "fixture": "b34ae6a808559238527608ef9f80ba9880b6770818c643bd55488994a18af116"
+          },
+          "layer": "synchronization",
+          "model_revision": null,
+          "schema_version": "1.0.0",
+          "sync_revision": null
+        }
+      },
+      "products": {
+        "calibration": "d3bf41abc87d4f0b3022b64b753ac93bd4dd1f5ee6b38036c95286862d45723e",
+        "ground": "64cf5f640cfbb679b6f67765976de8d7ddc08c5bf18ccd26119b63b001d0f445",
+        "reconstruction": "9e874aa89992c70d00d1dcb477154ff014e8ed67105a5a37351011dca6c6db98",
+        "semantics": "0044681f66f97be9492cdd523eedfd1fd82dd96d4e39d5d5253a57a4ae21ea19",
+        "sync": "28cb657fe82a8d074ac4dbd57bd8c0857535590b0301ffb89be4597ac43ec8ff"
+      },
+      "raw_samples": 141,
+      "steps": 0,
+      "triangulation_config": {
+        "image_speed_px_s": 1000.0,
+        "max_condition": 1000000.0,
+        "max_reprojection_px": 8.0,
+        "min_ray_angle_degrees": 1.0,
+        "min_source_score": 0.05,
+        "pixel_sigma": 0.1,
+        "unknown_calibration_sigma_px": 4.0,
+        "unknown_sync_sigma_seconds": 0.02
+      }
+    }
+  },
+  "locks_sha256": {
+    "uv.lock": "176e349d2687827186e9e3368f0b186a00b6cf0abfced34c8ba46c74ae869490",
+    "vision/media-requirements.lock": "10aec600ab19c5fc5a63bdec00f2853cf259735d8c10411975b7092c8e8618e4",
+    "vision/requirements.lock": "b77acba023996b35b978695eafb79fe4205339088cca83068be6d858defb67d7",
+    "web/package-lock.json": "e76b3d6dfe3169bce4f52a2fe55ceb43aef2a3469c707ab625037351e0b2decf"
+  },
+  "normative_coverage": {
+    "spec/4d-reconstruction.md": {
+      "mapped_must_lines": [
+        "RC17",
+        "RC39",
+        "RC47"
+      ],
+      "sha256": "a9b6fc58b09cee52e1ebe6ed32bea300f5131a94d832b139648b66608933b5a8"
+    },
+    "spec/camera-calibration.md": {
+      "mapped_must_lines": [
+        "CC28",
+        "CC36",
+        "CC40",
+        "CC42",
+        "CC50"
+      ],
+      "sha256": "f526f2aa6fe3d4647dca6766ad2cfab80e1557b63336965fef566b8adc17a8f8"
+    },
+    "spec/footwork-ground.md": {
+      "mapped_must_lines": [
+        "FG47"
+      ],
+      "sha256": "a7f0ae62ea23fe7961a2b3b9f5f5c075a76bded8fbdec8e02423c65e72278e28"
+    },
+    "spec/general.md": {
+      "mapped_must_lines": [
+        "G26",
+        "G28",
+        "G30",
+        "G32",
+        "G58",
+        "G76",
+        "G84"
+      ],
+      "sha256": "5e4b6b745b793071868969a8e1d4bb4c7ab736633cd5b159f1f07b31d643925b"
+    },
+    "spec/ingest-sync.md": {
+      "mapped_must_lines": [
+        "IS11",
+        "IS29",
+        "IS63",
+        "IS67"
+      ],
+      "sha256": "4356a50fcb642febc5100c5c8f3cacaa2e8b16049e62b7da7abb4d9109f59eeb"
+    },
+    "spec/motion-parsing.md": {
+      "mapped_must_lines": [
+        "MP27",
+        "MP35",
+        "MP107",
+        "MP118"
+      ],
+      "sha256": "bd23d2301035d5419295beddd62b1b166b060b61da111588e9fb0b70306fed47"
+    },
+    "spec/motion-representation.md": {
+      "mapped_must_lines": [
+        "MR5",
+        "MR21",
+        "MR39",
+        "MR69",
+        "MR73",
+        "MR75",
+        "MR132",
+        "MR134",
+        "MR144"
+      ],
+      "sha256": "2f6b65eb6bf6d108c4db82b1063bb798f906212aba36f42179d544c7163fed2b"
+    },
+    "spec/pose-observation.md": {
+      "mapped_must_lines": [
+        "PO15",
+        "PO21",
+        "PO37",
+        "PO59",
+        "PO63"
+      ],
+      "sha256": "f7b9413e6b4e5ff1a302e19cc0314225224fabe6351066de29fac1d189071abb"
+    },
+    "spec/visualization.md": {
+      "mapped_must_lines": [
+        "V7",
+        "V32",
+        "V102",
+        "V108"
+      ],
+      "sha256": "5f41a923ab973ca01200603e1d378ed05f98d4be0f3bc06220cecdd0a473330d"
+    }
+  },
+  "observation_reuse": {
+    "all-forms-smoke": {
+      "first_run_calls": {},
+      "frame_count": 976,
+      "hand_states": {
+        "low_evidence": 794,
+        "refined": 1116,
+        "skipped": 34
+      },
+      "identity_sha256": "7ab27f4a4e77b0c053b8b1dccd1cc76ed0414aa2b38bf0ca82f61556d9e767be",
+      "persisted_raw_scores": 61236,
+      "receipt_relative_path": "derived/observation-runs/7ab27f4a4e77b0c053b8b1dccd1cc76ed0414aa2b38bf0ca82f61556d9e767be.json",
+      "receipt_sha256": "552588973a9142b7e836c7e04d80ba4efe4dbe801301ad4b517259da3d78616c",
+      "repeat_from_another_cwd": {
+        "cached": true,
+        "inference_calls": 0,
+        "network_calls": 0
+      },
+      "selected_frame_count": 972,
+      "usable_by_view": {
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-frontal": 54,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-lateral": 25,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-2:mendeley-frontal": 35,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-2:mendeley-lateral": 43,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-3:mendeley-frontal": 32,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-3:mendeley-lateral": 12,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-4:mendeley-frontal": 37,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-4:mendeley-lateral": 19,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-5:mendeley-frontal": 48,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-5:mendeley-lateral": 37,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-6:mendeley-frontal": 15,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-6:mendeley-lateral": 35,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-7:mendeley-frontal": 27,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-7:mendeley-lateral": 37,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-8:mendeley-frontal": 33,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-8:mendeley-lateral": 23
+      },
+      "usable_region_frames": {
+        "body": 512,
+        "head": 870,
+        "left_foot": 908,
+        "left_hand": 195,
+        "right_foot": 887,
+        "right_hand": 121
+      },
+      "window_count": 32
+    },
+    "demo-full": {
+      "first_run_calls": {},
+      "frame_count": 1536,
+      "hand_states": {
+        "low_evidence": 1398,
+        "refined": 1637,
+        "skipped": 25
+      },
+      "identity_sha256": "9d0f5f1f302eafdbd9b352753b9e540d8d25e0d706a9caec4068e8c0a04cbbf7",
+      "persisted_raw_scores": 96390,
+      "receipt_relative_path": "derived/observation-runs/9d0f5f1f302eafdbd9b352753b9e540d8d25e0d706a9caec4068e8c0a04cbbf7.json",
+      "receipt_sha256": "2efd1a36729d7b9a84953305737ecec006a65d96032191e349ad2f5dacb00e67",
+      "repeat_from_another_cwd": {
+        "cached": true,
+        "inference_calls": 0,
+        "network_calls": 0
+      },
+      "selected_frame_count": 1530,
+      "usable_by_view": {
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-frontal": 255,
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-lateral": 240
+      },
+      "usable_region_frames": {
+        "body": 495,
+        "head": 1339,
+        "left_foot": 1475,
+        "left_hand": 219,
+        "right_foot": 1421,
+        "right_hand": 249
+      },
+      "window_count": 48
+    }
+  },
+  "prior_evidence_sha256": {
+    "docs/demo/inspection.json": "662172d47fb2c8dc0fbfe24b3cb016c63b1ffaee737d3fcfca5fbcd8ecd133de",
+    "docs/evidence/issue-50/all-forms-smoke.json": "f96cbb906e25f3b844b4631ff9f4d0eb348c12635b9a499710a0d1efc78e241a",
+    "docs/evidence/issue-50/demo-full.json": "680a24a5a3343dc8b7d215c0f67666e994945e6e4bf280435264165d4ec9e5b6",
+    "docs/evidence/issue-50/functional.json": "e57d6cafe4e811b51106245daf8aa2bb52f7320558c811290ca3201de7c83202",
+    "docs/evidence/issue-51/reproduction.json": "7b8b9d3c2005359e52189f14dc9e6057d312ebfb8770b328e71fab1bf978600b",
+    "docs/evidence/observations/demo-full.json": "10f59bee54d23b0d9df981b761d859109027cbb3e0d4ea0ae9b7db73f94ce705",
+    "docs/evidence/parser-scenarios.md": "e7ccd43370ea61c460666d2b11e22fd2697762fd244c52b5532852154aa2ffb5",
+    "docs/local-runbook.md": "6656d5355d69738119d3b7fec074a304139eede926f86af13864fce3ef46415b"
+  },
+  "remaining_capability_gaps": [
+    "No accepted real automatic camera/world/ground calibration",
+    "No positive full reconstruction with automatic overlapping semantics; functional synthetic semantics empty",
+    "Default CLI requires configured producers; runbook does not reproduce a complete positive MVP"
+  ],
+  "shared_browser_screenshot_sha256": {
+    "test-results/local-smoke/shared-real-MMPose-form-1--7945c-visible-native-observations/real-form-1.png": "7aa4ce1d631efc5b65794b978364efd795e7cbc17708a54b6d770a9c45e347df",
+    "test-results/local-smoke/shared-real-MMPose-form-2--359fd-visible-native-observations/real-form-2.png": "90943a8b04ffd4f343b2c69fbe55fe8d2920ca31c4347850aff06d1e9a23d273",
+    "test-results/local-smoke/shared-real-MMPose-form-3--add39-visible-native-observations/real-form-3.png": "209567abf35bf3137f82cb4dec07c8bd2d68df559bf039a2c8c2e1a1814a60a5",
+    "test-results/local-smoke/shared-real-MMPose-form-4--87451-visible-native-observations/real-form-4.png": "44d68d583e83f8dc99e5044dac286b747ded2f3941bd83e953279595372aaaa6",
+    "test-results/local-smoke/shared-real-MMPose-form-5--67cb2-visible-native-observations/real-form-5.png": "7a803919d4211a5aa7d1686f81d9ff0845541373b23173dffe0f648c8481ecf8",
+    "test-results/local-smoke/shared-real-MMPose-form-6--37053-visible-native-observations/real-form-6.png": "b8de63b74e4094c350dd984a64532d58c2e96a7e0112dbf01644ebb6bbf61309",
+    "test-results/local-smoke/shared-real-MMPose-form-7--9166f-visible-native-observations/real-form-7.png": "7e64251bc42758d9c0e50999e91e008e752531d327edd29a0d1bbaa59122edfb",
+    "test-results/local-smoke/shared-real-MMPose-form-8--da5d3-visible-native-observations/real-form-8.png": "c96307a02dde1bd49db08d89790705428c1d84d78556c42dd8f39aae9b762da0",
+    "test-results/local-smoke/shared-synthetic-productio-c859e-arser-capability-inspection/synthetic-production.png": "e42ca0a7587ad53b754875a8d95f84984e8feba3916800e69097ad8e397d3bae"
+  },
+  "shared_browser_stats": {
+    "duration": 90507.999,
+    "expected": 9,
+    "flaky": 0,
+    "skipped": 0,
+    "startTime": "2026-09-26T17:12:36.956Z",
+    "unexpected": 0
+  },
+  "source_commit": "110a41287a1f1598b5bf9a7b442431cd8501d09c",
+  "source_trees": {
+    ".github": "f253219437e8623f68a290a64951ed4228807e98",
+    "calibration": "415247182fbf5c588275f08d98ce91c93ee057aa",
+    "contracts": "88ffac56b7c3276198ea93653ba0884766947d2c",
+    "media": "adaf5e7fbe8ce00c676ecc6759f4a733e12fdfe6",
+    "pipeline": "2cfbd3e65e1c93f67a32e0f3c84ea7bc60113d1c",
+    "pose": "24fa51ca10e46cb42cecbd716936d80f549854b0",
+    "reconstruction": "87b43b3143262bb6b2f9cda702cc05a50317aa15",
+    "src": "8cd9d6dab33badae5a78bc5779aa9d2cff9d2405",
+    "storage": "179fd0c3b5eab3f341eaecf923ea362864ab89ed",
+    "sync": "cd4323bbb81bfc70be9904b3b79baa4412e4d4f1",
+    "tests": "d028ea14c7bee0165083b9fd925510462accb1bd",
+    "web": "b7dd8e70bc03624de13e3f16a7f7caa16258033c"
+  },
+  "unexercised": [
+    "CUDA",
+    "Firefox/WebKit",
+    "OS process-kill recovery",
+    "Accuracy evaluation (outside scope)",
+    "New dataset/model acquisition (existing verified provisioning reused)"
+  ],
+  "version": 1
+}
