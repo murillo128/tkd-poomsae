@@ -1,0 +1,89 @@
+{
+  "device": "cpu",
+  "elapsed_seconds": 84.522,
+  "first_run_calls": {
+    "detector": 122,
+    "model_loads": 2,
+    "wholebody": 122
+  },
+  "frame_count": 122,
+  "hand_states": {
+    "low_evidence": 102,
+    "refined": 139,
+    "skipped": 3
+  },
+  "identity": {
+    "algorithm_revision": "native-observation-windows-v3-tracking-origin",
+    "model_revision": "abe9369d8d31291c61721a62209d4c3e3b3ea01defdecabc9a94d99fb25ee760",
+    "selection": "smoke-short",
+    "settings": {
+      "detector_threshold": 0.3,
+      "device": "cpu",
+      "hand_roi": {
+        "clockwise": 0,
+        "coarse_threshold": 0.2,
+        "margin": 0.35,
+        "max_span_px": 512.0,
+        "min_hand_points": 3,
+        "min_source_span_px": 12.0,
+        "min_visible_fraction": 0.4,
+        "mirror_left": false,
+        "mirror_right": false,
+        "refined_threshold": 0.2
+      },
+      "max_frames": 32,
+      "max_people": 4,
+      "tracking": {
+        "ambiguity_margin": 0.2,
+        "max_gap_seconds": 0.5,
+        "max_match_cost": 1.5,
+        "min_initial_area_ratio": 1.2,
+        "min_raw_score": 0.2,
+        "min_raw_visibility": 0.5,
+        "min_roi_span_px": 12.0
+      }
+    },
+    "sources": [
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+        "mendeley-frontal",
+        "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+        "mendeley-lateral",
+        "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+        5.0,
+        7.0
+      ]
+    ]
+  },
+  "identity_sha256": "f1069c736581acc7475362ef718788f9d8896f21a5a779bbf4931e52fab6cede",
+  "offline_reload": true,
+  "persisted_raw_scores": 7686,
+  "receipt_path": "/home/sergio/.local/share/tkd-poomsae/derived/observation-runs/f1069c736581acc7475362ef718788f9d8896f21a5a779bbf4931e52fab6cede.json",
+  "receipt_sha256": "82b579756648caaeeb60975a83de3fcb14665d30d0822bbb8d8e8f976138184f",
+  "repeat_from_another_cwd": {
+    "cached": true,
+    "inference_calls": 0,
+    "network_calls": 0
+  },
+  "selected_frame_count": 122,
+  "selection": "smoke-short",
+  "usable_by_view": {
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-frontal": 54,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-lateral": 25
+  },
+  "usable_region_frames": {
+    "body": 79,
+    "head": 76,
+    "left_foot": 122,
+    "left_hand": 25,
+    "right_foot": 110,
+    "right_hand": 23
+  },
+  "version": 1,
+  "window_count": 4
+}

@@ -1,0 +1,42 @@
+{
+  "device": "cpu",
+  "elapsed_seconds": 102.224,
+  "first_run_calls": {
+    "detector": 122,
+    "hand": 257,
+    "model_loads": 2,
+    "wholebody": 122
+  },
+  "frame_count": 122,
+  "hand_states": {
+    "low_evidence": 102,
+    "refined": 139,
+    "skipped": 3
+  },
+  "identity_sha256": "6002a2f0ed7a9331e1fe694b9ad8bee2f101e5eb1814dc38952bc284f83e8d3c",
+  "offline_reload": true,
+  "persisted_raw_scores": 7686,
+  "receipt_path": "/home/sergio/.local/share/tkd-poomsae/derived/observation-runs/6002a2f0ed7a9331e1fe694b9ad8bee2f101e5eb1814dc38952bc284f83e8d3c.json",
+  "receipt_sha256": "011a92dafcffb067d2d482c3240ff0df52cfea75bdc19f26b3d260b23be3eb9a",
+  "repeat_from_another_cwd": {
+    "cached": true,
+    "inference_calls": 0,
+    "network_calls": 0
+  },
+  "selected_frame_count": 122,
+  "selection": "smoke-short",
+  "usable_by_view": {
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-frontal": 54,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-lateral": 25
+  },
+  "usable_region_frames": {
+    "body": 79,
+    "head": 76,
+    "left_foot": 122,
+    "left_hand": 25,
+    "right_foot": 110,
+    "right_hand": 23
+  },
+  "version": 1,
+  "window_count": 4
+}

@@ -1,0 +1,4 @@
+# Integrated video reader for the Python 3.11 Linux x86_64 vision runtime.
+# Same PyAV version and wheel identity as the core uv.lock; keep NumPy 1.26.
+av==16.1.0 \
+    --hash=sha256:c7f2bc703d0df260a1fdf4de4253c7f5500ca9fc57772ea241b0cb241bcf972e

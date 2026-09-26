@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "target": "ES2023", "lib": ["ES2023", "DOM", "DOM.Iterable"], "types": ["node"] },
+  "include": ["e2e/integrated.spec.ts", "e2e/controlled.spec.ts", "playwright.camera.config.ts"]
+}

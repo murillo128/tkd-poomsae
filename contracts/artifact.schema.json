@@ -1,0 +1,4192 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "arm",
+            "placement",
+            "pivot",
+            "kick",
+            "stance_transition",
+            "special",
+            "transition"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "motion_links": {
+          "items": {
+            "$ref": "#/$defs/SemanticMotionLink"
+          },
+          "title": "Motion Links",
+          "type": "array"
+        },
+        "previous_action_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Action Id"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "role": {
+          "default": "unknown",
+          "enum": [
+            "attack",
+            "defense",
+            "preparation",
+            "special",
+            "unknown"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "source_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Candidate Id"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "tracks": {
+          "items": {
+            "enum": [
+              "left_arm",
+              "right_arm",
+              "left_leg",
+              "right_leg",
+              "body_root",
+              "head"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Tracks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "interval",
+        "step_id",
+        "tracks",
+        "category"
+      ],
+      "title": "Action",
+      "type": "object"
+    },
+    "Alignment": {
+      "additionalProperties": false,
+      "description": "Derived time queries; the versioned payload retains native observations.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "alignment",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observation_digests": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Observation Digests",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "query_count": {
+          "exclusiveMinimum": 0,
+          "title": "Query Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "synchronization_id": {
+          "title": "Synchronization Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "synchronization_id",
+        "observation_digests",
+        "query_count",
+        "arrays"
+      ],
+      "title": "Alignment",
+      "type": "object"
+    },
+    "ArmActions": {
+      "additionalProperties": false,
+      "description": "Automatic upper-body proposals and evidence, before final assembly.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "arm_actions",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "segmentation_id": {
+          "title": "Segmentation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "segmentation_id",
+        "arrays"
+      ],
+      "title": "ArmActions",
+      "type": "object"
+    },
+    "BoundaryEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "kind": {
+          "const": "boundary",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id",
+        "interval"
+      ],
+      "title": "BoundaryEdit",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Camera Status",
+          "type": "string"
+        },
+        "cameras": {
+          "items": {
+            "$ref": "#/$defs/CameraCalibration"
+          },
+          "minItems": 2,
+          "title": "Cameras",
+          "type": "array"
+        },
+        "evidence_links": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Links",
+          "type": "array"
+        },
+        "excluded_cameras": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Excluded Cameras",
+          "type": "object"
+        },
+        "ground_frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GroundFrame"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ground_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Ground Status",
+          "type": "string"
+        },
+        "ground_z": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ground Z"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "calibration",
+          "title": "Kind",
+          "type": "string"
+        },
+        "projection_debug": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Projection Debug",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "publication_status": {
+          "default": "partial",
+          "enum": [
+            "complete",
+            "partial"
+          ],
+          "title": "Publication Status",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "quality_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quality Flags",
+          "type": "array"
+        },
+        "scale": {
+          "enum": [
+            "metric",
+            "arbitrary"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "scale_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scale Evidence Ids",
+          "type": "array"
+        },
+        "scale_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScaleResolution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scale_status": {
+          "default": "unresolved",
+          "enum": [
+            "resolved",
+            "unresolved"
+          ],
+          "title": "Scale Status",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Revision"
+        },
+        "world_unit": {
+          "enum": [
+            "m",
+            "arbitrary"
+          ],
+          "title": "World Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "scale",
+        "world_unit",
+        "cameras",
+        "quality"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "CameraCalibration": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_id": {
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "capture_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capture Ids",
+          "type": "array"
+        },
+        "corner_count": {
+          "anyOf": [
+            {
+              "minimum": 4,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corner Count"
+        },
+        "intrinsic_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "estimated",
+                "imported"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intrinsic Source"
+        },
+        "intrinsics": {
+          "$ref": "#/$defs/Intrinsics"
+        },
+        "pose_ambiguity_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pose Ambiguity Px"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "rms_reprojection_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rms Reprojection Px"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "world_to_camera": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "World To Camera",
+          "type": "array"
+        }
+      },
+      "required": [
+        "camera_id",
+        "source_id",
+        "intrinsics",
+        "world_to_camera",
+        "quality"
+      ],
+      "title": "CameraCalibration",
+      "type": "object"
+    },
+    "Contact": {
+      "additionalProperties": false,
+      "properties": {
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "enum": [
+                "heel",
+                "forefoot",
+                "flat"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "state": {
+          "enum": [
+            "contact",
+            "no_contact",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "quality"
+      ],
+      "title": "Contact",
+      "type": "object"
+    },
+    "DenseArray": {
+      "additionalProperties": false,
+      "properties": {
+        "axes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Axes",
+          "type": "array"
+        },
+        "dtype": {
+          "enum": [
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "uint8",
+            "bool"
+          ],
+          "title": "Dtype",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "missing_mask_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Mask Id"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Shape",
+          "type": "array"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "id",
+        "dtype",
+        "shape",
+        "axes"
+      ],
+      "title": "DenseArray",
+      "type": "object"
+    },
+    "Footprint": {
+      "additionalProperties": false,
+      "properties": {
+        "foot": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "title": "Foot",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "xy_ground": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Xy Ground"
+        },
+        "yaw_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Yaw Rad"
+        }
+      },
+      "required": [
+        "id",
+        "foot",
+        "interval",
+        "xy_ground",
+        "yaw_rad",
+        "quality"
+      ],
+      "title": "Footprint",
+      "type": "object"
+    },
+    "FrameTime": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_id": {
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "frame_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Index"
+        },
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "offset_seconds": {
+          "title": "Offset Seconds",
+          "type": "number"
+        },
+        "pts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pts"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_seconds": {
+          "title": "Source Seconds",
+          "type": "number"
+        },
+        "time_base_den": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Base Den"
+        },
+        "time_base_num": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Base Num"
+        }
+      },
+      "required": [
+        "source_id",
+        "camera_id",
+        "source_seconds",
+        "offset_seconds",
+        "global_seconds"
+      ],
+      "title": "FrameTime",
+      "type": "object"
+    },
+    "Ground": {
+      "additionalProperties": false,
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "footprints": {
+          "items": {
+            "$ref": "#/$defs/Footprint"
+          },
+          "title": "Footprints",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "ground",
+          "title": "Kind",
+          "type": "string"
+        },
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measurement"
+          },
+          "title": "Measurements",
+          "type": "array"
+        },
+        "pivots": {
+          "items": {
+            "$ref": "#/$defs/Pivot"
+          },
+          "title": "Pivots",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/GroundSample"
+          },
+          "title": "Samples",
+          "type": "array"
+        },
+        "scale": {
+          "enum": [
+            "metric",
+            "arbitrary"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "scale",
+        "samples"
+      ],
+      "title": "Ground",
+      "type": "object"
+    },
+    "GroundFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "axis_uncertainty_rad": {
+          "minimum": 0,
+          "title": "Axis Uncertainty Rad",
+          "type": "number"
+        },
+        "coverage": {
+          "minimum": 0,
+          "title": "Coverage",
+          "type": "number"
+        },
+        "evidence_author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Author"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "evidence_kind": {
+          "enum": [
+            "target",
+            "scene",
+            "manual"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
+        "evidence_producer": {
+          "minLength": 1,
+          "title": "Evidence Producer",
+          "type": "string"
+        },
+        "evidence_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Reason"
+        },
+        "inlier_count": {
+          "minimum": 3,
+          "title": "Inlier Count",
+          "type": "integer"
+        },
+        "inlier_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Inlier Indices",
+          "type": "array"
+        },
+        "normal_uncertainty_rad": {
+          "minimum": 0,
+          "title": "Normal Uncertainty Rad",
+          "type": "number"
+        },
+        "plane_normal_source": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Plane Normal Source",
+          "type": "array"
+        },
+        "plane_offset_source": {
+          "title": "Plane Offset Source",
+          "type": "number"
+        },
+        "rms_residual": {
+          "minimum": 0,
+          "title": "Rms Residual",
+          "type": "number"
+        },
+        "sample_count": {
+          "minimum": 3,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "source_to_world": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Source To World",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_to_world",
+        "plane_normal_source",
+        "plane_offset_source",
+        "inlier_count",
+        "sample_count",
+        "coverage",
+        "rms_residual",
+        "normal_uncertainty_rad",
+        "axis_uncertainty_rad",
+        "evidence_kind",
+        "evidence_ids",
+        "evidence_producer",
+        "source_revision"
+      ],
+      "title": "GroundFrame",
+      "type": "object"
+    },
+    "GroundSample": {
+      "additionalProperties": false,
+      "properties": {
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "left": {
+          "$ref": "#/$defs/Contact"
+        },
+        "right": {
+          "$ref": "#/$defs/Contact"
+        },
+        "support": {
+          "enum": [
+            "both",
+            "left",
+            "right",
+            "neither",
+            "unknown"
+          ],
+          "title": "Support",
+          "type": "string"
+        }
+      },
+      "required": [
+        "global_seconds",
+        "left",
+        "right",
+        "support"
+      ],
+      "title": "GroundSample",
+      "type": "object"
+    },
+    "Interval": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Interval",
+      "type": "object"
+    },
+    "Intrinsics": {
+      "additionalProperties": false,
+      "properties": {
+        "cx": {
+          "title": "Cx",
+          "type": "number"
+        },
+        "cy": {
+          "title": "Cy",
+          "type": "number"
+        },
+        "distortion": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Distortion",
+          "type": "array"
+        },
+        "fx": {
+          "exclusiveMinimum": 0,
+          "title": "Fx",
+          "type": "number"
+        },
+        "fy": {
+          "exclusiveMinimum": 0,
+          "title": "Fy",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fx",
+        "fy",
+        "cx",
+        "cy"
+      ],
+      "title": "Intrinsics",
+      "type": "object"
+    },
+    "Keyframe": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "event": {
+          "title": "Event",
+          "type": "string"
+        },
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
+        "phase_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phase Id"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "source_event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "left_leg",
+                "right_leg",
+                "body_root",
+                "head"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track"
+        }
+      },
+      "required": [
+        "id",
+        "action_id",
+        "global_seconds",
+        "event"
+      ],
+      "title": "Keyframe",
+      "type": "object"
+    },
+    "KeyframeAdd": {
+      "additionalProperties": false,
+      "properties": {
+        "keyframe": {
+          "$ref": "#/$defs/Keyframe"
+        },
+        "kind": {
+          "const": "keyframe_add",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "keyframe"
+      ],
+      "title": "KeyframeAdd",
+      "type": "object"
+    },
+    "KeyframeMove": {
+      "additionalProperties": false,
+      "properties": {
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "kind": {
+          "const": "keyframe_move",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id",
+        "global_seconds"
+      ],
+      "title": "KeyframeMove",
+      "type": "object"
+    },
+    "KeyframeRemove": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "keyframe_remove",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id"
+      ],
+      "title": "KeyframeRemove",
+      "type": "object"
+    },
+    "Landmark2D": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "pelvis",
+            "spine",
+            "neck",
+            "head",
+            "nose",
+            "left_eye",
+            "right_eye",
+            "left_ear",
+            "right_ear",
+            "left_shoulder",
+            "right_shoulder",
+            "left_elbow",
+            "right_elbow",
+            "left_wrist",
+            "right_wrist",
+            "left_hip",
+            "right_hip",
+            "left_knee",
+            "right_knee",
+            "left_ankle",
+            "right_ankle",
+            "left_heel",
+            "right_heel",
+            "left_forefoot",
+            "right_forefoot",
+            "left_foot_outer",
+            "right_foot_outer",
+            "left_thumb_cmc",
+            "left_thumb_mcp",
+            "left_thumb_ip",
+            "left_thumb_tip",
+            "left_index_mcp",
+            "left_index_pip",
+            "left_index_dip",
+            "left_index_tip",
+            "left_middle_mcp",
+            "left_middle_pip",
+            "left_middle_dip",
+            "left_middle_tip",
+            "left_ring_mcp",
+            "left_ring_pip",
+            "left_ring_dip",
+            "left_ring_tip",
+            "left_pinky_mcp",
+            "left_pinky_pip",
+            "left_pinky_dip",
+            "left_pinky_tip",
+            "right_thumb_cmc",
+            "right_thumb_mcp",
+            "right_thumb_ip",
+            "right_thumb_tip",
+            "right_index_mcp",
+            "right_index_pip",
+            "right_index_dip",
+            "right_index_tip",
+            "right_middle_mcp",
+            "right_middle_pip",
+            "right_middle_dip",
+            "right_middle_tip",
+            "right_ring_mcp",
+            "right_ring_pip",
+            "right_ring_dip",
+            "right_ring_tip",
+            "right_pinky_mcp",
+            "right_pinky_pip",
+            "right_pinky_dip",
+            "right_pinky_tip"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "raw_score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RawScore"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "raw_visibility": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Visibility"
+        },
+        "xy_px": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Xy Px"
+        }
+      },
+      "required": [
+        "name",
+        "xy_px",
+        "quality"
+      ],
+      "title": "Landmark2D",
+      "type": "object"
+    },
+    "Landmark3D": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "pelvis",
+            "spine",
+            "neck",
+            "head",
+            "nose",
+            "left_eye",
+            "right_eye",
+            "left_ear",
+            "right_ear",
+            "left_shoulder",
+            "right_shoulder",
+            "left_elbow",
+            "right_elbow",
+            "left_wrist",
+            "right_wrist",
+            "left_hip",
+            "right_hip",
+            "left_knee",
+            "right_knee",
+            "left_ankle",
+            "right_ankle",
+            "left_heel",
+            "right_heel",
+            "left_forefoot",
+            "right_forefoot",
+            "left_foot_outer",
+            "right_foot_outer",
+            "left_thumb_cmc",
+            "left_thumb_mcp",
+            "left_thumb_ip",
+            "left_thumb_tip",
+            "left_index_mcp",
+            "left_index_pip",
+            "left_index_dip",
+            "left_index_tip",
+            "left_middle_mcp",
+            "left_middle_pip",
+            "left_middle_dip",
+            "left_middle_tip",
+            "left_ring_mcp",
+            "left_ring_pip",
+            "left_ring_dip",
+            "left_ring_tip",
+            "left_pinky_mcp",
+            "left_pinky_pip",
+            "left_pinky_dip",
+            "left_pinky_tip",
+            "right_thumb_cmc",
+            "right_thumb_mcp",
+            "right_thumb_ip",
+            "right_thumb_tip",
+            "right_index_mcp",
+            "right_index_pip",
+            "right_index_dip",
+            "right_index_tip",
+            "right_middle_mcp",
+            "right_middle_pip",
+            "right_middle_dip",
+            "right_middle_tip",
+            "right_ring_mcp",
+            "right_ring_pip",
+            "right_ring_dip",
+            "right_ring_tip",
+            "right_pinky_mcp",
+            "right_pinky_pip",
+            "right_pinky_dip",
+            "right_pinky_tip"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "xyz_world": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Xyz World"
+        }
+      },
+      "required": [
+        "name",
+        "xyz_world",
+        "quality"
+      ],
+      "title": "Landmark3D",
+      "type": "object"
+    },
+    "LowerBodyParsing": {
+      "additionalProperties": false,
+      "description": "Independent action candidates; coarse proposals do not clip intervals.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "lower_body_parsing",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "segmentation_id": {
+          "title": "Segmentation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "segmentation_id",
+        "arrays"
+      ],
+      "title": "LowerBodyParsing",
+      "type": "object"
+    },
+    "ManualEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "field_path": {
+          "pattern": "^/[A-Za-z0-9_/-]+$",
+          "title": "Field Path",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "replacement": {
+          "title": "Replacement"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "target_id",
+        "field_path",
+        "replacement",
+        "author"
+      ],
+      "title": "ManualEdit",
+      "type": "object"
+    },
+    "ManualEdits": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "automatic_manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Manifest Sha256"
+        },
+        "automatic_parser_revision": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Parser Revision"
+        },
+        "automatic_semantics_id": {
+          "title": "Automatic Semantics Id",
+          "type": "string"
+        },
+        "base_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Revision"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "enum": [
+                "apply",
+                "undo",
+                "reset"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "edits": {
+          "items": {
+            "$ref": "#/$defs/ManualEdit"
+          },
+          "title": "Edits",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "manual_edits",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boundary": "#/$defs/BoundaryEdit",
+                "keyframe_add": "#/$defs/KeyframeAdd",
+                "keyframe_move": "#/$defs/KeyframeMove",
+                "keyframe_remove": "#/$defs/KeyframeRemove"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/BoundaryEdit"
+              },
+              {
+                "$ref": "#/$defs/KeyframeAdd"
+              },
+              {
+                "$ref": "#/$defs/KeyframeMove"
+              },
+              {
+                "$ref": "#/$defs/KeyframeRemove"
+              }
+            ]
+          },
+          "title": "Operations",
+          "type": "array"
+        },
+        "parent_state_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent State Revision"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "state_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Revision"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "automatic_semantics_id"
+      ],
+      "title": "ManualEdits",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "unit": {
+          "enum": [
+            "m",
+            "arbitrary",
+            "body_ratio",
+            "deg",
+            "rad"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "unit",
+        "quality"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Morphology": {
+      "additionalProperties": false,
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "morphology",
+          "title": "Kind",
+          "type": "string"
+        },
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measurement"
+          },
+          "title": "Measurements",
+          "type": "array"
+        },
+        "participant_id": {
+          "title": "Participant Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "participant_id",
+        "measurements"
+      ],
+      "title": "Morphology",
+      "type": "object"
+    },
+    "MotionFeatures": {
+      "additionalProperties": false,
+      "description": "Physical features/candidates, before semantic actions and grouping.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "motion_features",
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "arrays"
+      ],
+      "title": "MotionFeatures",
+      "type": "object"
+    },
+    "MotionSample": {
+      "additionalProperties": false,
+      "properties": {
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark3D"
+          },
+          "title": "Landmarks",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "root_orientation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Quaternion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "root_xyz_world": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Root Xyz World"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentFrame"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "global_seconds",
+        "root_xyz_world",
+        "root_orientation",
+        "landmarks",
+        "quality"
+      ],
+      "title": "MotionSample",
+      "type": "object"
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "frame": {
+          "$ref": "#/$defs/FrameTime"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "observation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark2D"
+          },
+          "title": "Landmarks",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "refined_landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark2D"
+          },
+          "title": "Refined Landmarks",
+          "type": "array"
+        },
+        "region_quality": {
+          "items": {
+            "$ref": "#/$defs/ViewRegionQuality"
+          },
+          "title": "Region Quality",
+          "type": "array"
+        },
+        "regional_geometry": {
+          "items": {
+            "$ref": "#/$defs/RegionalGeometry2D"
+          },
+          "title": "Regional Geometry",
+          "type": "array"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/RegionOfInterest"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_regional_geometry": {
+          "items": {
+            "$ref": "#/$defs/RegionalGeometry2D"
+          },
+          "title": "Source Regional Geometry",
+          "type": "array"
+        },
+        "subject_selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubjectSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wholebody_landmarks": {
+          "items": {
+            "$ref": "#/$defs/Landmark2D"
+          },
+          "title": "Wholebody Landmarks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "frame",
+        "landmarks"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "Phase": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "motion_links": {
+          "items": {
+            "$ref": "#/$defs/SemanticMotionLink"
+          },
+          "title": "Motion Links",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        }
+      },
+      "required": [
+        "id",
+        "action_id",
+        "interval",
+        "name"
+      ],
+      "title": "Phase",
+      "type": "object"
+    },
+    "Pivot": {
+      "additionalProperties": false,
+      "properties": {
+        "foot": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "title": "Foot",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "region": {
+          "enum": [
+            "heel",
+            "forefoot",
+            "flat",
+            "unknown"
+          ],
+          "title": "Region",
+          "type": "string"
+        },
+        "rotation_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rotation Rad"
+        }
+      },
+      "required": [
+        "id",
+        "foot",
+        "interval",
+        "region",
+        "rotation_rad",
+        "quality"
+      ],
+      "title": "Pivot",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "project",
+          "title": "Kind",
+          "type": "string"
+        },
+        "participant_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Participant Ids",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "source_ids",
+        "participant_ids"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "config_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Config Digest",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Version"
+        },
+        "producer": {
+          "minLength": 1,
+          "title": "Producer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "producer",
+        "config_digest"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Quality": {
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "observed",
+            "interpolated",
+            "inferred",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "Quality",
+      "type": "object"
+    },
+    "Quaternion": {
+      "additionalProperties": false,
+      "properties": {
+        "wxyz": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Wxyz",
+          "type": "array"
+        }
+      },
+      "required": [
+        "wxyz"
+      ],
+      "title": "Quaternion",
+      "type": "object"
+    },
+    "RawScore": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "range_max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Range Max"
+        },
+        "range_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Range Min"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "range_min",
+        "range_max"
+      ],
+      "title": "RawScore",
+      "type": "object"
+    },
+    "Reconstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "calibration_id": {
+          "title": "Calibration Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "reconstruction",
+          "title": "Kind",
+          "type": "string"
+        },
+        "participant_id": {
+          "title": "Participant Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/MotionSample"
+          },
+          "title": "Samples",
+          "type": "array"
+        },
+        "scale": {
+          "enum": [
+            "metric",
+            "arbitrary"
+          ],
+          "title": "Scale",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "calibration_id",
+        "participant_id",
+        "scale",
+        "samples"
+      ],
+      "title": "Reconstruction",
+      "type": "object"
+    },
+    "RegionOfInterest": {
+      "additionalProperties": false,
+      "properties": {
+        "part": {
+          "enum": [
+            "left_hand",
+            "right_hand",
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "xywh_px": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Xywh Px",
+          "type": "array"
+        }
+      },
+      "required": [
+        "part",
+        "xywh_px"
+      ],
+      "title": "RegionOfInterest",
+      "type": "object"
+    },
+    "RegionalGeometry2D": {
+      "additionalProperties": false,
+      "description": "View-space evidence, independent for each detailed foot/head region.",
+      "properties": {
+        "availability": {
+          "enum": [
+            "complete",
+            "partial",
+            "missing"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "axis_end_px": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis End Px"
+        },
+        "axis_start_px": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Start Px"
+        },
+        "orientation_rad": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orientation Rad"
+        },
+        "orientation_state": {
+          "enum": [
+            "available",
+            "degenerate",
+            "unavailable"
+          ],
+          "title": "Orientation State",
+          "type": "string"
+        },
+        "part": {
+          "enum": [
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "supporting_landmarks": {
+          "items": {
+            "enum": [
+              "pelvis",
+              "spine",
+              "neck",
+              "head",
+              "nose",
+              "left_eye",
+              "right_eye",
+              "left_ear",
+              "right_ear",
+              "left_shoulder",
+              "right_shoulder",
+              "left_elbow",
+              "right_elbow",
+              "left_wrist",
+              "right_wrist",
+              "left_hip",
+              "right_hip",
+              "left_knee",
+              "right_knee",
+              "left_ankle",
+              "right_ankle",
+              "left_heel",
+              "right_heel",
+              "left_forefoot",
+              "right_forefoot",
+              "left_foot_outer",
+              "right_foot_outer",
+              "left_thumb_cmc",
+              "left_thumb_mcp",
+              "left_thumb_ip",
+              "left_thumb_tip",
+              "left_index_mcp",
+              "left_index_pip",
+              "left_index_dip",
+              "left_index_tip",
+              "left_middle_mcp",
+              "left_middle_pip",
+              "left_middle_dip",
+              "left_middle_tip",
+              "left_ring_mcp",
+              "left_ring_pip",
+              "left_ring_dip",
+              "left_ring_tip",
+              "left_pinky_mcp",
+              "left_pinky_pip",
+              "left_pinky_dip",
+              "left_pinky_tip",
+              "right_thumb_cmc",
+              "right_thumb_mcp",
+              "right_thumb_ip",
+              "right_thumb_tip",
+              "right_index_mcp",
+              "right_index_pip",
+              "right_index_dip",
+              "right_index_tip",
+              "right_middle_mcp",
+              "right_middle_pip",
+              "right_middle_dip",
+              "right_middle_tip",
+              "right_ring_mcp",
+              "right_ring_pip",
+              "right_ring_dip",
+              "right_ring_tip",
+              "right_pinky_mcp",
+              "right_pinky_pip",
+              "right_pinky_dip",
+              "right_pinky_tip"
+            ],
+            "type": "string"
+          },
+          "title": "Supporting Landmarks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "part",
+        "availability",
+        "orientation_state",
+        "provider"
+      ],
+      "title": "RegionalGeometry2D",
+      "type": "object"
+    },
+    "ScaleResolution": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "target",
+            "measured",
+            "manual"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "measured_length": {
+          "exclusiveMinimum": 0,
+          "title": "Measured Length",
+          "type": "number"
+        },
+        "measured_unit": {
+          "enum": [
+            "m",
+            "cm"
+          ],
+          "title": "Measured Unit",
+          "type": "string"
+        },
+        "metres_per_source_unit": {
+          "exclusiveMinimum": 0,
+          "title": "Metres Per Source Unit",
+          "type": "number"
+        },
+        "producer": {
+          "minLength": 1,
+          "title": "Producer",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_revision",
+        "kind",
+        "measured_length",
+        "measured_unit",
+        "metres_per_source_unit",
+        "producer"
+      ],
+      "title": "ScaleResolution",
+      "type": "object"
+    },
+    "SegmentFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "orientation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Quaternion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent": {
+          "enum": [
+            "world",
+            "root",
+            "torso",
+            "left_forearm",
+            "right_forearm",
+            "left_hand",
+            "right_hand",
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Parent",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "segment": {
+          "title": "Segment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment",
+        "parent",
+        "orientation",
+        "quality"
+      ],
+      "title": "SegmentFrame",
+      "type": "object"
+    },
+    "Segmentation": {
+      "additionalProperties": false,
+      "description": "Automatic coarse proposals, including explicitly indeterminate output.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "segmentation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SequenceStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "execution",
+        "steps",
+        "quality",
+        "arrays"
+      ],
+      "title": "Segmentation",
+      "type": "object"
+    },
+    "SemanticMotionLink": {
+      "additionalProperties": false,
+      "description": "An inclusive dense source range on one physical track.",
+      "properties": {
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "track": {
+          "enum": [
+            "left_arm",
+            "right_arm",
+            "left_leg",
+            "right_leg",
+            "body_root",
+            "head"
+          ],
+          "title": "Track",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track",
+        "interval",
+        "motion_sample_indices",
+        "quality"
+      ],
+      "title": "SemanticMotionLink",
+      "type": "object"
+    },
+    "Semantics": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "arm_actions_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arm Actions Id"
+        },
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "automatic_semantics_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Semantics Id"
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "keyframes": {
+          "items": {
+            "$ref": "#/$defs/Keyframe"
+          },
+          "title": "Keyframes",
+          "type": "array"
+        },
+        "kind": {
+          "const": "semantics",
+          "title": "Kind",
+          "type": "string"
+        },
+        "lower_body_parsing_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower Body Parsing Id"
+        },
+        "manual_edits_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Edits Id"
+        },
+        "motion_features_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motion Features Id"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
+        "phases": {
+          "items": {
+            "$ref": "#/$defs/Phase"
+          },
+          "title": "Phases",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/SpatialRelation"
+          },
+          "title": "Relations",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "segmentation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segmentation Id"
+        },
+        "stances": {
+          "items": {
+            "$ref": "#/$defs/StanceState"
+          },
+          "title": "Stances",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SequenceStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "execution",
+        "steps",
+        "stances",
+        "actions",
+        "phases",
+        "keyframes",
+        "relations"
+      ],
+      "title": "Semantics",
+      "type": "object"
+    },
+    "SequenceStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Action Ids",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "interval",
+        "action_ids"
+      ],
+      "title": "SequenceStep",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_id": {
+          "minLength": 1,
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "source",
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "time_base_den": {
+          "exclusiveMinimum": 0,
+          "title": "Time Base Den",
+          "type": "integer"
+        },
+        "time_base_num": {
+          "exclusiveMinimum": 0,
+          "title": "Time Base Num",
+          "type": "integer"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "camera_id",
+        "width_px",
+        "height_px",
+        "time_base_num",
+        "time_base_den"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SpatialRelation": {
+      "additionalProperties": false,
+      "properties": {
+        "front_entity": {
+          "anyOf": [
+            {
+              "enum": [
+                "pelvis",
+                "spine",
+                "neck",
+                "head",
+                "nose",
+                "left_eye",
+                "right_eye",
+                "left_ear",
+                "right_ear",
+                "left_shoulder",
+                "right_shoulder",
+                "left_elbow",
+                "right_elbow",
+                "left_wrist",
+                "right_wrist",
+                "left_hip",
+                "right_hip",
+                "left_knee",
+                "right_knee",
+                "left_ankle",
+                "right_ankle",
+                "left_heel",
+                "right_heel",
+                "left_forefoot",
+                "right_forefoot",
+                "left_foot_outer",
+                "right_foot_outer",
+                "left_thumb_cmc",
+                "left_thumb_mcp",
+                "left_thumb_ip",
+                "left_thumb_tip",
+                "left_index_mcp",
+                "left_index_pip",
+                "left_index_dip",
+                "left_index_tip",
+                "left_middle_mcp",
+                "left_middle_pip",
+                "left_middle_dip",
+                "left_middle_tip",
+                "left_ring_mcp",
+                "left_ring_pip",
+                "left_ring_dip",
+                "left_ring_tip",
+                "left_pinky_mcp",
+                "left_pinky_pip",
+                "left_pinky_dip",
+                "left_pinky_tip",
+                "right_thumb_cmc",
+                "right_thumb_mcp",
+                "right_thumb_ip",
+                "right_thumb_tip",
+                "right_index_mcp",
+                "right_index_pip",
+                "right_index_dip",
+                "right_index_tip",
+                "right_middle_mcp",
+                "right_middle_pip",
+                "right_middle_dip",
+                "right_middle_tip",
+                "right_ring_mcp",
+                "right_ring_pip",
+                "right_ring_dip",
+                "right_ring_tip",
+                "right_pinky_mcp",
+                "right_pinky_pip",
+                "right_pinky_dip",
+                "right_pinky_tip"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "root",
+                "torso",
+                "left_upper_arm",
+                "right_upper_arm",
+                "left_forearm",
+                "right_forearm",
+                "left_hand",
+                "right_hand",
+                "left_thigh",
+                "right_thigh",
+                "left_shank",
+                "right_shank",
+                "left_foot",
+                "right_foot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Front Entity"
+        },
+        "front_quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "global_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Global Seconds"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "object": {
+          "anyOf": [
+            {
+              "enum": [
+                "pelvis",
+                "spine",
+                "neck",
+                "head",
+                "nose",
+                "left_eye",
+                "right_eye",
+                "left_ear",
+                "right_ear",
+                "left_shoulder",
+                "right_shoulder",
+                "left_elbow",
+                "right_elbow",
+                "left_wrist",
+                "right_wrist",
+                "left_hip",
+                "right_hip",
+                "left_knee",
+                "right_knee",
+                "left_ankle",
+                "right_ankle",
+                "left_heel",
+                "right_heel",
+                "left_forefoot",
+                "right_forefoot",
+                "left_foot_outer",
+                "right_foot_outer",
+                "left_thumb_cmc",
+                "left_thumb_mcp",
+                "left_thumb_ip",
+                "left_thumb_tip",
+                "left_index_mcp",
+                "left_index_pip",
+                "left_index_dip",
+                "left_index_tip",
+                "left_middle_mcp",
+                "left_middle_pip",
+                "left_middle_dip",
+                "left_middle_tip",
+                "left_ring_mcp",
+                "left_ring_pip",
+                "left_ring_dip",
+                "left_ring_tip",
+                "left_pinky_mcp",
+                "left_pinky_pip",
+                "left_pinky_dip",
+                "left_pinky_tip",
+                "right_thumb_cmc",
+                "right_thumb_mcp",
+                "right_thumb_ip",
+                "right_thumb_tip",
+                "right_index_mcp",
+                "right_index_pip",
+                "right_index_dip",
+                "right_index_tip",
+                "right_middle_mcp",
+                "right_middle_pip",
+                "right_middle_dip",
+                "right_middle_tip",
+                "right_ring_mcp",
+                "right_ring_pip",
+                "right_ring_dip",
+                "right_ring_tip",
+                "right_pinky_mcp",
+                "right_pinky_pip",
+                "right_pinky_dip",
+                "right_pinky_tip"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "root",
+                "torso",
+                "left_upper_arm",
+                "right_upper_arm",
+                "left_forearm",
+                "right_forearm",
+                "left_hand",
+                "right_hand",
+                "left_thigh",
+                "right_thigh",
+                "left_shank",
+                "right_shank",
+                "left_foot",
+                "right_foot"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Object"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "reference_frame": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Frame"
+        },
+        "relation": {
+          "enum": [
+            "in_front_of",
+            "behind",
+            "above",
+            "below",
+            "left_of",
+            "right_of",
+            "crossed",
+            "unknown"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "enum": [
+                "pelvis",
+                "spine",
+                "neck",
+                "head",
+                "nose",
+                "left_eye",
+                "right_eye",
+                "left_ear",
+                "right_ear",
+                "left_shoulder",
+                "right_shoulder",
+                "left_elbow",
+                "right_elbow",
+                "left_wrist",
+                "right_wrist",
+                "left_hip",
+                "right_hip",
+                "left_knee",
+                "right_knee",
+                "left_ankle",
+                "right_ankle",
+                "left_heel",
+                "right_heel",
+                "left_forefoot",
+                "right_forefoot",
+                "left_foot_outer",
+                "right_foot_outer",
+                "left_thumb_cmc",
+                "left_thumb_mcp",
+                "left_thumb_ip",
+                "left_thumb_tip",
+                "left_index_mcp",
+                "left_index_pip",
+                "left_index_dip",
+                "left_index_tip",
+                "left_middle_mcp",
+                "left_middle_pip",
+                "left_middle_dip",
+                "left_middle_tip",
+                "left_ring_mcp",
+                "left_ring_pip",
+                "left_ring_dip",
+                "left_ring_tip",
+                "left_pinky_mcp",
+                "left_pinky_pip",
+                "left_pinky_dip",
+                "left_pinky_tip",
+                "right_thumb_cmc",
+                "right_thumb_mcp",
+                "right_thumb_ip",
+                "right_thumb_tip",
+                "right_index_mcp",
+                "right_index_pip",
+                "right_index_dip",
+                "right_index_tip",
+                "right_middle_mcp",
+                "right_middle_pip",
+                "right_middle_dip",
+                "right_middle_tip",
+                "right_ring_mcp",
+                "right_ring_pip",
+                "right_ring_dip",
+                "right_ring_tip",
+                "right_pinky_mcp",
+                "right_pinky_pip",
+                "right_pinky_dip",
+                "right_pinky_tip"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "root",
+                "torso",
+                "left_upper_arm",
+                "right_upper_arm",
+                "left_forearm",
+                "right_forearm",
+                "left_hand",
+                "right_hand",
+                "left_thigh",
+                "right_thigh",
+                "left_shank",
+                "right_shank",
+                "left_foot",
+                "right_foot"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Subject"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "object",
+        "relation",
+        "quality"
+      ],
+      "title": "SpatialRelation",
+      "type": "object"
+    },
+    "StanceState": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "source_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Candidate Id"
+        }
+      },
+      "required": [
+        "id",
+        "interval",
+        "label",
+        "quality"
+      ],
+      "title": "StanceState",
+      "type": "object"
+    },
+    "SubjectCandidateEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox_xyxy_px": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox Xyxy Px",
+          "type": "array"
+        },
+        "detector_score": {
+          "$ref": "#/$defs/RawScore"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "match_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Cost"
+        }
+      },
+      "required": [
+        "index",
+        "bbox_xyxy_px",
+        "detector_score"
+      ],
+      "title": "SubjectCandidateEvidence",
+      "type": "object"
+    },
+    "SubjectSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Index"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/SubjectCandidateEvidence"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "initial",
+                "temporal",
+                "operator"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "selected",
+            "ambiguous",
+            "missing"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Id"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "SubjectSelection",
+      "type": "object"
+    },
+    "SyncOffset": {
+      "additionalProperties": false,
+      "properties": {
+        "automatic_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Automatic Seconds"
+        },
+        "exclusion_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exclusion Reason"
+        },
+        "global_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "manual_author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Author"
+        },
+        "manual_correction_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Correction Seconds"
+        },
+        "manual_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Reason"
+        },
+        "manual_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Seconds"
+        },
+        "manual_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Source"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "retained": {
+          "default": true,
+          "title": "Retained",
+          "type": "boolean"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timing_reference": {
+          "default": false,
+          "title": "Timing Reference",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_id",
+        "automatic_seconds",
+        "quality"
+      ],
+      "title": "SyncOffset",
+      "type": "object"
+    },
+    "SyncPairEstimate": {
+      "additionalProperties": false,
+      "properties": {
+        "cue_kinds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cue Kinds",
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "first": {
+          "title": "First",
+          "type": "string"
+        },
+        "overlap_seconds": {
+          "title": "Overlap Seconds",
+          "type": "number"
+        },
+        "peak_separation": {
+          "title": "Peak Separation",
+          "type": "number"
+        },
+        "reliable": {
+          "title": "Reliable",
+          "type": "boolean"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "second": {
+          "title": "Second",
+          "type": "string"
+        },
+        "shift_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Shift Seconds"
+        },
+        "window_scores": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Window Scores",
+          "type": "array"
+        }
+      },
+      "required": [
+        "first",
+        "second",
+        "shift_seconds",
+        "score",
+        "peak_separation",
+        "overlap_seconds",
+        "window_scores",
+        "cue_kinds",
+        "reliable",
+        "diagnostics"
+      ],
+      "title": "SyncPairEstimate",
+      "type": "object"
+    },
+    "Synchronization": {
+      "additionalProperties": false,
+      "properties": {
+        "common_interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Diagnostics",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "synchronization",
+          "title": "Kind",
+          "type": "string"
+        },
+        "offsets": {
+          "items": {
+            "$ref": "#/$defs/SyncOffset"
+          },
+          "minItems": 2,
+          "title": "Offsets",
+          "type": "array"
+        },
+        "pair_estimates": {
+          "items": {
+            "$ref": "#/$defs/SyncPairEstimate"
+          },
+          "title": "Pair Estimates",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reference_source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Source Id"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "offsets"
+      ],
+      "title": "Synchronization",
+      "type": "object"
+    },
+    "ViewRegionQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "part": {
+          "enum": [
+            "body",
+            "left_hand",
+            "right_hand",
+            "left_foot",
+            "right_foot",
+            "head"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "usable": {
+          "title": "Usable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "part",
+        "usable"
+      ],
+      "title": "ViewRegionQuality",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/murillo128/tkd-poomsae/contracts/artifact.schema.json",
+  "discriminator": {
+    "mapping": {
+      "alignment": "#/$defs/Alignment",
+      "arm_actions": "#/$defs/ArmActions",
+      "calibration": "#/$defs/Calibration",
+      "ground": "#/$defs/Ground",
+      "lower_body_parsing": "#/$defs/LowerBodyParsing",
+      "manual_edits": "#/$defs/ManualEdits",
+      "morphology": "#/$defs/Morphology",
+      "motion_features": "#/$defs/MotionFeatures",
+      "observation": "#/$defs/Observation",
+      "project": "#/$defs/Project",
+      "reconstruction": "#/$defs/Reconstruction",
+      "segmentation": "#/$defs/Segmentation",
+      "semantics": "#/$defs/Semantics",
+      "source": "#/$defs/Source",
+      "synchronization": "#/$defs/Synchronization"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Project"
+    },
+    {
+      "$ref": "#/$defs/Source"
+    },
+    {
+      "$ref": "#/$defs/Synchronization"
+    },
+    {
+      "$ref": "#/$defs/Calibration"
+    },
+    {
+      "$ref": "#/$defs/Observation"
+    },
+    {
+      "$ref": "#/$defs/Alignment"
+    },
+    {
+      "$ref": "#/$defs/Reconstruction"
+    },
+    {
+      "$ref": "#/$defs/Morphology"
+    },
+    {
+      "$ref": "#/$defs/Ground"
+    },
+    {
+      "$ref": "#/$defs/MotionFeatures"
+    },
+    {
+      "$ref": "#/$defs/Segmentation"
+    },
+    {
+      "$ref": "#/$defs/ArmActions"
+    },
+    {
+      "$ref": "#/$defs/LowerBodyParsing"
+    },
+    {
+      "$ref": "#/$defs/Semantics"
+    },
+    {
+      "$ref": "#/$defs/ManualEdits"
+    }
+  ],
+  "title": "TKD Poomsae artifact 1.0.0"
+}

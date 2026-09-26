@@ -1,0 +1,43 @@
+{
+  "algorithm_revision": "temporal-motion-v1",
+  "evidence": "offline synthetic numerical invariants",
+  "limitations": "No dataset accuracy, generalization, contact or winding inference.",
+  "pivot": {
+    "derivative_window_seconds": 0.03,
+    "filter_window_seconds": 0.03,
+    "measurements": {
+      "angular_peak_relative_error": 0.09338130125182953,
+      "max_angle_error_rad": 0.0026694890600654775,
+      "pivot_midpoint_error_seconds": 0.0
+    },
+    "sample_interval_seconds": 0.005,
+    "tolerances": {
+      "angular_peak_relative_error_max": 0.15,
+      "max_angle_error_rad_max": 0.02,
+      "pivot_midpoint_error_seconds_max": 0.0051
+    }
+  },
+  "reproduce": "uv run --frozen python -c \"from tests.test_temporal_motion import transient_metrics, pivot_metrics; print(transient_metrics()); print(pivot_metrics())\"",
+  "transient": {
+    "filter_window_seconds": 0.04,
+    "measurements": {
+      "filtered_rmse": 0.0022035773447846825,
+      "noisy_rmse": 0.0039664750797379095,
+      "peak_amplitude_error": 0.009080431621570018,
+      "peak_timing_error_seconds": 0.0,
+      "reversal_amplitude_error": 0.005915386191496785,
+      "reversal_timing_error_seconds": 1.1102230246251565e-16
+    },
+    "noise_sigma_world": 0.004,
+    "sample_interval_seconds": 0.005,
+    "seed": 28,
+    "tolerances": {
+      "peak_amplitude_error_max": 0.04,
+      "peak_timing_error_seconds_max": 0.0051,
+      "reversal_amplitude_error_max": 0.012,
+      "reversal_timing_error_seconds_max": 0.0101,
+      "rmse_ratio_max": 0.8
+    }
+  },
+  "version": 1
+}
