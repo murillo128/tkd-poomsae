@@ -47,7 +47,14 @@ from reconstruction.segmentation import publish_segmentation
 from reconstruction.semantics import AssemblyConfig, publish_semantics
 from reconstruction.temporal import publish_temporal_motion
 from reconstruction.triangulation import TriangulationConfig, publish_triangulation
-from storage import ArtifactHandle, ArtifactKey, ArtifactStore, hash_config, hash_file
+from storage import (
+    ArtifactHandle,
+    ArtifactKey,
+    ArtifactStore,
+    StorageRoot,
+    hash_config,
+    hash_file,
+)
 from sync import TimelineFailure
 from sync.alignment import publish_alignment
 from tests.fixtures.parser_motion import reconstructed
@@ -59,8 +66,8 @@ from tkd_poomsae.vision.assets import registry, verified_paths
 
 
 class InventoryStore(ArtifactStore):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, root: StorageRoot | None = None) -> None:
+        super().__init__(root)
         self.keys: dict[str, ArtifactKey] = {}
         self.created = 0
 
