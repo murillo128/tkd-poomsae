@@ -87,3 +87,13 @@ h3 { font-size: .95rem; }
 .crop-region { fill: none; stroke: #a9becb; stroke-width: 1; stroke-dasharray: 4 3; }
 .camera-card details { font-size: .8rem; margin-top: .5rem; }
 .region-axis { stroke: #75deb0; stroke-width: 2; }
+
+.three-viewport { height: 360px; width: 100%; overflow: hidden; border: 1px solid #567084; border-radius: 5px; background: #101d29; }
+.three-viewport canvas { display: block; touch-action: none; }
+.layer-controls { display: flex; flex-wrap: wrap; gap: .5rem .8rem; margin-bottom: .75rem; font-size: .8rem; }
+.layer-controls label { display: flex; align-items: center; gap: .25rem; }
+.three-d > label { display: inline-flex; gap: .5rem; align-items: center; margin: .6rem .6rem .6rem 0; }
+.evidence-legend { font-size: .75rem !important; }
+.geometry-values { overflow: auto; max-height: 300px; font-size: .75rem; }
+.scene-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.three-d details { margin-top: .7rem; font-size: .85rem; }

@@ -18,6 +18,7 @@ export interface PlaybackState {
 export type PlaybackAction =
   | { type: 'project'; id: string | null; cameras?: CameraClock[]; reconstructionTimes?: number[] }
   | { type: 'seek'; seconds: number }
+  | { type: 'reconstructionSamples'; times: number[] }
   | { type: 'play'; playing: boolean }
   | { type: 'speed'; speed: number }
   | { type: 'tick'; elapsedSeconds: number }
@@ -54,6 +55,7 @@ export function playbackReducer(state: PlaybackState, action: PlaybackAction): P
         selectedCameraId: cameras[0]?.id ?? null,
         reconstructionTimes: action.reconstructionTimes ?? [] }
     }
+    case 'reconstructionSamples': return { ...state, reconstructionTimes: action.times }
     case 'seek': {
       if (!Number.isFinite(action.seconds)) return state
       const cursorSeconds = Math.max(0, action.seconds)
