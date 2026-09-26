@@ -785,6 +785,7 @@ class SequenceStep(StrictModel):
     id: str
     interval: Interval
     action_ids: list[str]
+    motion_sample_indices: list[int] = Field(default_factory=list)
 
 
 class Segmentation(ArtifactBase):
@@ -846,6 +847,24 @@ class StanceState(StrictModel):
     interval: Interval
     label: str = Field(min_length=1)
     quality: Quality
+    source_candidate_id: str | None = None
+    motion_sample_indices: list[int] = Field(default_factory=list)
+
+
+class SemanticMotionLink(StrictModel):
+    """An inclusive dense source range on one physical track."""
+
+    track: Track
+    interval: Interval
+    motion_sample_indices: list[int] = Field(min_length=1)
+    quality: Quality
+
+    @model_validator(mode="after")
+    def dense(self) -> SemanticMotionLink:
+        indices = self.motion_sample_indices
+        if indices[0] < 0 or indices != list(range(indices[0], indices[-1] + 1)):
+            raise ValueError("semantic motion links must be dense nonnegative ranges")
+        return self
 
 
 class Action(StrictModel):
@@ -863,6 +882,10 @@ class Action(StrictModel):
         "transition",
     ]
     role: Literal["attack", "defense", "preparation", "special", "unknown"] = "unknown"
+    quality: Quality = Field(default_factory=lambda: Quality(state="unknown"))
+    motion_links: list[SemanticMotionLink] = Field(default_factory=list)
+    source_candidate_id: str | None = None
+    previous_action_id: str | None = None
 
 
 class Phase(StrictModel):
@@ -870,6 +893,8 @@ class Phase(StrictModel):
     action_id: str
     interval: Interval
     name: str
+    quality: Quality = Field(default_factory=lambda: Quality(state="unknown"))
+    motion_links: list[SemanticMotionLink] = Field(default_factory=list)
 
 
 class Keyframe(StrictModel):
@@ -878,6 +903,10 @@ class Keyframe(StrictModel):
     phase_id: str | None = None
     global_seconds: float
     event: str
+    track: Track | None = None
+    quality: Quality = Field(default_factory=lambda: Quality(state="unknown"))
+    source_event_ids: list[str] = Field(default_factory=list)
+    motion_sample_indices: list[int] = Field(default_factory=list)
 
 
 class SpatialRelation(StrictModel):
@@ -885,14 +914,26 @@ class SpatialRelation(StrictModel):
     subject: BodyEntity
     object: BodyEntity
     relation: Literal[
-        "in_front_of", "behind", "above", "below", "left_of", "right_of", "crossed"
+        "in_front_of",
+        "behind",
+        "above",
+        "below",
+        "left_of",
+        "right_of",
+        "crossed",
+        "unknown",
     ]
-    interval: Interval
+    interval: Interval | None = None
+    global_seconds: float | None = None
     front_entity: BodyEntity | None = None
     quality: Quality
+    front_quality: Quality = Field(default_factory=lambda: Quality(state="unknown"))
+    reference_frame: str | None = None
 
     @model_validator(mode="after")
     def crossing_order(self) -> SpatialRelation:
+        if (self.interval is None) == (self.global_seconds is None):
+            raise ValueError("spatial relation requires exactly one time or interval")
         if self.front_entity is not None and (
             self.relation != "crossed"
             or self.front_entity not in (self.subject, self.object)
@@ -905,13 +946,20 @@ class Semantics(ArtifactBase):
     kind: Literal["semantics"]
     reconstruction_id: str
     ground_id: str
-    execution: Interval
+    execution: Interval | None
     steps: list[SequenceStep]
     stances: list[StanceState]
     actions: list[Action]
     phases: list[Phase]
     keyframes: list[Keyframe]
     relations: list[SpatialRelation]
+    quality: Quality = Field(default_factory=lambda: Quality(state="unknown"))
+    motion_features_id: str | None = None
+    segmentation_id: str | None = None
+    arm_actions_id: str | None = None
+    lower_body_parsing_id: str | None = None
+    arrays: list[DenseArray] = Field(default_factory=list)
+    motion_sample_indices: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def valid_hierarchy(self) -> Semantics:
@@ -926,7 +974,10 @@ class Semantics(ArtifactBase):
         ids = [item.id for group in groups for item in group]
         if len(ids) != len(set(ids)):
             raise ValueError("semantic IDs must be unique")
-        steps = {x.id: x for x in self.steps}
+        if self.execution is None:
+            if ids or self.quality.state != "unknown":
+                raise ValueError("indeterminate semantics cannot fabricate hierarchy")
+            return self
         actions = {x.id: x for x in self.actions}
         phases = {x.id: x for x in self.phases}
 
@@ -936,23 +987,76 @@ class Semantics(ArtifactBase):
         for step in self.steps:
             if not inside(step.interval, self.execution):
                 raise ValueError("step outside execution")
-            if set(step.action_ids) != {
-                a.id for a in self.actions if a.step_id == step.id
+            if len(step.action_ids) != len(set(step.action_ids)) or set(
+                step.action_ids
+            ) != {
+                a.id
+                for a in self.actions
+                if a.interval.start < step.interval.end
+                and step.interval.start < a.interval.end
             }:
                 raise ValueError("step action references disagree")
         for stance in self.stances:
             if not inside(stance.interval, self.execution):
                 raise ValueError("stance outside execution")
         for action in self.actions:
-            if action.step_id not in steps or not inside(
-                action.interval, steps[action.step_id].interval
+            owner = next(
+                (
+                    s
+                    for s in self.steps
+                    if s.interval.start <= action.interval.start < s.interval.end
+                ),
+                None,
+            )
+            if (
+                owner is None
+                or action.step_id != owner.id
+                or not inside(action.interval, self.execution)
             ):
-                raise ValueError("action outside or missing step")
+                raise ValueError("action outside execution or missing onset owner")
+            if len(action.tracks) != len(set(action.tracks)):
+                raise ValueError("action tracks must be unique")
+            if action.motion_links and (
+                sorted(link.track for link in action.motion_links)
+                != sorted(action.tracks)
+                or min(link.interval.start for link in action.motion_links)
+                != action.interval.start
+                or max(link.interval.end for link in action.motion_links)
+                != action.interval.end
+            ):
+                raise ValueError("action must span its independent dense track links")
+            for link in action.motion_links:
+                if link.track not in action.tracks or not inside(
+                    link.interval, action.interval
+                ):
+                    raise ValueError("action motion link outside action or track")
+            if action.previous_action_id is not None:
+                previous = actions.get(action.previous_action_id)
+                if (
+                    previous is None
+                    or previous.interval.end > action.interval.start
+                    or not set(previous.tracks) & set(action.tracks)
+                ):
+                    raise ValueError("invalid previous action reference")
         for phase in self.phases:
             if phase.action_id not in actions or not inside(
                 phase.interval, actions[phase.action_id].interval
             ):
                 raise ValueError("phase outside or missing action")
+            for link in phase.motion_links:
+                if link.track not in actions[phase.action_id].tracks or not inside(
+                    link.interval, phase.interval
+                ):
+                    raise ValueError("phase motion link outside phase or track")
+                owner_links = actions[phase.action_id].motion_links
+                if owner_links and not any(
+                    parent.track == link.track
+                    and inside(link.interval, parent.interval)
+                    and set(link.motion_sample_indices)
+                    <= set(parent.motion_sample_indices)
+                    for parent in owner_links
+                ):
+                    raise ValueError("phase outside independent action track")
         for keyframe in self.keyframes:
             keyframe_action = actions.get(keyframe.action_id)
             if (
@@ -962,6 +1066,23 @@ class Semantics(ArtifactBase):
                 <= keyframe_action.interval.end
             ):
                 raise ValueError("keyframe outside or missing action")
+            if (
+                keyframe.track is not None
+                and keyframe.track not in keyframe_action.tracks
+            ):
+                raise ValueError("keyframe track outside action")
+            if (
+                keyframe.track is not None
+                and keyframe_action.motion_links
+                and not any(
+                    link.track == keyframe.track
+                    and link.interval.start
+                    <= keyframe.global_seconds
+                    <= link.interval.end
+                    for link in keyframe_action.motion_links
+                )
+            ):
+                raise ValueError("keyframe outside independent action track")
             if keyframe.phase_id is not None:
                 keyframe_phase = phases.get(keyframe.phase_id)
                 if (
@@ -973,7 +1094,13 @@ class Semantics(ArtifactBase):
                 ):
                     raise ValueError("keyframe outside or missing phase")
         for relation in self.relations:
-            if not inside(relation.interval, self.execution):
+            if relation.interval is not None and not inside(
+                relation.interval, self.execution
+            ):
+                raise ValueError("relation outside execution")
+            if relation.global_seconds is not None and not (
+                self.execution.start <= relation.global_seconds <= self.execution.end
+            ):
                 raise ValueError("relation outside execution")
         return self
 
@@ -1153,6 +1280,40 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             ground = require(item.ground_id, Ground)
             if ground.reconstruction_id != item.reconstruction_id:
                 raise ValueError("semantic ground and motion references disagree")
+            if isinstance(item, Semantics):
+                for semantic_ref, expected in (
+                    (item.motion_features_id, MotionFeatures),
+                    (item.segmentation_id, Segmentation),
+                    (item.arm_actions_id, ArmActions),
+                    (item.lower_body_parsing_id, LowerBodyParsing),
+                ):
+                    if semantic_ref is None:
+                        continue
+                    semantic_source = require(semantic_ref, expected)
+                    if not isinstance(
+                        semantic_source,
+                        (MotionFeatures, Segmentation, ArmActions, LowerBodyParsing),
+                    ):
+                        raise ValueError("invalid semantic source")
+                    if (
+                        semantic_source.reconstruction_id,
+                        semantic_source.ground_id,
+                    ) != (
+                        item.reconstruction_id,
+                        item.ground_id,
+                    ):
+                        raise ValueError("semantic input lineage disagrees")
+                    if isinstance(
+                        semantic_source, (Segmentation, ArmActions, LowerBodyParsing)
+                    ):
+                        if (
+                            semantic_source.motion_features_id
+                            != item.motion_features_id
+                        ):
+                            raise ValueError("semantic feature identity disagrees")
+                    if isinstance(semantic_source, (ArmActions, LowerBodyParsing)):
+                        if semantic_source.segmentation_id != item.segmentation_id:
+                            raise ValueError("semantic segmentation identity disagrees")
             if isinstance(item, (Segmentation, ArmActions, LowerBodyParsing)):
                 features = require(item.motion_features_id, MotionFeatures)
                 if (features.reconstruction_id, features.ground_id) != (

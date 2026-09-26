@@ -74,6 +74,14 @@ morphology and fitted pose independently; see
 [`reconstruction/articulated/README.md`](../reconstruction/articulated/README.md).
 
 Semantic intervals are absolute global seconds and permit overlapping actions.
+Each action has one onset-owning `step_id`; every overlapping step references the
+same action in `action_ids`, including when it spans coarse boundaries. Dense
+per-track links preserve asymmetric spans, phase/keyframe evidence and unknown
+quality. Final assembly may keep a null execution when evidence is indeterminate.
+Spatial relations have either an interval or one absolute event time and retain
+independent front-order quality. See
+[`reconstruction/semantics`](../reconstruction/semantics/README.md) for assembly,
+immutable reruns and exact upstream lineage.
 The six physical tracks are fixed for this version. Spatial relations describe
 geometry, including crossing front order, not correctness. Manual edits live in
 a separate artifact linked to immutable automatic semantics.
