@@ -43,7 +43,10 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The suite starts its own fixture service on port 18044 and Vite on port 5173.
+`npm run test:browser` runs the camera suite in `playwright.camera.config.ts`
+and then the existing ground suite in `playwright.config.ts`. To run camera
+acceptance alone, use `npx playwright test --config=playwright.camera.config.ts`.
+The camera suite starts its own fixture service on port 18044 and Vite on port 5173.
 Set `TKD_BROWSER_WEB_PORT` and `TKD_BROWSER_SERVICE_PORT` to unused ports when
 other local sessions occupy the defaults; existing services are never reused.
 The fixtures create two-, three-, and four-camera H.264 recordings, different PTS grids/offsets,
