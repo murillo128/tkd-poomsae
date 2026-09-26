@@ -20,7 +20,7 @@ Before a PR, run the same offline checks as application CI:
 
 ```sh
 uv run --frozen pytest
-uv run --frozen ruff check src tests contracts
+uv run --frozen ruff check src tests contracts storage media sync calibration pose reconstruction
 uv run --frozen mypy
 cd web
 npm run typecheck
@@ -31,7 +31,10 @@ npm run build
 
 Core pytest cases reject network connections. To verify locked dependencies are already cached before running tests, use `UV_OFFLINE=1 uv run --frozen pytest`.
 
-The first package and client are skeletons. They do not ingest videos or produce motion artifacts. Product behavior and component ownership remain in `spec/`.
+The package and viewer inspect persisted motion products. Default runner slots
+still require configured producers; see the [local runbook](local-runbook.md)
+for delivered entry points, the shared demo and capability limits. Product
+behavior and component ownership remain in `spec/`.
 
 The optional MMPose environment and model setup are documented in
 [`vision/README.md`](../vision/README.md). Core checks do not download models or
