@@ -1446,6 +1446,56 @@
       "title": "Morphology",
       "type": "object"
     },
+    "MotionFeatures": {
+      "additionalProperties": false,
+      "description": "Physical features/candidates, before semantic actions and grouping.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "motion_features",
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "arrays"
+      ],
+      "title": "MotionFeatures",
+      "type": "object"
+    },
     "MotionSample": {
       "additionalProperties": false,
       "properties": {
@@ -3336,6 +3386,7 @@
       "ground": "#/$defs/Ground",
       "manual_edits": "#/$defs/ManualEdits",
       "morphology": "#/$defs/Morphology",
+      "motion_features": "#/$defs/MotionFeatures",
       "observation": "#/$defs/Observation",
       "project": "#/$defs/Project",
       "reconstruction": "#/$defs/Reconstruction",
@@ -3372,6 +3423,9 @@
     },
     {
       "$ref": "#/$defs/Ground"
+    },
+    {
+      "$ref": "#/$defs/MotionFeatures"
     },
     {
       "$ref": "#/$defs/Semantics"

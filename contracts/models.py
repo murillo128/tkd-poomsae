@@ -772,6 +772,15 @@ class Ground(ArtifactBase):
         return self
 
 
+class MotionFeatures(ArtifactBase):
+    """Physical features/candidates, before semantic actions and grouping."""
+
+    kind: Literal["motion_features"]
+    reconstruction_id: str
+    ground_id: str
+    arrays: list[DenseArray]
+
+
 class SequenceStep(StrictModel):
     id: str
     interval: Interval
@@ -948,6 +957,7 @@ Artifact: TypeAlias = Annotated[
     | Reconstruction
     | Morphology
     | Ground
+    | MotionFeatures
     | Semantics
     | ManualEdits,
     Field(discriminator="kind"),
@@ -1012,7 +1022,7 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             allowed_contributors = (Reconstruction,)
         elif isinstance(item, Ground):
             allowed_contributors = (Reconstruction,)
-        elif isinstance(item, Semantics):
+        elif isinstance(item, (Semantics, MotionFeatures)):
             allowed_contributors = (Reconstruction, Ground)
         else:
             allowed_contributors = ()
@@ -1075,7 +1085,7 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 array.unit in {"m", "cm"} for array in item.arrays
             ):
                 raise ValueError("unresolved scale cannot emit metric arrays")
-        elif isinstance(item, Semantics):
+        elif isinstance(item, (Semantics, MotionFeatures)):
             require(item.reconstruction_id, Reconstruction)
             ground = require(item.ground_id, Ground)
             if ground.reconstruction_id != item.reconstruction_id:
