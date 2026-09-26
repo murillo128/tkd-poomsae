@@ -59,6 +59,7 @@ export interface Pivot { id: string; foot: 'left' | 'right'; interval: Interval;
 export interface Ground extends ArtifactBase { kind: 'ground'; reconstruction_id: string; scale: 'metric' | 'arbitrary'; samples: GroundSample[]; footprints?: Footprint[]; pivots?: Pivot[]; measurements?: Measurement[]; arrays?: DenseArray[] }
 export interface SequenceStep { id: string; interval: Interval; action_ids: string[] }
 export interface MotionFeatures extends ArtifactBase { kind: 'motion_features'; reconstruction_id: string; ground_id: string; arrays: DenseArray[] }
+export interface Segmentation extends ArtifactBase { kind: 'segmentation'; reconstruction_id: string; ground_id: string; motion_features_id: string; execution: Interval | null; steps: SequenceStep[]; quality: Quality; arrays: DenseArray[] }
 export interface StanceState { id: string; interval: Interval; label: string; quality: Quality }
 export interface Action { id: string; interval: Interval; step_id: string; tracks: Track[]; category: 'arm' | 'placement' | 'pivot' | 'kick' | 'stance_transition' | 'special' | 'transition'; role?: 'attack' | 'defense' | 'preparation' | 'special' | 'unknown' }
 export interface Phase { id: string; action_id: string; interval: Interval; name: string }
@@ -68,4 +69,4 @@ export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruct
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 export interface ManualEdit { id: string; target_id: string; field_path: string; replacement: JsonValue; author: string; reason?: string | null }
 export interface ManualEdits extends ArtifactBase { kind: 'manual_edits'; automatic_semantics_id: string; edits: ManualEdit[] }
-export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Semantics | ManualEdits
+export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Segmentation | Semantics | ManualEdits

@@ -90,3 +90,9 @@ feature/candidate payload. Shared-clock per-track measurements, candidate timing
 and evidence links are described in
 [`reconstruction/features/README.md`](../reconstruction/features/README.md).
 These candidates do not assign technique classes, SequenceSteps, or correctness.
+
+The additive `segmentation` artifact stores automatic coarse execution/SequenceStep
+proposals before action assembly. A null execution plus unknown quality represents
+indeterminate evidence. Resolved proposals tile the execution, retain empty action
+lists, and link their exact motion-feature artifact plus dense boundary evidence.
+See [`reconstruction/segmentation`](../reconstruction/segmentation/README.md).

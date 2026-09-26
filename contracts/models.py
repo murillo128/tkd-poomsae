@@ -787,6 +787,38 @@ class SequenceStep(StrictModel):
     action_ids: list[str]
 
 
+class Segmentation(ArtifactBase):
+    """Automatic coarse proposals, including explicitly indeterminate output."""
+
+    kind: Literal["segmentation"]
+    reconstruction_id: str
+    ground_id: str
+    motion_features_id: str
+    execution: Interval | None
+    steps: list[SequenceStep]
+    quality: Quality
+    arrays: list[DenseArray]
+
+    @model_validator(mode="after")
+    def coarse_topology(self) -> Segmentation:
+        if self.execution is None:
+            if self.steps or self.quality.state != "unknown":
+                raise ValueError("indeterminate segmentation cannot propose steps")
+        else:
+            if not self.steps or self.quality.state != "inferred":
+                raise ValueError("resolved segmentation requires inferred steps")
+            edges = [self.execution.start]
+            for step in self.steps:
+                if step.interval.start != edges[-1] or step.action_ids:
+                    raise ValueError("coarse steps must tile execution without actions")
+                edges.append(step.interval.end)
+            if edges[-1] != self.execution.end or len(
+                {s.id for s in self.steps}
+            ) != len(self.steps):
+                raise ValueError("coarse step topology disagrees with execution")
+        return self
+
+
 class StanceState(StrictModel):
     id: str
     interval: Interval
@@ -958,6 +990,7 @@ Artifact: TypeAlias = Annotated[
     | Morphology
     | Ground
     | MotionFeatures
+    | Segmentation
     | Semantics
     | ManualEdits,
     Field(discriminator="kind"),
@@ -1022,7 +1055,7 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             allowed_contributors = (Reconstruction,)
         elif isinstance(item, Ground):
             allowed_contributors = (Reconstruction,)
-        elif isinstance(item, (Semantics, MotionFeatures)):
+        elif isinstance(item, (Semantics, MotionFeatures, Segmentation)):
             allowed_contributors = (Reconstruction, Ground)
         else:
             allowed_contributors = ()
@@ -1085,11 +1118,18 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 array.unit in {"m", "cm"} for array in item.arrays
             ):
                 raise ValueError("unresolved scale cannot emit metric arrays")
-        elif isinstance(item, (Semantics, MotionFeatures)):
+        elif isinstance(item, (Semantics, MotionFeatures, Segmentation)):
             require(item.reconstruction_id, Reconstruction)
             ground = require(item.ground_id, Ground)
             if ground.reconstruction_id != item.reconstruction_id:
                 raise ValueError("semantic ground and motion references disagree")
+            if isinstance(item, Segmentation):
+                features = require(item.motion_features_id, MotionFeatures)
+                if (features.reconstruction_id, features.ground_id) != (
+                    item.reconstruction_id,
+                    item.ground_id,
+                ):
+                    raise ValueError("segmentation feature references disagree")
         elif isinstance(item, ManualEdits):
             semantics = require(item.automatic_semantics_id, Semantics)
             valid_ids = {semantics.id} | {
