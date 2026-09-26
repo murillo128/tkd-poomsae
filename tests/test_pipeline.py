@@ -11,7 +11,13 @@ import pytest
 
 from contracts.models import ArtifactBase, validate_artifact
 from pipeline import CapabilityUnavailable, Pipeline, Stage, StageOutput
-from pipeline.runner import DEPENDENCIES, STAGE_LAYERS, STAGE_ORDER, RunCancelled
+from pipeline.runner import (
+    DEPENDENCIES,
+    STAGE_LAYERS,
+    STAGE_ORDER,
+    PublishedOutput,
+    RunCancelled,
+)
 from storage import ArtifactKey, ArtifactStore, StorageRoot
 
 GOOD = {"state": "observed", "score": 1, "source_ids": []}
@@ -182,7 +188,7 @@ def test_resume_interruption_and_cancel(tmp_path: Path) -> None:
 
     def cancel_during_produce(
         key: ArtifactKey, inputs: Any, settings: Any
-    ) -> StageOutput:
+    ) -> StageOutput | PublishedOutput:
         pipe.cancel("demo")
         return original.producer(key, inputs, settings)
 
@@ -204,7 +210,9 @@ def test_status_keeps_active_producer_running(tmp_path: Path) -> None:
     entered, release = Event(), Event()
     original = pipe.stages["ingest"]
 
-    def wait_in_producer(key: ArtifactKey, inputs: Any, settings: Any) -> StageOutput:
+    def wait_in_producer(
+        key: ArtifactKey, inputs: Any, settings: Any
+    ) -> StageOutput | PublishedOutput:
         entered.set()
         assert release.wait(5)
         return original.producer(key, inputs, settings)

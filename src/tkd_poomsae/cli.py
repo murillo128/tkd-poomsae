@@ -76,6 +76,13 @@ def main() -> int:
     analyze.add_argument("project")
     analyze.add_argument("--through", default="parsing")
     analyze.add_argument("--config", type=Path, help="JSON stage settings file")
+    run = subcommands.add_parser(
+        "run", help="Run the supported offline producers and index inspection"
+    )
+    run.add_argument("project")
+    run.add_argument("--through", default="parsing")
+    run.add_argument("--config", type=Path, help="JSON stage settings file")
+    run.add_argument("--rerun", help="Invalidate one stage and its descendants")
     resume = subcommands.add_parser("resume", help="Resume analysis")
     resume.add_argument("project")
     resume.add_argument("--through", default="parsing")
@@ -87,9 +94,7 @@ def main() -> int:
     observations = subcommands.add_parser(
         "observations", help="Infer or reuse a local native-time selection"
     )
-    observations.add_argument(
-        "selection", choices=sorted(catalog())
-    )
+    observations.add_argument("selection", choices=sorted(catalog()))
     observations.add_argument("--device", default="cpu")
     observations.add_argument("--max-frames", type=int, default=32)
     rerun.add_argument("--through", default="parsing")
@@ -123,6 +128,57 @@ def main() -> int:
 
     configure_edits(subcommands)
     args = parser.parse_args()
+    if args.command == "run":
+        from pipeline.offline import run_project
+        from pipeline.runner import DEPENDENCIES, STAGE_ORDER
+        from tkd_poomsae.vision.runtime import delegate, runtime_python
+
+        try:
+            # A provisioned vision interpreter also contains the core runtime.
+            # Without one, cached/parser-only runs still work in the core env.
+            if runtime_python().is_file():
+                delegated = delegate(sys.argv[1:])
+                if delegated is not None:
+                    return delegated
+            config = None
+            if args.config is not None:
+                config = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(config, dict) or not isinstance(
+                    config.get("calibration", {}), dict
+                ):
+                    raise ValueError("config must map stage names to settings objects")
+                for asset in ("artifact", "candidate", "evidence"):
+                    calibration = config.get("calibration", {})
+                    if asset in calibration:
+                        calibration[asset] = str(
+                            (
+                                args.config.resolve().parent / calibration[asset]
+                            ).resolve()
+                        )
+            result = run_project(
+                args.project, config=config, through=args.through, rerun=args.rerun
+            )
+            print(json.dumps(result, sort_keys=True))
+            active = {args.through}
+            for name in reversed(STAGE_ORDER):
+                if name in active:
+                    active.update(DEPENDENCIES[name])
+            return int(
+                any(
+                    result["stages"][name]["status"] in {"failed", "unavailable"}
+                    for name in active
+                )
+            )
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            TypeError,
+            KeyError,
+            StorageError,
+        ) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
     if args.command == "semantic-edits":
         from tkd_poomsae.semantic_edits.cli import run as run_edits
 
