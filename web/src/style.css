@@ -75,3 +75,15 @@ h3 { font-size: .95rem; }
 .ground-events button { font-size: .75rem; }
 .ground-events button[aria-pressed="true"] { border-color: #fff; background: #365a72; }
 .ground-foot circle { stroke: none; }
+.camera-viewport { position: relative; height: 260px; margin-top: .5rem; background: #101923; overflow: hidden; }
+.camera-viewport video, .camera-viewport img, .camera-viewport svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.camera-viewport .viewport-placeholder { position: absolute; inset: 0; }
+.camera-viewport svg { pointer-events: none; }
+.landmark { fill: #6fd5ff; stroke: #10212a; stroke-width: 1; pointer-events: auto; cursor: pointer; }
+.landmark.interpolated { fill: #ffcd75; }
+.landmark.inferred { fill: #e3a7ff; }
+.landmark.unknown { fill: none; stroke: #a8b7c3; }
+.landmark:focus { stroke: white; stroke-width: 3; outline: none; }
+.crop-region { fill: none; stroke: #a9becb; stroke-width: 1; stroke-dasharray: 4 3; }
+.camera-card details { font-size: .8rem; margin-top: .5rem; }
+.region-axis { stroke: #75deb0; stroke-width: 2; }

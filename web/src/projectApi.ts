@@ -23,7 +23,10 @@ export interface ProjectCapabilities { project: string; stages: Record<string, S
 export interface ProjectSnapshot { detail: ProjectDetail; capabilities: ProjectCapabilities; revision: string }
 
 // Local service metadata and bounded inspection endpoints.
-const API_ROOT = 'http://127.0.0.1:8000'
+export const API_ROOT = import.meta.env.VITE_API_ROOT || 'http://127.0.0.1:8000'
+if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(API_ROOT).hostname)) {
+  throw new Error('Inspection requires a local service URL')
+}
 export async function readJson<T>(path: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(`${API_ROOT}${path}`, { signal })
   if (!response.ok) throw new Error(`Local service returned ${response.status} for ${path}`)

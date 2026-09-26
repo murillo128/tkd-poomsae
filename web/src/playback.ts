@@ -2,7 +2,7 @@ import type { Track } from '../../contracts/types'
 
 export interface FrameSample { pts: number; timeBaseNum: number; timeBaseDen: number }
 export interface CameraClock { id: string; offsetSeconds: number; frames: FrameSample[] }
-export interface Selection { kind: 'track' | 'entity'; id: string; tracks: Track[] }
+export interface Selection { kind: 'track' | 'entity'; id: string; tracks: Track[]; description?: string }
 export interface PlaybackState {
   projectId: string | null
   cursorSeconds: number
@@ -22,6 +22,7 @@ export type PlaybackAction =
   | { type: 'speed'; speed: number }
   | { type: 'tick'; elapsedSeconds: number }
   | { type: 'camera'; id: string }
+  | { type: 'cameraClock'; camera: CameraClock }
   | { type: 'mode'; mode: PlaybackState['stepMode'] }
   | { type: 'step'; direction: -1 | 1 }
   | { type: 'frameDelivered'; seconds: number | null }
@@ -53,24 +54,38 @@ export function playbackReducer(state: PlaybackState, action: PlaybackAction): P
         selectedCameraId: cameras[0]?.id ?? null,
         reconstructionTimes: action.reconstructionTimes ?? [] }
     }
-    case 'seek':
-      return Number.isFinite(action.seconds) ? { ...state, cursorSeconds: Math.max(0, action.seconds) } : state
+    case 'seek': {
+      if (!Number.isFinite(action.seconds)) return state
+      const cursorSeconds = Math.max(0, action.seconds)
+      return cursorSeconds === state.cursorSeconds ? state : { ...state, cursorSeconds, deliveredFrameSeconds: null }
+    }
     case 'play': return { ...state, playing: action.playing }
     case 'speed': return Number.isFinite(action.speed) && action.speed > 0 ? { ...state, speed: action.speed } : state
     case 'tick':
       return state.playing && Number.isFinite(action.elapsedSeconds) && action.elapsedSeconds > 0
         ? { ...state, cursorSeconds: state.cursorSeconds + action.elapsedSeconds * state.speed }
         : state
-    case 'camera': return state.cameras.some(camera => camera.id === action.id)
-      ? { ...state, selectedCameraId: action.id } : state
+    case 'cameraClock': {
+      const cameras = state.cameras.some(camera => camera.id === action.camera.id)
+        ? state.cameras.map(camera => camera.id === action.camera.id ? action.camera : camera)
+        : [...state.cameras, action.camera]
+      return { ...state, cameras, selectedCameraId: state.selectedCameraId ?? action.camera.id }
+    }
+    case 'camera': return action.id !== state.selectedCameraId && state.cameras.some(camera => camera.id === action.id)
+      ? { ...state, selectedCameraId: action.id, deliveredFrameSeconds: null } : state
     case 'mode': return { ...state, stepMode: action.mode }
     case 'step': {
       const times = sampleTimes(state)
       const epsilon = 1e-9
+      // A between-sample seek may display the nearest frame on either side of the cursor.
+      // Native navigation starts from that established sample, not from its request time.
+      const delivered = state.deliveredFrameSeconds
+      const anchor = state.stepMode === 'camera' && delivered !== null &&
+        times.some(time => Math.abs(time - delivered) < epsilon) ? delivered : state.cursorSeconds
       const target = action.direction > 0
-        ? times.find(time => time > state.cursorSeconds + epsilon)
-        : [...times].reverse().find(time => time < state.cursorSeconds - epsilon)
-      return target === undefined ? state : { ...state, cursorSeconds: Math.max(0, target), playing: false }
+        ? times.find(time => time > anchor + epsilon)
+        : [...times].reverse().find(time => time < anchor - epsilon)
+      return target === undefined ? state : { ...state, cursorSeconds: Math.max(0, target), deliveredFrameSeconds: null, playing: false }
     }
     case 'frameDelivered': return { ...state, deliveredFrameSeconds: action.seconds }
     case 'select': return { ...state, selection: action.selection }

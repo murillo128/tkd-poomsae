@@ -45,5 +45,9 @@ jobs:
       - run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler ../contracts/types.ts
       - run: npm run test
       - run: npm run build
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.11
+      - run: uv sync --frozen --group dev
+        working-directory: .
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
