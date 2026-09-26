@@ -162,7 +162,6 @@ public final class MainActivity extends Activity
         sessionText = statusLine(root, "Session: —");
 
         textureView = new TextureView(this);
-        textureView.setBackgroundColor(0xFF111111);
         root.addView(textureView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(230)));
 
