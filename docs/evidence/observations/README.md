@@ -10,6 +10,28 @@ in persistent shared storage under `~/.local/share/tkd-poomsae` on the exercised
 host. Reported absolute paths identify that host's reusable artifacts; another
 host selects its own `TKD_DATA_ROOT` and registers the dataset there.
 
+## Observed results
+
+| Selection | Native frames | Windows | Usable body: frontal / lateral |
+| --- | ---: | ---: | ---: |
+| smoke-short | 122 | 4 | 54 / 25 |
+| demo-full | 1,536 | 48 | 255 / 240 |
+
+Both final recipes reloaded offline and repeated from another cwd with zero
+inference and network calls. The full CPU run took 1,111.395 seconds and invoked
+the detector and wholebody model 1,536 times each, plus 2,624 uncached hand calls.
+It selected a practitioner in 1,530 frames; the six remaining frames retain
+missing/ambiguous selection. Detailed hand states include 1,398 low-evidence,
+1,637 refined and 25 skipped observations. Region usability can still be false
+for a refined hand, for example when side identity is ambiguous.
+
+The prerequisite acceptance had left its assets and interpreter under
+`/tmp/tkd-issue10-assets`. The host still had all 14 registry assets and the
+locked package cache. Recovery reused those bytes through the supported asset
+bootstrap, verified their hashes, and provisioned the shared interpreter from
+the vision/media locks. No model or dataset was placed in this worktree, and
+the real acceptance harness attempted no network connection.
+
 ## Reproduce
 
 Provision the shared interpreter and models with the explicit commands in
