@@ -66,6 +66,7 @@ test('actual WebGL panel: native topology, picking, layers, clock, uncertainty, 
   }
   await panel.getByLabel('Pick 3D landmark').selectOption('left_index_tip')
   await expect(page.locator('.inspector')).toContainText('motion/samples/0/left_index_tip')
+  await expect(page.locator('.track-list button').filter({ hasText: 'left arm' })).toHaveAttribute('aria-pressed', 'true')
   const selectedPath = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL())
   await panel.getByLabel('Selected trajectories', { exact: true }).uncheck()
   expect(await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL())).not.toBe(selectedPath)

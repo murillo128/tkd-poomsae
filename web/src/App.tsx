@@ -206,7 +206,7 @@ export function App() {
       <ThreePanel project={snapshot} playback={playback} dispatch={dispatch} onData={onGeometry} />
       <GroundView projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
       <section className="panel timeline"><h2>Timeline</h2><p>Global cursor: <strong>{formatTime(playback.cursorSeconds)}</strong></p><p>Physical and semantic tracks: {stageMessage(capabilities?.parsing)}</p>
-        <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={selectedTrack === track} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
+        <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={playback.selection?.tracks.includes(track) ?? false} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
       </section>
       <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{playback.selection?.id ?? 'None'}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} /></section>
     </div>
