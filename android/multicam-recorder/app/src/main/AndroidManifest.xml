@@ -12,22 +12,24 @@
     <application
         android:name=".CrashCatcherApp"
         android:allowBackup="false"
-        android:label="TKD MultiCam v0.9"
+        android:icon="@drawable/tkd_multicam_icon"
+        android:roundIcon="@drawable/tkd_multicam_icon"
+        android:label="TKD MultiCam 120"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize"
-            android:exported="false" />
-
-        <activity
-            android:name=".BootstrapActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".BootstrapActivity"
+            android:exported="false" />
     </application>
 </manifest>
