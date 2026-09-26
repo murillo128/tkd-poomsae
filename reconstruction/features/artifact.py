@@ -68,6 +68,9 @@ def publish_features(
             root_orientation_quality=[
                 Quality.model_validate(q) for q in payload["root_orientation_quality"]
             ],
+            root_orientation_from_body=[
+                not supplied for supplied in payload["supplied_root"]
+            ],
             placements=placements,
         )
         array = np.frombuffer(

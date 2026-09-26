@@ -481,3 +481,214 @@ def test_feature_contract_bundle_rejects_unrelated_ground() -> None:
     data[-1]["ground_id"] = "nonexistent"
     with pytest.raises(ValueError, match="reference"):
         validate_bundle(data)
+
+
+def rotating_head(duration: float = 0.15) -> tuple[Reconstruction, Ground]:
+    from scipy.spatial.transform import Rotation
+
+    source, ground = sequence(flat=True)
+    ground.samples = []
+    center = np.array([0, 0, 1.85])
+    for sample in source.samples:
+        yaw = Rotation.from_euler(
+            "z", 0.5 * min(1, max(0, (sample.global_seconds - 0.7) / duration))
+        )
+        for p in sample.landmarks:
+            if p.name in ("left_ear", "right_ear", "nose"):
+                p.xyz_world = tuple(yaw.apply(np.array(p.xyz_world) - center) + center)
+    return source, ground
+
+
+@pytest.mark.parametrize("single_gap", [False, True])
+def test_interpolated_head_frame_and_derivatives_cannot_create_onset(
+    single_gap: bool,
+) -> None:
+    source, ground = rotating_head(0.04 if single_gap else 0.15)
+    assert any(e.track == "head" for e in derive_features(source, ground).events)
+    for sample in source.samples:
+        if not single_gap or sample.global_seconds == 0.72:
+            for p in sample.landmarks:
+                if p.name in ("left_ear", "right_ear", "nose"):
+                    p.quality.state = "interpolated"
+    result = derive_features(source, ground)
+    assert not any(e.track == "head" for e in result.events)
+    rows = [r for r in result.trajectory if r.track == "head"]
+    marked = [r for r in rows if not single_gap or r.global_seconds == 0.72]
+    assert all(r.orientation.orientation is not None for r in marked)
+    assert all(r.orientation.quality.state == "interpolated" for r in marked)
+    assert all(r.angular.velocity_quality.state == "interpolated" for r in marked)
+    assert all(r.angular.acceleration_quality.state == "interpolated" for r in marked)
+    if single_gap:
+        neighbor = next(r for r in rows if r.global_seconds == 0.7)
+        assert neighbor.orientation.quality.state == "inferred"
+        assert neighbor.angular.velocity_quality.state == "interpolated"
+
+
+def test_persisted_temporal_head_interpolation_keeps_feature_quality(
+    tmp_path: Path,
+) -> None:
+    from reconstruction.temporal.core import TemporalConfig
+
+    source, _ = rotating_head()
+    source.provenance.producer = "reconstruction.triangulation"
+    for sample in source.samples:
+        for p in sample.landmarks:
+            if p.name in ("left_ear", "right_ear", "nose"):
+                p.quality.state = "interpolated"
+    store = ArtifactStore(StorageRoot(tmp_path))
+    temporal = publish_temporal_motion(
+        store, raw_handle(store, source), TemporalConfig(regularization=0)
+    )
+    assert isinstance(temporal.motion.metadata, Reconstruction)
+    assert all(
+        p.quality.state == "interpolated"
+        for s in temporal.motion.metadata.samples
+        for p in s.landmarks
+        if p.name in ("left_ear", "right_ear", "nose")
+    )
+    _, ground = sequence(flat=True)
+    ground.samples = []
+    ground.reconstruction_id = temporal.motion.metadata.id
+    output = publish_features(store, temporal.motion, persist(store, ground))
+    result = load_feature_evidence(output)
+    assert not any(e.track == "head" for e in result.events)
+    head = [r for r in result.trajectory if r.track == "head"]
+    assert all(r.orientation.quality.state == "interpolated" for r in head)
+    assert any(r.angular.velocity is not None for r in head)
+    assert all(
+        r.angular.velocity_quality.state == "interpolated"
+        for r in head
+        if r.angular.velocity is not None
+    )
+
+
+@pytest.mark.parametrize(
+    "part", ["body", "left_hand", "right_hand", "left_foot", "right_foot"]
+)
+@pytest.mark.parametrize("state", ["interpolated", "unknown"])
+def test_native_frame_inputs_qualify_cached_geometry(
+    part: str,
+    state: Literal["interpolated", "unknown"],
+) -> None:
+    from reconstruction.detailed import derive_sample
+
+    source, ground = sequence(flat=True)
+    ground.samples = []
+    for i, sample in enumerate(source.samples):
+        points = {p.name: p for p in sample.landmarks}
+        for side, sign in (("left", -1), ("right", 1)):
+            wrist = points[cast(Landmark, f"{side}_wrist")]
+            assert wrist.xyz_world is not None
+            x, y, z = wrist.xyz_world
+            for finger, delta in (("index", 0.03), ("pinky", -0.03)):
+                name = cast(Landmark, f"{side}_{finger}_mcp")
+                sample.landmarks.append(
+                    Landmark3D(
+                        name=name,
+                        xyz_world=(x + delta, y + 0.06, z),
+                        quality=Quality(
+                            state="observed",
+                            uncertainty=1e-5,
+                            source_ids=[f"observation:{i}:{name}"],
+                        ),
+                    )
+                )
+            outer = points[cast(Landmark, f"{side}_foot_outer")]
+            assert outer.xyz_world is not None
+            x, y, z = outer.xyz_world
+            outer.xyz_world = (x + sign * 0.05, y, z)
+    geometry = [
+        derive_sample(s, reconstruction_id=source.id, representation="regularized")
+        for s in source.samples
+    ]
+    original_geometry = [d.model_dump_json() for d in geometry]
+    for sample, detail in zip(source.samples, geometry, strict=True):
+        sample.root_orientation = detail.body_frame.orientation
+    names: tuple[str, ...]
+    if part == "body":
+        names = ("left_hip", "right_hip", "left_shoulder", "right_shoulder")
+        track = "body_root"
+    else:
+        side, region = part.split("_")
+        parts = (
+            ("wrist", "index_mcp", "pinky_mcp")
+            if region == "hand"
+            else ("heel", "forefoot", "foot_outer")
+        )
+        names = tuple(f"{side}_{p}" for p in parts)
+        track = f"{side}_{'arm' if region == 'hand' else 'leg'}"
+    for sample in source.samples:
+        for p in sample.landmarks:
+            if p.name in names:
+                p.quality.state = state
+                if state == "unknown":
+                    p.xyz_world = None
+                    p.quality.uncertainty = None
+    result = derive_features(
+        source,
+        ground,
+        geometry=geometry,
+        root_orientation_quality=[d.body_frame.quality for d in geometry],
+        root_orientation_from_body=[True] * len(source.samples),
+    )
+    rows = [r for r in result.trajectory if r.track == track]
+    assert all(r.orientation.quality.state == state for r in rows)
+    if state == "unknown":
+        assert all(
+            r.orientation.orientation is None and r.angular.velocity is None
+            for r in rows
+        )
+    else:
+        assert all(r.orientation.orientation is not None for r in rows)
+        assert any(r.angular.velocity is not None for r in rows)
+        assert all(
+            r.angular.velocity_quality.state == state
+            for r in rows
+            if r.angular.velocity is not None
+        )
+    if part == "body":
+        local = [r for r in result.trajectory if r.track != "body_root"]
+        assert all(r.position_local.quality.state == state for r in local)
+        assert all(r.orientation.quality.state == state for r in local)
+        # Interpolation in the reference frame affects relative measurements;
+        # independently observed world positions keep their native quality.
+        assert all(r.position_world.quality.state == "observed" for r in local)
+        if state == "interpolated":
+            assert all(
+                next(r for r in row.relations if r.axis == "right").quality.state
+                == state
+                for row in local
+            )
+    else:
+        other = [r for r in result.trajectory if r.track == "head"]
+        assert all(r.orientation.quality.state == "inferred" for r in other)
+    assert [d.model_dump_json() for d in geometry] == original_geometry
+
+
+def test_independent_root_orientation_keeps_its_own_quality() -> None:
+    from contracts.models import Quaternion
+
+    source, ground = sequence(flat=True)
+    ground.samples = []
+    for sample in source.samples:
+        sample.root_orientation = Quaternion(wxyz=(1, 0, 0, 0))
+        for p in sample.landmarks:
+            if p.name in ("left_hip", "right_hip", "left_shoulder", "right_shoulder"):
+                p.quality.state = "interpolated"
+    result = derive_features(
+        source,
+        ground,
+        root_orientation_quality=[
+            Quality(state="observed", uncertainty=1e-4, source_ids=["root-sensor"])
+            for _ in source.samples
+        ],
+        root_orientation_from_body=[False] * len(source.samples),
+    )
+    root = [r for r in result.trajectory if r.track == "body_root"]
+    assert all(r.orientation.quality.state == "observed" for r in root)
+    assert all(r.orientation.quality.source_ids == ["root-sensor"] for r in root)
+    assert all(
+        r.angular.velocity_quality.state == "inferred"
+        for r in root
+        if r.angular.velocity is not None
+    )

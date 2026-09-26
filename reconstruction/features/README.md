@@ -3,7 +3,7 @@
 `reconstruction.features` consumes existing temporal reconstruction and ground
 artifacts. It runs with complete-sequence context and does not call pose,
 calibration, reconstruction, or ground producers. It does not read the Mendeley
-CSV or train/fit thresholds. `motion-features-v1` is a transparent heuristic
+CSV or train/fit thresholds. `motion-features-v2` is a transparent heuristic
 baseline, with versioned configuration and explicit evidence links.
 
 ```python
@@ -53,6 +53,13 @@ seconds, world-unit/s and world-unit/s², or rad/s and rad/s². The feature laye
 performs no interpolation or smoothing of source trajectories. Unknown,
 insufficient, or excessive-uncertainty measurements retain null values; supplied
 interpolated values retain their quality and cannot establish candidate evidence.
+Native landmark quality qualifies each derived torso, head, hand, and foot frame,
+including frames loaded from persisted detailed geometry. Interpolation in a
+reference frame propagates to body-relative measurements and relations. Every
+derivative preserves interpolation state from its entire supporting window,
+including at neighboring observed samples. Independently supplied root
+orientations retain their own quality; torso-derived root orientations depend on
+the native torso landmarks. Missing frame inputs leave dependent features unknown.
 
 Every event carries its track, absolute time, evidence start/end and duration,
 motion/contact indices, upstream placement/pivot IDs when used, source quality
@@ -115,6 +122,9 @@ time and durations are never normalized away.
 
 The immutable artifact key includes the exact temporal-motion and ground manifest
 hashes, algorithm revision, schema version, and feature configuration digest.
+Revision `motion-features-v2` invalidates cached extraction from before the native
+frame/derivative quality correction. Historical v1 payloads remain readable with
+their original revision and evidence; publication generates v2 results.
 Identical inputs reuse extraction; changing motion, ground, or thresholds creates
 only a new feature artifact. The inspectable versioned payload is stored as a
 read-only uint8 array in the existing artifact store, preserving all dense rows

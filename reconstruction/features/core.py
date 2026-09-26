@@ -13,6 +13,8 @@ from contracts.models import (
     Footprint,
     Ground,
     Landmark,
+    Landmark3D,
+    MotionSample,
     Pivot,
     Quality,
     Quaternion,
@@ -34,7 +36,7 @@ from reconstruction.temporal.core import (
     vector,
 )
 
-REVISION: Literal["motion-features-v1"] = "motion-features-v1"
+REVISION: Literal["motion-features-v2"] = "motion-features-v2"
 TRACKS: tuple[Track, ...] = (
     "left_arm",
     "right_arm",
@@ -141,7 +143,7 @@ class EventCandidate(StrictModel):
 class FeatureSeries(StrictModel):
     version: Literal[1] = 1
     artifact_role: Literal["physical_motion_features"] = "physical_motion_features"
-    algorithm_revision: Literal["motion-features-v1"] = REVISION
+    algorithm_revision: Literal["motion-features-v1", "motion-features-v2"] = REVISION
     reconstruction_id: str
     ground_id: str
     config: FeatureConfig
@@ -198,6 +200,10 @@ def usable(q: Quality, limit: float) -> bool:
 
 
 def combine(qs: list[Quality], uncertainty: float) -> Quality:
+    if any(q.state == "unknown" for q in qs):
+        return Quality(
+            state="unknown", source_ids=sorted({s for q in qs for s in q.source_ids})
+        )
     return Quality(
         state="interpolated"
         if any(q.state == "interpolated" for q in qs)
@@ -205,6 +211,112 @@ def combine(qs: list[Quality], uncertainty: float) -> Quality:
         uncertainty=uncertainty,
         source_ids=sorted({s for q in qs for s in q.source_ids}),
     )
+
+
+BODY_POINTS: tuple[Landmark, ...] = (
+    "left_hip",
+    "right_hip",
+    "left_shoulder",
+    "right_shoulder",
+)
+
+
+def _native_quality(
+    derived: Quality, points: dict[Landmark, Landmark3D], names: tuple[Landmark, ...]
+) -> Quality:
+    """Preserve the native evidence state when a geometry helper infers a frame."""
+    native = [points.get(n) for n in names]
+    qs = [derived] + [p.quality for p in native if p is not None]
+    if derived.uncertainty is None or any(
+        p is None
+        or p.xyz_world is None
+        or p.quality.uncertainty is None
+        or not p.quality.source_ids
+        for p in native
+    ):
+        qs.append(Quality(state="unknown"))
+    return combine(qs, float(derived.uncertainty or 0))
+
+
+def _qualified_geometry(detail: DetailedSample, sample: MotionSample) -> DetailedSample:
+    # Persisted detail and native inputs remain immutable. Derived frames carry
+    # numeric uncertainty, but their producer can erase interpolation state.
+    output = detail.model_copy(deep=True)
+    points = {p.name: p for p in sample.landmarks}
+    frames = [
+        (output.body_frame, BODY_POINTS),
+        (output.head.frame, ("left_ear", "right_ear", "nose")),
+    ]
+    for side in ("left", "right"):
+        frames.extend(
+            [
+                (
+                    output.hands[side].frame,
+                    tuple(
+                        cast(Landmark, f"{side}_{p}")
+                        for p in ("wrist", "index_mcp", "pinky_mcp")
+                    ),
+                ),
+                (
+                    output.feet[side].frame,
+                    tuple(
+                        cast(Landmark, f"{side}_{p}")
+                        for p in ("heel", "forefoot", "foot_outer")
+                    ),
+                ),
+            ]
+        )
+    for frame, names in frames:
+        frame.quality = _native_quality(frame.quality, points, names)
+        if frame.quality.state == "unknown":
+            frame.orientation = None
+    output.head.orientation_quality = combine(
+        [
+            output.head.orientation_quality,
+            output.head.frame.quality,
+            output.body_frame.quality,
+        ],
+        float(output.head.orientation_quality.uncertainty or 0),
+    )
+    if output.head.orientation_quality.state == "unknown":
+        output.head.orientation_in_torso = None
+    for relation in output.relations:
+        names = (
+            tuple(
+                cast(Landmark, n)
+                for n in (
+                    ("left_elbow", "left_wrist", "right_elbow", "right_wrist")
+                    if relation.axis == "crossing"
+                    else (relation.subject, relation.object)
+                )
+            )
+            + BODY_POINTS
+        )
+        relation.quality = _native_quality(relation.quality, points, names)
+        relation.front_quality = _native_quality(relation.front_quality, points, names)
+        if relation.quality.state == "unknown":
+            relation.value = "unknown"
+        if relation.front_quality.state == "unknown":
+            relation.front_entity = None
+    return output
+
+
+def _derivative_quality(
+    derivative: Derivative, qualities: dict[float, Quality]
+) -> None:
+    # Temporal estimators retain supporting times but label their outputs inferred.
+    # An interpolated sample anywhere in the estimation window remains evidence.
+    qs = [qualities[t] for t in derivative.support_times]
+    if derivative.velocity is not None:
+        derivative.velocity_quality = combine(
+            [derivative.velocity_quality, *qs],
+            float(derivative.velocity_quality.uncertainty or 0),
+        )
+    if derivative.acceleration is not None:
+        derivative.acceleration_quality = combine(
+            [derivative.acceleration_quality, *qs],
+            float(derivative.acceleration_quality.uncertainty or 0),
+        )
 
 
 def _runs(times: list[float], valid: list[bool], gap: float) -> list[list[int]]:
@@ -225,6 +337,7 @@ def derive_features(
     geometry: list[DetailedSample] | None = None,
     root_position_quality: list[Quality] | None = None,
     root_orientation_quality: list[Quality] | None = None,
+    root_orientation_from_body: list[bool] | None = None,
     placements: FootprintSeries | None = None,
 ) -> FeatureSeries:
     """Inspect the full persisted sequence; never fit thresholds or invoke vision."""
@@ -255,6 +368,10 @@ def derive_features(
     for qualities in (root_position_quality, root_orientation_quality):
         if qualities is not None and len(qualities) != len(times):
             raise ValueError("root quality must cover exact samples")
+    if root_orientation_from_body is not None and len(
+        root_orientation_from_body
+    ) != len(times):
+        raise ValueError("root orientation origin must cover exact samples")
     if placements is not None and (
         placements.reconstruction_id != motion.id
         or [e.footprint for e in placements.events] != ground.footprints
@@ -263,6 +380,7 @@ def derive_features(
     ground_times = {s.global_seconds: i for i, s in enumerate(ground.samples)}
     channels: dict[Track, list[FeatureSample]] = {track: [] for track in TRACKS}
     for i, (sample, detail) in enumerate(zip(motion.samples, details, strict=True)):
+        detail = _qualified_geometry(detail, sample)
         points = {p.name: p for p in sample.landmarks}
         body = detail.body_frame
         for track in TRACKS:
@@ -313,6 +431,11 @@ def derive_features(
                     if root_orientation_quality
                     else body.orientation
                 )
+                if (
+                    root_orientation_from_body is not None
+                    and root_orientation_from_body[i]
+                ):
+                    q = _native_quality(q, points, BODY_POINTS)
                 if quat and usable(q, config.max_angle_uncertainty_rad):
                     orientation = Orientation(
                         name="root", parent="world", orientation=quat, quality=q
@@ -453,6 +576,11 @@ def derive_features(
         )
         for row, lin, ang in zip(rows, linear, angular, strict=True):
             row.linear, row.angular = lin, ang
+        linear_qualities = {r.global_seconds: r.position_local.quality for r in rows}
+        angular_qualities = {r.global_seconds: r.orientation.quality for r in rows}
+        for row in rows:
+            _derivative_quality(row.linear, linear_qualities)
+            _derivative_quality(row.angular, angular_qualities)
         _detect(rows, config, events)
     _ground_events(channels, ground, config, events, placements)
     # Refractory per kind/track; simultaneous different physical evidence is retained.
