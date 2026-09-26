@@ -589,6 +589,78 @@ def test_cli_registration_and_sync_compare_under_lock(
         ]
 
 
+def test_native_entity_revision_identifies_its_owning_window(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    index, products = inspection
+    headers, _ = index.headers("demo")
+    first_key = ArtifactKey(
+        **next(
+            h["key"] for name, h in headers.items() if name.startswith("observations:")
+        )
+    )
+    first = index.pipe.store.get(first_key).metadata
+    assert isinstance(first, Observation)
+    sync = index.pipe.store.get(products["sync"]).metadata
+    assert isinstance(sync, Synchronization)
+    windows = [(first_key, first)]
+    for identifier, camera, pts, source in (
+        ("second-window-observation", "left", 440, sync.offsets[0].source_id),
+        ("other-camera-observation", "right", 900, sync.offsets[1].source_id),
+    ):
+        observation = first.model_copy(deep=True)
+        observation.id = identifier
+        observation.frame = first.frame.model_copy(
+            update={
+                "source_id": source,
+                "camera_id": camera,
+                "pts": pts,
+                "source_seconds": pts / 1000,
+                "global_seconds": pts / 1000,
+            }
+        )
+        key, _ = persist(index.pipe.store, observation)
+        windows.append((key, observation))
+    index.register("demo", products, observations=[key for key, _ in windows])
+    # Ownership survives a new service instance and does not depend on order.
+    reopened = Inspection(index.pipe)
+    with client(reopened) as http:
+        revisions = set()
+        for key, observation in reversed(windows):
+            response = http.get(BASE + "/entities", params={"id": observation.id})
+            assert response.status_code == 200
+            selected = response.json()
+            expected = hash_file(index.pipe.store.get(key).path / "manifest.json")
+            assert selected["artifact_revision"] == expected
+            assert selected["entity"]["frame"]["pts"] == observation.frame.pts
+            revisions.add(selected["artifact_revision"])
+        assert len(revisions) == len(windows)
+
+
+def test_legacy_native_index_requires_owner_registration(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    index, products = inspection
+    headers, _ = index.headers("demo")
+    key = ArtifactKey(
+        **next(
+            h["key"] for name, h in headers.items() if name.startswith("observations:")
+        )
+    )
+    with index.connection("demo") as db:
+        db.execute("DROP TABLE observation_owners")
+    with client(index) as http:
+        response = http.get(BASE + "/entities", params={"id": "native-left"})
+        assert response.status_code == 409
+        assert "re-register observations" in response.text
+        index.register("demo", products, observations=[key])
+        response = http.get(BASE + "/entities", params={"id": "native-left"})
+        assert response.status_code == 200
+        assert response.json()["artifact_revision"] == hash_file(
+            index.pipe.store.get(key).path / "manifest.json"
+        )
+
+
 def test_observation_entity_uses_the_same_effective_frame_as_window(
     inspection: tuple[Inspection, dict[str, ArtifactKey]],
 ) -> None:

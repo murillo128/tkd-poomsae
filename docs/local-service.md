@@ -119,6 +119,9 @@ and local-mutation policy:
   joint IDs append `/{landmark_name}`. Persisted semantic/footprint IDs stay
   unchanged. Native observation entities return the effective global `frame`
   and retain their original `native_frame`, matching window and evidence times.
+  Their `artifact_revision` identifies the owning native window's manifest.
+  Indexes created before native ownership was recorded require re-registration
+  for native entity lookup and return an explicit conflict until then.
   Missing or truncated contributing evidence has an explicit reason. Partial
   resolution retains valid evidence and reports bounded
   `source_evidence_unavailable_ids` and `source_evidence_unavailable_count` for

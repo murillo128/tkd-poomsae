@@ -100,6 +100,8 @@ class Inspection:
                     CREATE TABLE IF NOT EXISTS bindings (
                         product TEXT, manifest TEXT, clock TEXT,
                         PRIMARY KEY(product, manifest));
+                    CREATE TABLE IF NOT EXISTS observation_owners (
+                        id TEXT PRIMARY KEY, product TEXT NOT NULL);
                     CREATE INDEX IF NOT EXISTS native_window ON entities
                         (product, collection, source_id, start);
                     CREATE INDEX IF NOT EXISTS native_ordinal ON entities
@@ -281,6 +283,7 @@ class Inspection:
         with self.connection(project) as db:
             db.execute("DELETE FROM entities")
             db.execute("DELETE FROM products")
+            db.execute("DELETE FROM observation_owners")
             for name, handle in handles.items():
                 self._index(db, name, handle, products[name], clock)
             for key in observations:
@@ -309,6 +312,10 @@ class Inspection:
                         i,
                         observation.model_dump(mode="json"),
                         time=observation.frame.source_seconds,
+                    )
+                    db.execute(
+                        "INSERT INTO observation_owners VALUES (?, ?)",
+                        (observation.id, "observations:" + key.digest),
                     )
             if (
                 db.execute("SELECT sum(length(header)) FROM products").fetchone()[0]
@@ -829,11 +836,17 @@ class Inspection:
             if row is None:
                 raise InspectionError(404, "unknown entity ID")
             product = row["product"]
-            relevant = (
-                [h for name, h in headers.items() if name.startswith("observations:")]
-                if product == "observations"
-                else [headers[product]]
-            )
+            if product == "observations":
+                owner = db.execute(
+                    "SELECT product FROM observation_owners WHERE id=?", (identifier,)
+                ).fetchone()
+                if owner is None or owner[0] not in headers:
+                    raise InspectionError(
+                        409, "native entity owner unavailable; re-register observations"
+                    )
+                relevant = [headers[owner[0]]]
+            else:
+                relevant = [headers[product]]
             if not all(
                 self.current(h, clock, product == "observations") for h in relevant
             ):
