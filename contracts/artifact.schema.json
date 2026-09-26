@@ -220,6 +220,31 @@
       "title": "ArmActions",
       "type": "object"
     },
+    "BoundaryEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "kind": {
+          "const": "boundary",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id",
+        "interval"
+      ],
+      "title": "BoundaryEdit",
+      "type": "object"
+    },
     "Calibration": {
       "additionalProperties": false,
       "properties": {
@@ -1150,6 +1175,72 @@
       "title": "Keyframe",
       "type": "object"
     },
+    "KeyframeAdd": {
+      "additionalProperties": false,
+      "properties": {
+        "keyframe": {
+          "$ref": "#/$defs/Keyframe"
+        },
+        "kind": {
+          "const": "keyframe_add",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "keyframe"
+      ],
+      "title": "KeyframeAdd",
+      "type": "object"
+    },
+    "KeyframeMove": {
+      "additionalProperties": false,
+      "properties": {
+        "global_seconds": {
+          "title": "Global Seconds",
+          "type": "number"
+        },
+        "kind": {
+          "const": "keyframe_move",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id",
+        "global_seconds"
+      ],
+      "title": "KeyframeMove",
+      "type": "object"
+    },
+    "KeyframeRemove": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "keyframe_remove",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id"
+      ],
+      "title": "KeyframeRemove",
+      "type": "object"
+    },
     "Landmark2D": {
       "additionalProperties": false,
       "properties": {
@@ -1503,9 +1594,78 @@
     "ManualEdits": {
       "additionalProperties": false,
       "properties": {
+        "author": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        },
+        "automatic_manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Manifest Sha256"
+        },
+        "automatic_parser_revision": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Parser Revision"
+        },
         "automatic_semantics_id": {
           "title": "Automatic Semantics Id",
           "type": "string"
+        },
+        "base_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Revision"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "enum": [
+                "apply",
+                "undo",
+                "reset"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
         },
         "edits": {
           "items": {
@@ -1524,13 +1684,120 @@
           "title": "Kind",
           "type": "string"
         },
+        "operations": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boundary": "#/$defs/BoundaryEdit",
+                "keyframe_add": "#/$defs/KeyframeAdd",
+                "keyframe_move": "#/$defs/KeyframeMove",
+                "keyframe_remove": "#/$defs/KeyframeRemove"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/BoundaryEdit"
+              },
+              {
+                "$ref": "#/$defs/KeyframeAdd"
+              },
+              {
+                "$ref": "#/$defs/KeyframeMove"
+              },
+              {
+                "$ref": "#/$defs/KeyframeRemove"
+              }
+            ]
+          },
+          "title": "Operations",
+          "type": "array"
+        },
+        "parent_state_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent State Revision"
+        },
         "provenance": {
           "$ref": "#/$defs/Provenance"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision"
         },
         "schema_version": {
           "const": "1.0.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "state_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Revision"
         }
       },
       "required": [
@@ -1538,8 +1805,7 @@
         "schema_version",
         "provenance",
         "kind",
-        "automatic_semantics_id",
-        "edits"
+        "automatic_semantics_id"
       ],
       "title": "ManualEdits",
       "type": "object"
@@ -2739,6 +3005,18 @@
           "title": "Arrays",
           "type": "array"
         },
+        "automatic_semantics_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Automatic Semantics Id"
+        },
         "execution": {
           "anyOf": [
             {
@@ -2781,6 +3059,18 @@
           ],
           "default": null,
           "title": "Lower Body Parsing Id"
+        },
+        "manual_edits_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manual Edits Id"
         },
         "motion_features_id": {
           "anyOf": [
