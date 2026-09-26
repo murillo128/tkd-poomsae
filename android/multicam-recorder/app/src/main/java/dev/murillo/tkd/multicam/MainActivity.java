@@ -5,6 +5,9 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.content.SharedPreferences;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import android.view.Gravity;
 import android.view.TextureView;
 import android.view.View;
@@ -53,6 +56,7 @@ public final class MainActivity extends Activity
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        installCrashRecorder();
         buildUi();
 
         cameraEngine = new CameraEngine(this, textureView, this);
@@ -64,7 +68,55 @@ public final class MainActivity extends Activity
                     CAMERA_PERMISSION_REQUEST);
         }
 
-        chooseController();
+        role = null;
+        roleText.setText("Role: choose CONTROLLER or CAMERA");
+        controllerPanel.setVisibility(View.GONE);
+        cameraPanel.setVisibility(View.GONE);
+        networkText.setText("Network: not started");
+        showPreviousCrashIfAny();
+    }
+
+    private void installCrashRecorder() {
+        final Thread.UncaughtExceptionHandler previous =
+                Thread.getDefaultUncaughtExceptionHandler();
+
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            try {
+                StringWriter sw = new StringWriter();
+                throwable.printStackTrace(new PrintWriter(sw));
+                getSharedPreferences("crash", MODE_PRIVATE)
+                        .edit()
+                        .putString("last_crash", sw.toString())
+                        .apply();
+            } catch (Exception ignored) {
+            }
+
+            if (previous != null) {
+                previous.uncaughtException(thread, throwable);
+            }
+        });
+    }
+
+    private void showPreviousCrashIfAny() {
+        SharedPreferences prefs = getSharedPreferences("crash", MODE_PRIVATE);
+        String crash = prefs.getString("last_crash", null);
+        if (crash == null || crash.isEmpty()) {
+            return;
+        }
+
+        prefs.edit().remove("last_crash").apply();
+        networkText.setText("Previous crash captured. Tap COPY CRASH below.");
+
+        Button copyCrash = new Button(this);
+        copyCrash.setText("COPY PREVIOUS CRASH");
+        copyCrash.setOnClickListener(v -> {
+            android.content.ClipboardManager cm =
+                    (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("TKD MultiCam crash", crash));
+            Toast.makeText(this, "Crash copied", Toast.LENGTH_SHORT).show();
+        });
+
+        ((LinearLayout) networkText.getParent()).addView(copyCrash, 5);
     }
 
     private void buildUi() {
@@ -216,7 +268,8 @@ public final class MainActivity extends Activity
     }
 
     private void chooseController() {
-        role = NetworkCoordinator.Role.CONTROLLER;
+        try {
+            role = NetworkCoordinator.Role.CONTROLLER;
         roleText.setText("Role: CONTROLLER");
         controllerPanel.setVisibility(View.VISIBLE);
         cameraPanel.setVisibility(View.GONE);
@@ -228,11 +281,15 @@ public final class MainActivity extends Activity
         if (network != null) {
             network.start(NetworkCoordinator.Role.CONTROLLER);
         }
-        updatePeers();
+            updatePeers();
+        } catch (Throwable t) {
+            handleUiFailure("Controller init", t);
+        }
     }
 
     private void chooseCamera() {
-        role = NetworkCoordinator.Role.CAMERA;
+        try {
+            role = NetworkCoordinator.Role.CAMERA;
         roleText.setText("Role: CAMERA");
         controllerPanel.setVisibility(View.GONE);
         cameraPanel.setVisibility(View.VISIBLE);
@@ -244,7 +301,23 @@ public final class MainActivity extends Activity
         if (network != null) {
             network.start(NetworkCoordinator.Role.CAMERA);
         }
-        cameraText.setText("Camera: waiting for controller ARM");
+            cameraText.setText("Camera: waiting for controller ARM");
+        } catch (Throwable t) {
+            handleUiFailure("Camera init", t);
+        }
+    }
+
+    private void handleUiFailure(String where, Throwable t) {
+        StringWriter sw = new StringWriter();
+        t.printStackTrace(new PrintWriter(sw));
+        String full = where + "\n" + sw;
+        networkText.setText("ERROR: " + where + " · " + t.getClass().getSimpleName()
+                + ": " + t.getMessage());
+
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("TKD MultiCam error", full));
+        Toast.makeText(this, "Error copied to clipboard", Toast.LENGTH_LONG).show();
     }
 
     private void armAll() {
