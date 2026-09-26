@@ -72,3 +72,9 @@ Semantic intervals are absolute global seconds and permit overlapping actions.
 The six physical tracks are fixed for this version. Spatial relations describe
 geometry, including crossing front order, not correctness. Manual edits live in
 a separate artifact linked to immutable automatic semantics.
+
+`Alignment` is an additive derived artifact kind for global-time joins. It refers
+to the exact synchronization artifact, immutable native observation manifest
+digests, query count and versioned byte-payload descriptor. Query geometry and
+native endpoint evidence are kept separately in the producer's payload; see
+[`sync/README.md`](../sync/README.md#global-time-observation-queries).

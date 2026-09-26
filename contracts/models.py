@@ -595,6 +595,16 @@ class Observation(ArtifactBase):
         return self
 
 
+class Alignment(ArtifactBase):
+    """Derived time queries; the versioned payload retains native observations."""
+
+    kind: Literal["alignment"]
+    synchronization_id: str
+    observation_digests: list[str] = Field(min_length=1)
+    query_count: int = Field(gt=0)
+    arrays: list[DenseArray]
+
+
 class Landmark3D(StrictModel):
     name: Landmark
     xyz_world: tuple[float, float, float] | None
@@ -933,6 +943,7 @@ Artifact: TypeAlias = Annotated[
     | Synchronization
     | Calibration
     | Observation
+    | Alignment
     | Reconstruction
     | Morphology
     | Ground
@@ -1008,7 +1019,9 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             for ref in quality.source_ids:
                 if not isinstance(by_id.get(ref), allowed_contributors):
                     raise ValueError(f"dangling or wrong-kind quality source: {ref}")
-        if isinstance(item, Calibration):
+        if isinstance(item, Alignment):
+            require(item.synchronization_id, Synchronization)
+        elif isinstance(item, Calibration):
             for camera in item.cameras:
                 source = require(camera.source_id, Source)
                 if source.camera_id != camera.camera_id:
