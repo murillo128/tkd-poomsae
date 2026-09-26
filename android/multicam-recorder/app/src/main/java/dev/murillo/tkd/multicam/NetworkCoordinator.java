@@ -1,7 +1,6 @@
 package dev.murillo.tkd.multicam;
 
 import android.content.Context;
-import android.net.DhcpInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.SystemClock;
@@ -9,11 +8,9 @@ import android.os.SystemClock;
 import org.json.JSONObject;
 
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.MulticastSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import android.net.wifi.WifiManager;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
