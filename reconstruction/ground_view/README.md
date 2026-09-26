@@ -22,6 +22,18 @@ null. `root_path_indices` splits paths at missing roots and gaps longer than
 `GroundViewConfig.max_gap_seconds` (default 0.15 s); a viewer must draw each run
 separately. Vertical movement is retained even when XY is unchanged.
 
+Publication reads and validates the native `root_translation_quality` series in
+`temporal_motion_json`, preserving the root's own state, uncertainty and source
+IDs rather than the reconstructed sample's whole-body aggregate quality. Pure
+derivation accepts this series through `root_translation_quality`; it must match
+the native sample count, and temporal artifacts with that payload require it.
+Pelvis fallback always uses pelvis quality. Metadata-only synthetic inputs without
+a temporal payload may use sample quality, explicitly labelled
+`metadata_only_root_quality`. Production publication also checks native timestamps
+against the temporal kinematics rows. Algorithm revision `ground-view-v2` gives
+corrected products new cache identities, so prior aggregate-quality results are
+not reused.
+
 Projection takes XY and Z from **already ground-aligned world coordinates**, a
 right-handed frame with Z up, under `spec/motion-representation.md`. It does not
 apply `GroundFrame.source_to_world` a second time, recenter the participant, rotate

@@ -18,7 +18,7 @@ from contracts.models import (
 from reconstruction.footprints.core import TrajectorySample
 from reconstruction.pivots.core import PivotSeries
 
-REVISION: Literal["ground-view-v1"] = "ground-view-v1"
+REVISION: Literal["ground-view-v2"] = "ground-view-v2"
 XY = tuple[float, float]
 
 
@@ -75,7 +75,7 @@ class DynamicView(StrictModel):
 class GroundViewSeries(StrictModel):
     version: Literal[1] = 1
     artifact_role: Literal["physical_ground_view"] = "physical_ground_view"
-    algorithm_revision: Literal["ground-view-v1"] = REVISION
+    algorithm_revision: Literal["ground-view-v2"] = REVISION
     reconstruction_id: str
     calibration_id: str
     participant_id: str
@@ -247,6 +247,7 @@ def derive_ground_view(
     *,
     ground_id: str | None = None,
     config: GroundViewConfig | None = None,
+    root_translation_quality: list[Quality] | None = None,
 ) -> GroundViewSeries:
     """Project already calibrated world motion; no source-frame transform or parser."""
     source = Reconstruction.model_validate(motion.model_dump())
@@ -259,6 +260,14 @@ def derive_ground_view(
     if source.calibration_id != cal.id or source.scale != cal.scale:
         raise ValueError("calibration identity or scale mismatch")
     available = cal.ground_status == "resolved" and cal.quality.state != "unknown"
+    if root_translation_quality is not None:
+        if len(root_translation_quality) != len(source.samples):
+            raise ValueError("root quality must align with native motion samples")
+        root_translation_quality = [
+            Quality.model_validate(q.model_dump()) for q in root_translation_quality
+        ]
+    elif available and any(a.id == "temporal_motion_json" for a in source.arrays):
+        raise ValueError("temporal artifact requires explicit root translation quality")
     if available and (physical is None or ground_id is None):
         raise ValueError("resolved ground requires pivot/placement evidence and ID")
     if not available and physical is not None:
@@ -270,14 +279,22 @@ def derive_ground_view(
     for i, sample in enumerate(source.samples):
         # Pelvis is the fallback only when reconstructed root is absent, never feet.
         pelvis = next((p for p in sample.landmarks if p.name == "pelvis"), None)
-        xyz, quality = sample.root_xyz_world, sample.quality
+        xyz = sample.root_xyz_world
+        quality = (
+            root_translation_quality[i]
+            if root_translation_quality is not None
+            else sample.quality
+        )
         reasons = ["root"]
+        if root_translation_quality is None:
+            reasons.append("metadata_only_root_quality")
         if xyz is None and pelvis is not None:
             xyz, quality = pelvis.xyz_world, pelvis.quality
             reasons = ["pelvis_fallback"]
         if not available or xyz is None or quality.state == "unknown":
             xyz = None
-            quality = Quality(state="unknown", source_ids=quality.source_ids)
+            if not available or quality.state != "unknown":
+                quality = Quality(state="unknown", source_ids=quality.source_ids)
             reasons = ["ground_unavailable" if not available else "root_unavailable"]
         root.append(
             RootPoint(

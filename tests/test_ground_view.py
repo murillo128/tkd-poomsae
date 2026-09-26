@@ -249,3 +249,100 @@ def test_mismatched_times_and_physical_identity_fail_closed() -> None:
     shifted.samples[0].global_seconds = -0.02
     with pytest.raises(ValueError, match="contact links"):
         derive_ground_view(shifted, cal, physical, ground_id="pivots")
+
+
+def test_temporal_root_quality_survives_ground_publication(tmp_path: Path) -> None:
+    from reconstruction.temporal import (
+        TemporalConfig,
+        load_temporal_motion,
+        publish_temporal_motion,
+    )
+    from tests.test_articulated import participant, raw_handle
+
+    store = ArtifactStore(StorageRoot(tmp_path))
+    raw_source = participant()
+    raw_source.provenance.producer = "reconstruction.triangulation"
+    for i, sample in enumerate(raw_source.samples):
+        sample.global_seconds = i * 0.02
+        sample.quality = Quality(
+            state="observed", uncertainty=0.02, source_ids=[f"root-native:{i}"]
+        )
+    temporal = publish_temporal_motion(
+        store,
+        raw_handle(store, raw_source),
+        TemporalConfig(max_position_uncertainty=0.15),
+    ).motion
+    assert isinstance(temporal.metadata, Reconstruction)
+    cal = persist(store, calibration())
+    contacts = publish_contacts(store, temporal, cal)
+    placements = publish_footprints(store, temporal, contacts, cal)
+    pivots = publish_pivots(store, placements)
+    expected = [
+        Quality.model_validate(q)
+        for q in load_temporal_motion(temporal)["root_translation_quality"]
+    ]
+    assert expected[0].uncertainty == 0.02
+    assert expected[0].state == "observed"
+    assert expected[0].source_ids == ["root-native:0"]
+    assert temporal.metadata.samples[0].quality != expected[0]
+    output = publish_ground_view(store, temporal, cal, pivots)
+    summary = load_ground_view(output)
+    for i, point in enumerate(summary.root_trajectory):
+        assert point.quality == expected[i]
+        snapshot = summary.query(point.global_seconds)
+        assert snapshot.root is not None and snapshot.root.quality == expected[i]
+        assert point.reasons == ["root"]
+    assert publish_ground_view(store, temporal, cal, pivots).path == output.path
+    assert summary.algorithm_revision == "ground-view-v2"
+    # Metadata of a real temporal artifact cannot silently replace its root evidence.
+    assert summary.physical is not None
+    with pytest.raises(ValueError, match="explicit root translation quality"):
+        derive_ground_view(
+            temporal.metadata,
+            calibration(),
+            summary.physical,
+            ground_id=pivots.metadata.id,
+        )
+
+
+def test_explicit_root_quality_alignment_unknown_and_pelvis_fallback() -> None:
+    source = motion()
+    qualities = [
+        Quality(state="observed", uncertainty=0.02, source_ids=[f"root:{i}"])
+        for i in range(len(source.samples))
+    ]
+    qualities[10] = Quality(state="unknown", source_ids=["root-hidden:10"])
+    source.samples[10].root_xyz_world = None
+    source.samples[11].root_xyz_world = None
+    qualities[11] = Quality(state="unknown")
+    pelvis_quality = Quality(
+        state="interpolated", uncertainty=0.07, source_ids=["pelvis:11"]
+    )
+    source.samples[11].landmarks.append(
+        Landmark3D(name="pelvis", xyz_world=(1, 2, 3), quality=pelvis_quality)
+    )
+    physical = view(source, ground(source)).physical
+    result = derive_ground_view(
+        source,
+        calibration(),
+        physical,
+        ground_id="pivots",
+        root_translation_quality=qualities,
+    )
+    assert result.root_trajectory[0].quality == qualities[0]
+    assert result.root_trajectory[10].quality == qualities[10]
+    assert result.root_trajectory[10].xy_ground is None
+    assert result.root_trajectory[11].quality == pelvis_quality
+    assert result.root_trajectory[11].reasons == ["pelvis_fallback"]
+    with pytest.raises(ValueError, match="align with native"):
+        derive_ground_view(
+            source,
+            calibration(),
+            physical,
+            ground_id="pivots",
+            root_translation_quality=qualities[:-1],
+        )
+    assert (
+        "metadata_only_root_quality"
+        in view(source, ground(source)).root_trajectory[0].reasons
+    )

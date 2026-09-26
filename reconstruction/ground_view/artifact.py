@@ -7,9 +7,17 @@ from typing import Any
 
 import numpy as np
 
-from contracts.models import Calibration, DenseArray, Ground, Provenance, Reconstruction
+from contracts.models import (
+    Calibration,
+    DenseArray,
+    Ground,
+    Provenance,
+    Quality,
+    Reconstruction,
+)
 from reconstruction.pivots import load_pivot_evidence
 from reconstruction.pivots.core import PivotSeries
+from reconstruction.temporal import load_temporal_motion
 from storage import ArtifactHandle, ArtifactKey, ArtifactStore, hash_config, hash_file
 
 from .core import REVISION, GroundViewConfig, GroundViewSeries, derive_ground_view
@@ -76,8 +84,24 @@ def publish_ground_view(
     )
 
     def produce() -> tuple[Ground, dict[str, np.ndarray[Any, Any]]]:
+        root_quality = None
+        if any(a.id == "temporal_motion_json" for a in source.arrays):
+            temporal = load_temporal_motion(motion)
+            rows = temporal.get("root_translation_quality")
+            if not isinstance(rows, list) or len(rows) != len(source.samples):
+                raise ValueError("root quality must align with native motion samples")
+            if [s["global_seconds"] for s in temporal["kinematics"]] != [
+                s.global_seconds for s in source.samples
+            ]:
+                raise ValueError("temporal root quality native times disagree")
+            root_quality = [Quality.model_validate(q) for q in rows]
         result = derive_ground_view(
-            source, cal, physical, ground_id=ground.id, config=config
+            source,
+            cal,
+            physical,
+            ground_id=ground.id,
+            config=config,
+            root_translation_quality=root_quality,
         )
         if result.ground_status != "available" or not result.root_trajectory:
             raise ValueError(
