@@ -40,6 +40,7 @@ _LAYERS = frozenset(
         "motion_features",
         "segmentation",
         "arm_actions",
+        "lower_body_parsing",
         "semantics",
         "manual_edits",
     }

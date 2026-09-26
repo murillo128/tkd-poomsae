@@ -103,3 +103,9 @@ and coarse-segmentation IDs and a versioned evidence array. Independent track
 intervals, SpecialAction candidates, provisional phases, complete crossing/depth
 and hand uncertainty, and dense references are owned by
 [`reconstruction/arms`](../reconstruction/arms/README.md).
+
+The additive `lower_body_parsing` artifact stores automatic lower-body action and
+phase candidates plus stance states, linked to exact feature, ground and coarse
+segmentation artifacts. Its versioned payload preserves full native intervals
+and overlap associations without forcing actions into a single coarse container.
+See [`reconstruction/lower_body`](../reconstruction/lower_body/README.md).

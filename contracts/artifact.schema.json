@@ -1323,6 +1323,66 @@
       "title": "Landmark3D",
       "type": "object"
     },
+    "LowerBodyParsing": {
+      "additionalProperties": false,
+      "description": "Independent action candidates; coarse proposals do not clip intervals.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "lower_body_parsing",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "segmentation_id": {
+          "title": "Segmentation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "segmentation_id",
+        "arrays"
+      ],
+      "title": "LowerBodyParsing",
+      "type": "object"
+    },
     "ManualEdit": {
       "additionalProperties": false,
       "properties": {
@@ -3523,6 +3583,7 @@
       "arm_actions": "#/$defs/ArmActions",
       "calibration": "#/$defs/Calibration",
       "ground": "#/$defs/Ground",
+      "lower_body_parsing": "#/$defs/LowerBodyParsing",
       "manual_edits": "#/$defs/ManualEdits",
       "morphology": "#/$defs/Morphology",
       "motion_features": "#/$defs/MotionFeatures",
@@ -3572,6 +3633,9 @@
     },
     {
       "$ref": "#/$defs/ArmActions"
+    },
+    {
+      "$ref": "#/$defs/LowerBodyParsing"
     },
     {
       "$ref": "#/$defs/Semantics"
