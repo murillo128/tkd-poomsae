@@ -239,13 +239,22 @@ public final class MainActivity extends Activity
 
         root.addView(buildPreview(dp(260)), matchWrap(0, dp(10)));
 
-        LinearLayout statusRow = new LinearLayout(this);
-        statusRow.setOrientation(LinearLayout.HORIZONTAL);
-        roleText = statusCard(statusRow, "ROLE", "Choose role");
-        networkText = statusCard(statusRow, "NETWORK", "Not started");
-        cameraText = statusCard(statusRow, "CAMERA", "Idle");
-        sessionText = statusCard(statusRow, "SESSION", "No active session");
-        root.addView(statusRow, matchWrap(0, dp(10)));
+        LinearLayout statusGrid = new LinearLayout(this);
+        statusGrid.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout statusRow1 = new LinearLayout(this);
+        statusRow1.setOrientation(LinearLayout.HORIZONTAL);
+        roleText = statusCard(statusRow1, "ROLE", "Choose role");
+        networkText = statusCard(statusRow1, "NETWORK", "Not started");
+        statusGrid.addView(statusRow1, matchWrap(0, dp(6)));
+
+        LinearLayout statusRow2 = new LinearLayout(this);
+        statusRow2.setOrientation(LinearLayout.HORIZONTAL);
+        cameraText = statusCard(statusRow2, "CAMERA", "Idle");
+        sessionText = statusCard(statusRow2, "SESSION", "No active session");
+        statusGrid.addView(statusRow2);
+
+        root.addView(statusGrid, matchWrap(0, dp(10)));
 
         buildControllerPanel();
         root.addView(controllerPanel, matchWrap(0, dp(10)));
