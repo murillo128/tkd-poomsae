@@ -83,3 +83,10 @@ to the exact synchronization artifact, immutable native observation manifest
 digests, query count and versioned byte-payload descriptor. Query geometry and
 native endpoint evidence are kept separately in the producer's payload; see
 [`sync/README.md`](../sync/README.md#global-time-observation-queries).
+
+`MotionFeatures` is an additive physical artifact kind before semantic actions.
+It references exact reconstruction and ground artifacts and a versioned dense
+feature/candidate payload. Shared-clock per-track measurements, candidate timing
+and evidence links are described in
+[`reconstruction/features/README.md`](../reconstruction/features/README.md).
+These candidates do not assign technique classes, SequenceSteps, or correctness.

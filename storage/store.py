@@ -37,6 +37,7 @@ _LAYERS = frozenset(
         "reconstruction",
         "morphology",
         "ground",
+        "motion_features",
         "semantics",
         "manual_edits",
     }
