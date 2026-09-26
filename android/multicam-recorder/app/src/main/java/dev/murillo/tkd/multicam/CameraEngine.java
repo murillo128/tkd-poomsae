@@ -17,11 +17,9 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.MediaMuxer;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -41,22 +39,16 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public final class CameraEngine {
     public static final String CAMERA_ID = "0";
     public static final int WIDTH = 1920;
     public static final int HEIGHT = 1080;
     public static final int FPS = 120;
-    public static final long TARGET_EXPOSURE_NS = 2_000_000L; // 1/500 s
-    private static final int VIDEO_BITRATE = 28_000_000;
-    private static final int IFRAME_INTERVAL_SECONDS = 1;
 
     public enum State {
         IDLE, ARMING, READY, RECORDING, STOPPING, ERROR
@@ -74,11 +66,8 @@ public final class CameraEngine {
     private final TextureView textureView;
     private final Listener listener;
     private final CameraManager cameraManager;
-
     private final HandlerThread cameraThread;
     private final Handler cameraHandler;
-    private final HandlerThread encoderThread;
-    private final Handler encoderHandler;
 
     private volatile State state = State.IDLE;
 
@@ -88,30 +77,22 @@ public final class CameraEngine {
     private CameraConstrainedHighSpeedCaptureSession highSpeedSession;
 
     private Surface previewSurface;
-    private Surface encoderSurface;
-
-    private MediaCodec videoEncoder;
-    private MediaMuxer mediaMuxer;
-    private volatile boolean muxerStarted;
-    private volatile int muxerVideoTrack = -1;
-    private volatile boolean encoderRecording;
-    private volatile CountDownLatch encoderEosLatch;
-
+    private Surface recorderSurface;
+    private MediaRecorder mediaRecorder;
     private List<CaptureRequest> highSpeedRequests;
-    private List<CaptureRequest> highSpeedPreviewRequests;
 
     private String sessionId;
     private File videoFile;
     private File metadataFile;
 
-    private volatile long meteredExposureNs = 8_000_000L;
-    private volatile int meteredIso = 200;
-    private volatile long actualExposureNs = TARGET_EXPOSURE_NS;
-    private volatile int actualIso = 200;
+    private volatile long meteredExposureNs = 0L;
+    private volatile int meteredIso = 0;
 
+    private volatile long recorderStartElapsedNs = -1L;
     private volatile long scheduledStartNs = -1L;
-    private volatile long startCallNs = -1L;
+    private volatile long officialStartElapsedNs = -1L;
     private volatile long stopCallNs = -1L;
+
     private volatile long firstSensorTimestampNs = -1L;
     private volatile long lastUniqueSensorTimestampNs = -1L;
     private volatile long uniqueSensorFrames = 0L;
@@ -120,32 +101,37 @@ public final class CameraEngine {
     private volatile long encodedFrameCount = 0L;
     private volatile long encodedDurationUs = 0L;
     private volatile double encodedFps = 0.0;
-    private volatile long firstEncodedPtsUs = -1L;
-    private volatile long lastEncodedPtsUs = -1L;
 
+    private volatile boolean recorderStarted = false;
+    private volatile boolean officialRecordingStarted = false;
     private volatile boolean closing = false;
 
-    public CameraEngine(Activity activity, TextureView textureView, Listener listener) {
+    public CameraEngine(
+            Activity activity,
+            TextureView textureView,
+            Listener listener) {
+
         this.activity = activity;
         this.textureView = textureView;
         this.listener = listener;
-        this.cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
+        this.cameraManager =
+                (CameraManager)
+                        activity.getSystemService(
+                                Context.CAMERA_SERVICE);
 
-        this.cameraThread = new HandlerThread("TkdMultiCamCamera");
+        this.cameraThread =
+                new HandlerThread(
+                        "TkdMultiCamCamera");
+
         this.cameraThread.start();
-        this.cameraHandler = new Handler(cameraThread.getLooper());
 
-        this.encoderThread = new HandlerThread("TkdMultiCamEncoder");
-        this.encoderThread.start();
-        this.encoderHandler = new Handler(encoderThread.getLooper());
+        this.cameraHandler =
+                new Handler(
+                        cameraThread.getLooper());
     }
 
     public State getState() {
         return state;
-    }
-
-    public String getRecordingPath() {
-        return videoFile == null ? null : videoFile.getAbsolutePath();
     }
 
     public double getLastEncodedFps() {
@@ -157,11 +143,16 @@ public final class CameraEngine {
     }
 
     public void arm(String newSessionId) {
-        cameraHandler.post(() -> armInternal(newSessionId));
+        cameraHandler.post(
+                () -> armInternal(newSessionId));
     }
 
-    public void startAt(long localElapsedRealtimeNs) {
-        cameraHandler.post(() -> scheduleStartInternal(localElapsedRealtimeNs));
+    public void startAt(
+            long localElapsedRealtimeNs) {
+
+        cameraHandler.post(
+                () -> scheduleOfficialStart(
+                        localElapsedRealtimeNs));
     }
 
     public void stop() {
@@ -172,18 +163,26 @@ public final class CameraEngine {
         cameraHandler.post(() -> {
             closeAll();
             cameraThread.quitSafely();
-            encoderThread.quitSafely();
         });
     }
 
-    private void armInternal(String newSessionId) {
-        if (state != State.IDLE && state != State.ERROR) {
-            status("Ignoring ARM while state=" + state);
+    private void armInternal(
+            String newSessionId) {
+
+        if (state != State.IDLE
+                && state != State.ERROR) {
+            status(
+                    "Ignoring ARM while state="
+                            + state);
             return;
         }
-        if (activity.checkSelfPermission(Manifest.permission.CAMERA)
+
+        if (activity.checkSelfPermission(
+                Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-            error("Camera permission is not granted");
+
+            error(
+                    "Camera permission is not granted");
             return;
         }
 
@@ -191,10 +190,13 @@ public final class CameraEngine {
 
         state = State.ARMING;
         closing = false;
-        sessionId = sanitizeSessionId(newSessionId);
 
+        sessionId =
+                sanitizeSessionId(newSessionId);
+
+        recorderStartElapsedNs = -1L;
         scheduledStartNs = -1L;
-        startCallNs = -1L;
+        officialStartElapsedNs = -1L;
         stopCallNs = -1L;
 
         firstSensorTimestampNs = -1L;
@@ -202,110 +204,172 @@ public final class CameraEngine {
         uniqueSensorFrames = 0L;
         captureFailures = 0L;
 
-        resetEncodedStats();
-
-        meteredExposureNs = 8_000_000L;
-        meteredIso = 200;
-
-        status("ARMING · camera 0 · FHD 120 · AF continuous · shutter target 1/500");
-
-        Runnable open = () -> cameraHandler.post(this::openCameraForMetering);
-        if (textureView.isAvailable()) {
-            open.run();
-        } else {
-            activity.runOnUiThread(() -> textureView.setSurfaceTextureListener(
-                    new TextureView.SurfaceTextureListener() {
-                        @Override
-                        public void onSurfaceTextureAvailable(
-                                SurfaceTexture surface, int width, int height) {
-                            textureView.setSurfaceTextureListener(null);
-                            open.run();
-                        }
-
-                        @Override
-                        public void onSurfaceTextureSizeChanged(
-                                SurfaceTexture surface, int width, int height) {}
-
-                        @Override
-                        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                            return false;
-                        }
-
-                        @Override
-                        public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
-                    }));
-        }
-    }
-
-    private void resetEncodedStats() {
         encodedFrameCount = 0L;
         encodedDurationUs = 0L;
         encodedFps = 0.0;
-        firstEncodedPtsUs = -1L;
-        lastEncodedPtsUs = -1L;
+
+        recorderStarted = false;
+        officialRecordingStarted = false;
+
+        status(
+                "ARMING · probing exposure/focus");
+
+        Runnable open =
+                () -> cameraHandler.post(
+                        this::openCameraForMetering);
+
+        if (textureView.isAvailable()) {
+            open.run();
+        } else {
+            activity.runOnUiThread(() ->
+                    textureView.setSurfaceTextureListener(
+                            new TextureView.SurfaceTextureListener() {
+                                @Override
+                                public void onSurfaceTextureAvailable(
+                                        SurfaceTexture surface,
+                                        int width,
+                                        int height) {
+
+                                    textureView.setSurfaceTextureListener(
+                                            null);
+
+                                    open.run();
+                                }
+
+                                @Override
+                                public void onSurfaceTextureSizeChanged(
+                                        SurfaceTexture surface,
+                                        int width,
+                                        int height) {}
+
+                                @Override
+                                public boolean onSurfaceTextureDestroyed(
+                                        SurfaceTexture surface) {
+                                    return false;
+                                }
+
+                                @Override
+                                public void onSurfaceTextureUpdated(
+                                        SurfaceTexture surface) {}
+                            }));
+        }
     }
 
     private void openCameraForMetering() {
         try {
-            characteristics = cameraManager.getCameraCharacteristics(CAMERA_ID);
-            validateHighSpeedMode(characteristics);
+            characteristics =
+                    cameraManager
+                            .getCameraCharacteristics(
+                                    CAMERA_ID);
 
-            SurfaceTexture st = textureView.getSurfaceTexture();
+            validateHighSpeedMode(
+                    characteristics);
+
+            SurfaceTexture st =
+                    textureView
+                            .getSurfaceTexture();
+
             if (st == null) {
-                error("Preview surface is unavailable");
+                error(
+                        "Preview surface unavailable");
                 return;
             }
-            st.setDefaultBufferSize(WIDTH, HEIGHT);
-            previewSurface = new Surface(st);
 
-            cameraManager.openCamera(CAMERA_ID, new CameraDevice.StateCallback() {
-                @Override
-                public void onOpened(CameraDevice camera) {
-                    cameraDevice = camera;
-                    createMeteringSession();
-                }
+            st.setDefaultBufferSize(
+                    WIDTH,
+                    HEIGHT);
 
-                @Override
-                public void onDisconnected(CameraDevice camera) {
-                    camera.close();
-                    if (!closing) error("Camera disconnected");
-                }
+            previewSurface =
+                    new Surface(st);
 
-                @Override
-                public void onError(CameraDevice camera, int errorCode) {
-                    camera.close();
-                    if (!closing) {
-                        error("Camera error " + errorCode + " (" + cameraErrorName(errorCode) + ")");
-                    }
-                }
-            }, cameraHandler);
+            cameraManager.openCamera(
+                    CAMERA_ID,
+                    new CameraDevice.StateCallback() {
+                        @Override
+                        public void onOpened(
+                                CameraDevice camera) {
+                            cameraDevice = camera;
+                            createMeteringSession();
+                        }
+
+                        @Override
+                        public void onDisconnected(
+                                CameraDevice camera) {
+                            camera.close();
+
+                            if (!closing) {
+                                error(
+                                        "Camera disconnected");
+                            }
+                        }
+
+                        @Override
+                        public void onError(
+                                CameraDevice camera,
+                                int errorCode) {
+                            camera.close();
+
+                            if (!closing) {
+                                error(
+                                        "Camera error "
+                                                + errorCode
+                                                + " ("
+                                                + cameraErrorName(
+                                                        errorCode)
+                                                + ")");
+                            }
+                        }
+                    },
+                    cameraHandler);
         } catch (Exception e) {
-            error("Open camera failed: " + describe(e));
+            error(
+                    "Open camera failed: "
+                            + describe(e));
         }
     }
 
-    private void validateHighSpeedMode(CameraCharacteristics c) {
+    private void validateHighSpeedMode(
+            CameraCharacteristics c) {
+
         StreamConfigurationMap map =
-                c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                c.get(
+                        CameraCharacteristics
+                                .SCALER_STREAM_CONFIGURATION_MAP);
+
         if (map == null) {
-            throw new IllegalStateException("No stream configuration map");
+            throw new IllegalStateException(
+                    "No stream configuration map");
         }
 
-        Size target = new Size(WIDTH, HEIGHT);
-        boolean sizeFound = Arrays.asList(map.getHighSpeedVideoSizes()).contains(target);
-        if (!sizeFound) {
-            throw new IllegalStateException("1080p is not advertised as high-speed");
+        Size target =
+                new Size(
+                        WIDTH,
+                        HEIGHT);
+
+        if (!Arrays.asList(
+                map.getHighSpeedVideoSizes())
+                .contains(target)) {
+
+            throw new IllegalStateException(
+                    "1080p high-speed not advertised");
         }
 
-        boolean fpsFound = false;
-        for (Range<Integer> range : map.getHighSpeedVideoFpsRangesFor(target)) {
-            if (range.getLower() == FPS && range.getUpper() == FPS) {
-                fpsFound = true;
+        boolean fixed120 = false;
+
+        for (Range<Integer> range
+                : map.getHighSpeedVideoFpsRangesFor(
+                        target)) {
+
+            if (range.getLower() == FPS
+                    && range.getUpper() == FPS) {
+                fixed120 = true;
                 break;
             }
         }
-        if (!fpsFound) {
-            throw new IllegalStateException("1080p120 fixed range is not advertised");
+
+        if (!fixed120) {
+            throw new IllegalStateException(
+                    "1080p120 fixed range not advertised");
         }
     }
 
@@ -315,194 +379,226 @@ public final class CameraEngine {
                     List.of(previewSurface),
                     new CameraCaptureSession.StateCallback() {
                         @Override
-                        public void onConfigured(CameraCaptureSession session) {
+                        public void onConfigured(
+                                CameraCaptureSession session) {
+
                             previewSession = session;
+
                             try {
                                 CaptureRequest.Builder builder =
-                                        cameraDevice.createCaptureRequest(
-                                                CameraDevice.TEMPLATE_PREVIEW);
-                                builder.addTarget(previewSurface);
-                                builder.set(CaptureRequest.CONTROL_MODE,
-                                        CaptureRequest.CONTROL_MODE_AUTO);
-                                builder.set(CaptureRequest.CONTROL_AE_MODE,
-                                        CaptureRequest.CONTROL_AE_MODE_ON);
-                                builder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-                                builder.set(CaptureRequest.CONTROL_AWB_MODE,
-                                        CaptureRequest.CONTROL_AWB_MODE_AUTO);
-                                disableStabilization(builder);
+                                        cameraDevice
+                                                .createCaptureRequest(
+                                                        CameraDevice
+                                                                .TEMPLATE_PREVIEW);
+
+                                builder.addTarget(
+                                        previewSurface);
+
+                                builder.set(
+                                        CaptureRequest.CONTROL_MODE,
+                                        CaptureRequest
+                                                .CONTROL_MODE_AUTO);
+
+                                builder.set(
+                                        CaptureRequest.CONTROL_AE_MODE,
+                                        CaptureRequest
+                                                .CONTROL_AE_MODE_ON);
+
+                                builder.set(
+                                        CaptureRequest.CONTROL_AF_MODE,
+                                        CaptureRequest
+                                                .CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+
+                                builder.set(
+                                        CaptureRequest.CONTROL_AWB_MODE,
+                                        CaptureRequest
+                                                .CONTROL_AWB_MODE_AUTO);
 
                                 session.setRepeatingRequest(
                                         builder.build(),
-                                        meteringCaptureCallback,
+                                        meteringCallback,
                                         cameraHandler);
 
-                                status("Metering exposure/focus...");
                                 cameraHandler.postDelayed(
-                                        CameraEngine.this::transitionToHighSpeed,
-                                        1200L);
+                                        CameraEngine.this
+                                                ::enterProvenHighSpeedPath,
+                                        1000L);
                             } catch (Exception e) {
-                                error("Metering request failed: " + describe(e));
+                                error(
+                                        "Metering failed: "
+                                                + describe(e));
                             }
                         }
 
                         @Override
-                        public void onConfigureFailed(CameraCaptureSession session) {
-                            error("Normal preview session configuration failed");
+                        public void onConfigureFailed(
+                                CameraCaptureSession session) {
+
+                            error(
+                                    "Metering session failed");
                         }
                     },
                     cameraHandler);
         } catch (Exception e) {
-            error("Metering session failed: " + describe(e));
+            error(
+                    "Metering session failed: "
+                            + describe(e));
         }
     }
 
-    private final CameraCaptureSession.CaptureCallback meteringCaptureCallback =
+    private final CameraCaptureSession.CaptureCallback
+            meteringCallback =
             new CameraCaptureSession.CaptureCallback() {
                 @Override
                 public void onCaptureCompleted(
                         CameraCaptureSession session,
                         CaptureRequest request,
                         TotalCaptureResult result) {
-                    Long exposure = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
-                    Integer iso = result.get(CaptureResult.SENSOR_SENSITIVITY);
 
-                    if (exposure != null && exposure > 0) {
-                        meteredExposureNs = exposure;
+                    Long exposure =
+                            result.get(
+                                    CaptureResult
+                                            .SENSOR_EXPOSURE_TIME);
+
+                    Integer iso =
+                            result.get(
+                                    CaptureResult
+                                            .SENSOR_SENSITIVITY);
+
+                    if (exposure != null) {
+                        meteredExposureNs =
+                                exposure;
                     }
-                    if (iso != null && iso > 0) {
+
+                    if (iso != null) {
                         meteredIso = iso;
                     }
                 }
             };
 
-    private void transitionToHighSpeed() {
-        if (state != State.ARMING || cameraDevice == null) return;
+    private void enterProvenHighSpeedPath() {
+        if (state != State.ARMING
+                || cameraDevice == null) {
+            return;
+        }
 
         try {
             if (previewSession != null) {
                 try {
                     previewSession.stopRepeating();
                 } catch (Exception ignored) {}
+
                 previewSession.close();
                 previewSession = null;
             }
 
-            chooseManualExposure();
-            prepareEncoder();
+            prepareRecorderExactlyLikeProbe();
             createHighSpeedSession();
         } catch (Exception e) {
-            error("High-speed preparation failed: " + describe(e));
+            error(
+                    "High-speed setup failed: "
+                            + describe(e));
         }
     }
 
-    private void chooseManualExposure() {
-        Range<Long> exposureRange =
-                characteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-        Range<Integer> isoRange =
-                characteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+    private void prepareRecorderExactlyLikeProbe()
+            throws Exception {
 
-        long target = TARGET_EXPOSURE_NS;
-        if (exposureRange != null) {
-            target = Math.max(
-                    exposureRange.getLower(),
-                    Math.min(target, exposureRange.getUpper()));
+        File base =
+                activity.getExternalFilesDir(
+                        Environment.DIRECTORY_MOVIES);
+
+        if (base == null) {
+            base = activity.getFilesDir();
         }
 
-        double lightProduct = (double) meteredExposureNs * (double) meteredIso;
-        int targetIso =
-                (int) Math.round(lightProduct / Math.max(1.0, target));
+        File dir =
+                new File(
+                        base,
+                        "TKDPoomsae");
 
-        if (isoRange != null) {
-            targetIso = Math.max(
-                    isoRange.getLower(),
-                    Math.min(targetIso, isoRange.getUpper()));
-        } else {
-            targetIso = Math.max(50, Math.min(targetIso, 6400));
-        }
-
-        actualExposureNs = target;
-        actualIso = targetIso;
-
-        status(String.format(Locale.US,
-                "Exposure locked · 1/%d · ISO %d",
-                Math.round(1_000_000_000.0 / actualExposureNs),
-                actualIso));
-    }
-
-    private void prepareEncoder() throws Exception {
-        File base = activity.getExternalFilesDir(Environment.DIRECTORY_MOVIES);
-        if (base == null) base = activity.getFilesDir();
-
-        File dir = new File(base, "TKDPoomsae");
-        if (!dir.exists() && !dir.mkdirs()) {
-            throw new IllegalStateException("Cannot create recording directory");
+        if (!dir.exists()
+                && !dir.mkdirs()) {
+            throw new IllegalStateException(
+                    "Cannot create output directory");
         }
 
         String device =
-                Build.MODEL.replaceAll("[^A-Za-z0-9._-]", "_");
-        videoFile = new File(
-                dir,
-                sessionId + "-" + device + "-cam0-1080p120.mp4");
-        metadataFile = new File(
-                dir,
-                sessionId + "-" + device + "-cam0-1080p120.json");
+                Build.MODEL.replaceAll(
+                        "[^A-Za-z0-9._-]",
+                        "_");
 
-        MediaFormat format =
-                MediaFormat.createVideoFormat(
-                        MediaFormat.MIMETYPE_VIDEO_AVC,
-                        WIDTH,
-                        HEIGHT);
+        videoFile =
+                new File(
+                        dir,
+                        sessionId
+                                + "-"
+                                + device
+                                + "-cam0-1080p120.mp4");
 
-        format.setInteger(
-                MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, VIDEO_BITRATE);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, FPS);
-        format.setInteger(
-                MediaFormat.KEY_I_FRAME_INTERVAL,
-                IFRAME_INTERVAL_SECONDS);
+        metadataFile =
+                new File(
+                        dir,
+                        sessionId
+                                + "-"
+                                + device
+                                + "-cam0-1080p120.json");
 
-        if (Build.VERSION.SDK_INT >= 23) {
-            format.setInteger(MediaFormat.KEY_OPERATING_RATE, FPS);
-            format.setInteger(MediaFormat.KEY_PRIORITY, 0);
-        }
+        mediaRecorder =
+                Build.VERSION.SDK_INT >= 31
+                        ? new MediaRecorder(activity)
+                        : new MediaRecorder();
 
-        videoEncoder =
-                MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
-        videoEncoder.setCallback(encoderCallback, encoderHandler);
-        videoEncoder.configure(
-                format,
-                null,
-                null,
-                MediaCodec.CONFIGURE_FLAG_ENCODE);
+        mediaRecorder.setVideoSource(
+                MediaRecorder.VideoSource.SURFACE);
 
-        encoderSurface = videoEncoder.createInputSurface();
+        mediaRecorder.setOutputFormat(
+                MediaRecorder.OutputFormat.MPEG_4);
 
-        mediaMuxer = new MediaMuxer(
-                videoFile.getAbsolutePath(),
-                MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        mediaMuxer.setOrientationHint(computeOrientationHint());
+        mediaRecorder.setVideoEncoder(
+                MediaRecorder.VideoEncoder.H264);
 
-        muxerStarted = false;
-        muxerVideoTrack = -1;
-        encoderRecording = false;
-        encoderEosLatch = new CountDownLatch(1);
+        mediaRecorder.setVideoSize(
+                WIDTH,
+                HEIGHT);
 
-        videoEncoder.start();
+        mediaRecorder.setVideoFrameRate(
+                FPS);
+
+        mediaRecorder.setVideoEncodingBitRate(
+                24_000_000);
+
+        mediaRecorder.setOrientationHint(
+                computeOrientationHint());
+
+        mediaRecorder.setOutputFile(
+                videoFile.getAbsolutePath());
+
+        mediaRecorder.prepare();
+
+        recorderSurface =
+                mediaRecorder.getSurface();
     }
 
     private int computeOrientationHint() {
         Integer sensorOrientation =
-                characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
-        if (sensorOrientation == null) return 0;
+                characteristics.get(
+                        CameraCharacteristics
+                                .SENSOR_ORIENTATION);
+
+        if (sensorOrientation == null) {
+            return 0;
+        }
 
         int rotation =
                 activity.getDisplay() == null
                         ? Surface.ROTATION_0
-                        : activity.getDisplay().getRotation();
+                        : activity
+                                .getDisplay()
+                                .getRotation();
 
         int deviceDegrees;
+
         switch (rotation) {
             case Surface.ROTATION_90:
                 deviceDegrees = 90;
@@ -518,283 +614,219 @@ public final class CameraEngine {
                 break;
         }
 
-        return (sensorOrientation - deviceDegrees + 360) % 360;
+        return (sensorOrientation
+                - deviceDegrees
+                + 360) % 360;
     }
 
     private void createHighSpeedSession() {
         try {
-            List<Surface> outputs = new ArrayList<>();
-            outputs.add(previewSurface);
-            outputs.add(encoderSurface);
+            List<Surface> outputs =
+                    new ArrayList<>();
 
-            cameraDevice.createConstrainedHighSpeedCaptureSession(
-                    outputs,
-                    new CameraCaptureSession.StateCallback() {
-                        @Override
-                        public void onConfigured(CameraCaptureSession session) {
-                            if (!(session
-                                    instanceof CameraConstrainedHighSpeedCaptureSession)) {
-                                error("Configured session is not constrained high-speed");
-                                session.close();
-                                return;
-                            }
+            outputs.add(
+                    previewSurface);
 
-                            highSpeedSession =
-                                    (CameraConstrainedHighSpeedCaptureSession) session;
-                            buildHighSpeedRequests();
-                        }
+            outputs.add(
+                    recorderSurface);
 
-                        @Override
-                        public void onConfigureFailed(CameraCaptureSession session) {
-                            error("High-speed session configuration failed");
-                        }
-                    },
-                    cameraHandler);
+            cameraDevice
+                    .createConstrainedHighSpeedCaptureSession(
+                            outputs,
+                            new CameraCaptureSession.StateCallback() {
+                                @Override
+                                public void onConfigured(
+                                        CameraCaptureSession session) {
+
+                                    if (!(session
+                                            instanceof
+                                            CameraConstrainedHighSpeedCaptureSession)) {
+
+                                        error(
+                                                "Not a constrained high-speed session");
+
+                                        session.close();
+                                        return;
+                                    }
+
+                                    highSpeedSession =
+                                            (CameraConstrainedHighSpeedCaptureSession)
+                                                    session;
+
+                                    startHighSpeedPreroll();
+                                }
+
+                                @Override
+                                public void onConfigureFailed(
+                                        CameraCaptureSession session) {
+
+                                    error(
+                                            "High-speed session configuration failed");
+                                }
+                            },
+                            cameraHandler);
         } catch (Exception e) {
-            error("Create high-speed session failed: " + describe(e));
+            error(
+                    "Create high-speed session failed: "
+                            + describe(e));
         }
     }
 
-    private void buildHighSpeedRequests() {
+    private void startHighSpeedPreroll() {
         try {
-            CaptureRequest.Builder recordBuilder =
-                    cameraDevice.createCaptureRequest(
-                            CameraDevice.TEMPLATE_RECORD);
+            CaptureRequest.Builder builder =
+                    cameraDevice
+                            .createCaptureRequest(
+                                    CameraDevice
+                                            .TEMPLATE_RECORD);
 
-            recordBuilder.addTarget(previewSurface);
-            recordBuilder.addTarget(encoderSurface);
-            applyHighSpeedControls(
-                    recordBuilder,
+            builder.addTarget(
+                    previewSurface);
+
+            builder.addTarget(
+                    recorderSurface);
+
+            // This intentionally mirrors the probe that measured 116-120 fps
+            // on this exact S21. Keep AE/AWB automatic and only force the
+            // constrained fixed high-speed FPS range.
+            builder.set(
+                    CaptureRequest.CONTROL_MODE,
+                    CaptureRequest.CONTROL_MODE_AUTO);
+
+            builder.set(
+                    CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
                     new Range<>(FPS, FPS));
 
+            builder.set(
+                    CaptureRequest.CONTROL_AF_MODE,
+                    CaptureRequest
+                            .CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+
             highSpeedRequests =
-                    highSpeedSession.createHighSpeedRequestList(
-                            recordBuilder.build());
+                    highSpeedSession
+                            .createHighSpeedRequestList(
+                                    builder.build());
 
-            Range<Integer> previewRange =
-                    choosePreviewHighSpeedRange();
+            firstSensorTimestampNs = -1L;
+            lastUniqueSensorTimestampNs = -1L;
+            uniqueSensorFrames = 0L;
+            captureFailures = 0L;
 
-            CaptureRequest.Builder previewBuilder =
-                    cameraDevice.createCaptureRequest(
-                            CameraDevice.TEMPLATE_PREVIEW);
-
-            previewBuilder.addTarget(previewSurface);
-            applyHighSpeedControls(previewBuilder, previewRange);
-
-            highSpeedPreviewRequests =
-                    highSpeedSession.createHighSpeedRequestList(
-                            previewBuilder.build());
-
+            // Exact ordering from the successful probe:
+            // high-speed burst first, then MediaRecorder.start().
             highSpeedSession.setRepeatingBurst(
-                    highSpeedPreviewRequests,
-                    previewCaptureCallback,
+                    highSpeedRequests,
+                    recordingCallback,
                     cameraHandler);
+
+            mediaRecorder.start();
+
+            recorderStarted = true;
+            recorderStartElapsedNs =
+                    SystemClock.elapsedRealtimeNanos();
 
             state = State.READY;
 
-            String detail = String.format(Locale.US,
-                    "live preview · FHD120 · 1/%d · ISO %d",
-                    Math.round(1_000_000_000.0 / actualExposureNs),
-                    actualIso);
+            String details =
+                    String.format(
+                            Locale.US,
+                            "FHD120 buffer active · AF · AE auto · ISO %d",
+                            meteredIso);
 
-            status("READY · " + detail);
-            activity.runOnUiThread(() -> listener.onCameraReady(detail));
+            status(
+                    "READY · " + details);
+
+            activity.runOnUiThread(
+                    () -> listener.onCameraReady(
+                            details));
         } catch (Exception e) {
-            error("Build high-speed request failed: " + describe(e));
+            error(
+                    "High-speed pre-roll failed: "
+                            + describe(e));
         }
     }
 
-    private void applyHighSpeedControls(
-            CaptureRequest.Builder builder,
-            Range<Integer> fpsRange) {
+    private void scheduleOfficialStart(
+            long targetNs) {
 
-        builder.set(
-                CaptureRequest.CONTROL_MODE,
-                CaptureRequest.CONTROL_MODE_AUTO);
-
-        builder.set(
-                CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                fpsRange);
-
-        builder.set(
-                CaptureRequest.CONTROL_AE_MODE,
-                CaptureRequest.CONTROL_AE_MODE_OFF);
-
-        builder.set(
-                CaptureRequest.SENSOR_EXPOSURE_TIME,
-                actualExposureNs);
-
-        builder.set(
-                CaptureRequest.SENSOR_SENSITIVITY,
-                actualIso);
-
-        builder.set(
-                CaptureRequest.CONTROL_AF_MODE,
-                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-
-        builder.set(
-                CaptureRequest.CONTROL_AWB_MODE,
-                CaptureRequest.CONTROL_AWB_MODE_AUTO);
-
-        disableStabilization(builder);
-    }
-
-    private Range<Integer> choosePreviewHighSpeedRange() {
-        try {
-            StreamConfigurationMap map =
-                    characteristics.get(
-                            CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
-            if (map != null) {
-                Size target = new Size(WIDTH, HEIGHT);
-                Range<Integer>[] ranges =
-                        map.getHighSpeedVideoFpsRangesFor(target);
-
-                Range<Integer> best = null;
-
-                for (Range<Integer> range : ranges) {
-                    if (range.getUpper() == FPS
-                            && range.getLower() < FPS) {
-                        if (best == null
-                                || range.getLower() < best.getLower()) {
-                            best = range;
-                        }
-                    }
-                }
-
-                if (best != null) return best;
-            }
-        } catch (Exception ignored) {}
-
-        return new Range<>(FPS, FPS);
-    }
-
-    private final CameraCaptureSession.CaptureCallback previewCaptureCallback =
-            new CameraCaptureSession.CaptureCallback() {};
-
-    private void disableStabilization(CaptureRequest.Builder builder) {
-        int[] videoModes =
-                characteristics == null
-                        ? null
-                        : characteristics.get(
-                                CameraCharacteristics
-                                        .CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
-
-        if (contains(
-                videoModes,
-                CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)) {
-            builder.set(
-                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
-        }
-
-        int[] oisModes =
-                characteristics == null
-                        ? null
-                        : characteristics.get(
-                                CameraCharacteristics
-                                        .LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION);
-
-        if (contains(
-                oisModes,
-                CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)) {
-            builder.set(
-                    CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                    CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF);
-        }
-    }
-
-    private static boolean contains(int[] values, int target) {
-        if (values == null) return false;
-
-        for (int value : values) {
-            if (value == target) return true;
-        }
-
-        return false;
-    }
-
-    private void scheduleStartInternal(long targetNs) {
         if (state != State.READY
-                || highSpeedSession == null
-                || videoEncoder == null) {
-            error("START requested while camera is not READY");
+                || !recorderStarted) {
+
+            error(
+                    "START requested while camera is not READY");
             return;
         }
 
         scheduledStartNs = targetNs;
-        long now = SystemClock.elapsedRealtimeNanos();
-        long remainingNs = targetNs - now;
+
+        long remainingNs =
+                targetNs
+                        - SystemClock
+                                .elapsedRealtimeNanos();
 
         if (remainingNs <= 0) {
-            startRecordingNow();
+            markOfficialStart();
             return;
         }
 
         long delayMs =
                 Math.max(
                         0L,
-                        remainingNs / 1_000_000L - 3L);
+                        remainingNs
+                                / 1_000_000L
+                                - 3L);
 
-        status(String.format(
-                Locale.US,
-                "START in %.0f ms",
-                remainingNs / 1_000_000.0));
+        status(
+                String.format(
+                        Locale.US,
+                        "START in %.0f ms · 120fps buffer running",
+                        remainingNs / 1_000_000.0));
 
         cameraHandler.postDelayed(() -> {
-            while (SystemClock.elapsedRealtimeNanos() < scheduledStartNs) {
+            while (SystemClock
+                    .elapsedRealtimeNanos()
+                    < scheduledStartNs) {
                 Thread.onSpinWait();
             }
-            startRecordingNow();
+
+            markOfficialStart();
         }, delayMs);
     }
 
-    private void startRecordingNow() {
-        if (state != State.READY) return;
-
-        try {
-            startCallNs = SystemClock.elapsedRealtimeNanos();
-
-            firstSensorTimestampNs = -1L;
-            lastUniqueSensorTimestampNs = -1L;
-            uniqueSensorFrames = 0L;
-            captureFailures = 0L;
-            resetEncodedStats();
-
-            try {
-                highSpeedSession.stopRepeating();
-            } catch (Exception ignored) {}
-
-            // Encoder is already running and waiting on its Surface. The first frame
-            // delivered to encoderSurface therefore keeps the camera's 120 fps PTS.
-            encoderRecording = true;
-
-            highSpeedSession.setRepeatingBurst(
-                    highSpeedRequests,
-                    recordingCaptureCallback,
-                    cameraHandler);
-
-            state = State.RECORDING;
-
-            long deltaNs =
-                    scheduledStartNs > 0
-                            ? startCallNs - scheduledStartNs
-                            : 0L;
-
-            status(String.format(
-                    Locale.US,
-                    "RECORDING · FHD120 · Δ %.2f ms",
-                    deltaNs / 1_000_000.0));
-
-            activity.runOnUiThread(
-                    () -> listener.onCameraStarted(startCallNs));
-        } catch (Exception e) {
-            error("Start recording failed: " + describe(e));
+    private void markOfficialStart() {
+        if (state != State.READY) {
+            return;
         }
+
+        officialStartElapsedNs =
+                SystemClock
+                        .elapsedRealtimeNanos();
+
+        officialRecordingStarted = true;
+        state = State.RECORDING;
+
+        long preRollNs =
+                recorderStartElapsedNs > 0
+                        ? officialStartElapsedNs
+                                - recorderStartElapsedNs
+                        : 0L;
+
+        status(
+                String.format(
+                        Locale.US,
+                        "RECORDING · FHD120 · preroll %.2f s",
+                        preRollNs
+                                / 1_000_000_000.0));
+
+        activity.runOnUiThread(
+                () -> listener.onCameraStarted(
+                        officialStartElapsedNs));
     }
 
-    private final CameraCaptureSession.CaptureCallback recordingCaptureCallback =
+    private final CameraCaptureSession.CaptureCallback
+            recordingCallback =
             new CameraCaptureSession.CaptureCallback() {
+
                 @Override
                 public void onCaptureCompleted(
                         CameraCaptureSession session,
@@ -802,16 +834,23 @@ public final class CameraEngine {
                         TotalCaptureResult result) {
 
                     Long ts =
-                            result.get(CaptureResult.SENSOR_TIMESTAMP);
+                            result.get(
+                                    CaptureResult
+                                            .SENSOR_TIMESTAMP);
 
                     if (ts == null) return;
 
-                    if (ts != lastUniqueSensorTimestampNs) {
+                    if (ts
+                            != lastUniqueSensorTimestampNs) {
+
                         if (firstSensorTimestampNs < 0) {
-                            firstSensorTimestampNs = ts;
+                            firstSensorTimestampNs =
+                                    ts;
                         }
 
-                        lastUniqueSensorTimestampNs = ts;
+                        lastUniqueSensorTimestampNs =
+                                ts;
+
                         uniqueSensorFrames++;
                     }
                 }
@@ -821,173 +860,84 @@ public final class CameraEngine {
                         CameraCaptureSession session,
                         CaptureRequest request,
                         CaptureFailure failure) {
+
                     captureFailures++;
                 }
             };
 
-    private final MediaCodec.Callback encoderCallback =
-            new MediaCodec.Callback() {
-                @Override
-                public void onInputBufferAvailable(
-                        MediaCodec codec,
-                        int index) {
-                    // Surface-input encoder: no ByteBuffer input.
-                }
-
-                @Override
-                public void onOutputFormatChanged(
-                        MediaCodec codec,
-                        MediaFormat format) {
-                    try {
-                        if (mediaMuxer == null || muxerStarted) return;
-
-                        muxerVideoTrack =
-                                mediaMuxer.addTrack(format);
-                        mediaMuxer.start();
-                        muxerStarted = true;
-                    } catch (Exception e) {
-                        status("Muxer format error: " + describe(e));
-                    }
-                }
-
-                @Override
-                public void onOutputBufferAvailable(
-                        MediaCodec codec,
-                        int index,
-                        MediaCodec.BufferInfo info) {
-                    try {
-                        ByteBuffer buffer =
-                                codec.getOutputBuffer(index);
-
-                        boolean codecConfig =
-                                (info.flags
-                                        & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
-                                        != 0;
-
-                        if (!codecConfig
-                                && info.size > 0
-                                && muxerStarted
-                                && mediaMuxer != null
-                                && muxerVideoTrack >= 0
-                                && encoderRecording) {
-
-                            buffer.position(info.offset);
-                            buffer.limit(info.offset + info.size);
-
-                            mediaMuxer.writeSampleData(
-                                    muxerVideoTrack,
-                                    buffer,
-                                    info);
-
-                            if (firstEncodedPtsUs < 0) {
-                                firstEncodedPtsUs =
-                                        info.presentationTimeUs;
-                            }
-
-                            lastEncodedPtsUs =
-                                    info.presentationTimeUs;
-
-                            encodedFrameCount++;
-                        }
-
-                        boolean eos =
-                                (info.flags
-                                        & MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                                        != 0;
-
-                        codec.releaseOutputBuffer(index, false);
-
-                        if (eos && encoderEosLatch != null) {
-                            encoderEosLatch.countDown();
-                        }
-                    } catch (Exception e) {
-                        try {
-                            codec.releaseOutputBuffer(index, false);
-                        } catch (Exception ignored) {}
-
-                        status("Encoder output error: " + describe(e));
-                    }
-                }
-
-                @Override
-                public void onError(
-                        MediaCodec codec,
-                        MediaCodec.CodecException e) {
-                    status("Encoder error: " + e.getDiagnosticInfo());
-                    if (encoderEosLatch != null) {
-                        encoderEosLatch.countDown();
-                    }
-                }
-            };
-
     private void stopInternal() {
-        if (state == State.IDLE) return;
+        if (state == State.IDLE) {
+            return;
+        }
 
         state = State.STOPPING;
         closing = true;
-        stopCallNs = SystemClock.elapsedRealtimeNanos();
+
+        stopCallNs =
+                SystemClock.elapsedRealtimeNanos();
 
         try {
             if (highSpeedSession != null) {
                 try {
-                    highSpeedSession.stopRepeating();
+                    highSpeedSession
+                            .stopRepeating();
                 } catch (Exception ignored) {}
 
                 try {
-                    highSpeedSession.abortCaptures();
+                    highSpeedSession
+                            .abortCaptures();
                 } catch (Exception ignored) {}
             }
 
-            encoderRecording = false;
+            if (recorderStarted
+                    && mediaRecorder != null) {
 
-            if (videoEncoder != null) {
-                try {
-                    videoEncoder.signalEndOfInputStream();
-                } catch (Exception e) {
-                    status("Encoder EOS warning: " + describe(e));
-                }
-
-                CountDownLatch latch = encoderEosLatch;
-                if (latch != null) {
-                    try {
-                        latch.await(2500, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException ignored) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
+                mediaRecorder.stop();
             }
         } catch (Exception e) {
-            status("Stop warning: " + describe(e));
+            status(
+                    "Recorder stop warning: "
+                            + describe(e));
+        } finally {
+            recorderStarted = false;
         }
 
-        finishEncodedStatsFromCallback();
-        closeEncoderAndMuxer();
         verifyRecordedVideo();
         writeMetadata();
 
-        String videoPath = publishVideoToGallery();
-        if (videoPath == null && videoFile != null) {
-            videoPath = videoFile.getAbsolutePath();
+        String videoPath =
+                publishVideoToGallery();
+
+        if (videoPath == null
+                && videoFile != null) {
+
+            videoPath =
+                    videoFile.getAbsolutePath();
         }
 
         String jsonPath =
                 metadataFile == null
                         ? null
-                        : metadataFile.getAbsolutePath();
+                        : metadataFile
+                                .getAbsolutePath();
 
-        final String finalVideoPath = videoPath;
-        final String finalJsonPath = jsonPath;
+        final String finalVideoPath =
+                videoPath;
 
-        closeCameraObjects();
+        final String finalJsonPath =
+                jsonPath;
+
+        closeAll();
 
         state = State.IDLE;
         closing = false;
 
-        status(String.format(
-                Locale.US,
-                "SAVED · MP4 %.1f fps · %d frames",
-                encodedFps,
-                encodedFrameCount));
+        status(
+                String.format(
+                        Locale.US,
+                        "SAVED · %.1f fps · %d frames",
+                        encodedFps,
+                        encodedFrameCount));
 
         activity.runOnUiThread(
                 () -> listener.onCameraStopped(
@@ -995,95 +945,91 @@ public final class CameraEngine {
                         finalJsonPath));
     }
 
-    private void finishEncodedStatsFromCallback() {
-        if (encodedFrameCount > 1
-                && firstEncodedPtsUs >= 0
-                && lastEncodedPtsUs > firstEncodedPtsUs) {
-
-            encodedDurationUs =
-                    lastEncodedPtsUs - firstEncodedPtsUs;
-
-            encodedFps =
-                    (encodedFrameCount - 1)
-                            * 1_000_000.0
-                            / encodedDurationUs;
-        }
-    }
-
     private void verifyRecordedVideo() {
-        long verifiedFrames = 0L;
-        long verifiedDurationUs = 0L;
-        double verifiedFps = 0.0;
+        encodedFrameCount = 0L;
+        encodedDurationUs = 0L;
+        encodedFps = 0.0;
 
         if (videoFile == null
                 || !videoFile.exists()
                 || videoFile.length() == 0) {
-            status("MP4 verification skipped: no file");
             return;
         }
 
-        MediaExtractor extractor = new MediaExtractor();
+        MediaExtractor extractor =
+                new MediaExtractor();
 
         try {
-            extractor.setDataSource(videoFile.getAbsolutePath());
+            extractor.setDataSource(
+                    videoFile.getAbsolutePath());
 
             int videoTrack = -1;
 
-            for (int i = 0; i < extractor.getTrackCount(); i++) {
+            for (int i = 0;
+                 i < extractor.getTrackCount();
+                 i++) {
+
                 MediaFormat format =
                         extractor.getTrackFormat(i);
 
                 String mime =
-                        format.getString(MediaFormat.KEY_MIME);
+                        format.getString(
+                                MediaFormat.KEY_MIME);
 
-                if (mime != null && mime.startsWith("video/")) {
+                if (mime != null
+                        && mime.startsWith(
+                                "video/")) {
+
                     videoTrack = i;
                     break;
                 }
             }
 
             if (videoTrack < 0) {
-                status("MP4 verification: no video track");
                 return;
             }
 
-            extractor.selectTrack(videoTrack);
+            extractor.selectTrack(
+                    videoTrack);
 
             long firstUs = -1L;
             long lastUs = -1L;
 
             while (true) {
-                long sampleUs = extractor.getSampleTime();
-                if (sampleUs < 0) break;
+                long sampleUs =
+                        extractor.getSampleTime();
 
-                if (firstUs < 0) firstUs = sampleUs;
+                if (sampleUs < 0) {
+                    break;
+                }
+
+                if (firstUs < 0) {
+                    firstUs = sampleUs;
+                }
+
                 lastUs = sampleUs;
-                verifiedFrames++;
+                encodedFrameCount++;
 
-                if (!extractor.advance()) break;
+                if (!extractor.advance()) {
+                    break;
+                }
             }
 
-            if (verifiedFrames > 1 && lastUs > firstUs) {
-                verifiedDurationUs = lastUs - firstUs;
+            if (encodedFrameCount > 1
+                    && lastUs > firstUs) {
 
-                verifiedFps =
-                        (verifiedFrames - 1)
+                encodedDurationUs =
+                        lastUs - firstUs;
+
+                encodedFps =
+                        (encodedFrameCount - 1)
                                 * 1_000_000.0
-                                / verifiedDurationUs;
+                                / encodedDurationUs;
             }
-
-            // MediaExtractor is authoritative for what was actually written.
-            encodedFrameCount = verifiedFrames;
-            encodedDurationUs = verifiedDurationUs;
-            encodedFps = verifiedFps;
-
-            status(String.format(
-                    Locale.US,
-                    "MP4 verified · %.2f fps · %d frames",
-                    encodedFps,
-                    encodedFrameCount));
         } catch (Exception e) {
-            status("MP4 verification warning: " + describe(e));
+            status(
+                    "MP4 verify warning: "
+                            + describe(e));
         } finally {
             try {
                 extractor.release();
@@ -1091,107 +1037,12 @@ public final class CameraEngine {
         }
     }
 
-    private String publishVideoToGallery() {
-        if (videoFile == null
-                || !videoFile.exists()
-                || videoFile.length() == 0) {
-            status("Gallery publish skipped: no video file");
-            return null;
-        }
-
-        if (Build.VERSION.SDK_INT < 29) {
-            return videoFile.getAbsolutePath();
-        }
-
-        ContentResolver resolver =
-                activity.getContentResolver();
-
-        ContentValues values =
-                new ContentValues();
-
-        values.put(
-                MediaStore.Video.Media.DISPLAY_NAME,
-                videoFile.getName());
-
-        values.put(
-                MediaStore.Video.Media.MIME_TYPE,
-                "video/mp4");
-
-        values.put(
-                MediaStore.Video.Media.RELATIVE_PATH,
-                Environment.DIRECTORY_MOVIES + "/TKDPoomsae");
-
-        values.put(
-                MediaStore.Video.Media.IS_PENDING,
-                1);
-
-        Uri uri = null;
-
-        try {
-            uri =
-                    resolver.insert(
-                            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                            values);
-
-            if (uri == null) {
-                throw new IllegalStateException(
-                        "MediaStore insert returned null");
-            }
-
-            try (InputStream in =
-                         new FileInputStream(videoFile);
-                 OutputStream out =
-                         resolver.openOutputStream(uri, "w")) {
-
-                if (out == null) {
-                    throw new IllegalStateException(
-                            "MediaStore output stream is null");
-                }
-
-                byte[] buffer =
-                        new byte[1024 * 1024];
-
-                int read;
-
-                while ((read = in.read(buffer)) >= 0) {
-                    out.write(buffer, 0, read);
-                }
-
-                out.flush();
-            }
-
-            ContentValues done =
-                    new ContentValues();
-
-            done.put(
-                    MediaStore.Video.Media.IS_PENDING,
-                    0);
-
-            resolver.update(
-                    uri,
-                    done,
-                    null,
-                    null);
-
-            return uri.toString();
-        } catch (Exception e) {
-            status("Gallery publish warning: " + describe(e));
-
-            if (uri != null) {
-                try {
-                    resolver.delete(uri, null, null);
-                } catch (Exception ignored) {}
-            }
-
-            return null;
-        }
-    }
-
     private void writeMetadata() {
         if (metadataFile == null) return;
 
         try {
-            JSONObject j = new JSONObject();
+            JSONObject j =
+                    new JSONObject();
 
             j.put("session_id", sessionId);
             j.put("manufacturer", Build.MANUFACTURER);
@@ -1200,26 +1051,69 @@ public final class CameraEngine {
             j.put("width", WIDTH);
             j.put("height", HEIGHT);
             j.put("fps_requested", FPS);
-            j.put("encoder", "MediaCodec+MediaMuxer");
-            j.put("shutter_ns", actualExposureNs);
-            j.put("iso", actualIso);
-            j.put("metered_exposure_ns", meteredExposureNs);
-            j.put("metered_iso", meteredIso);
-            j.put("scheduled_start_elapsed_ns", scheduledStartNs);
-            j.put("start_call_elapsed_ns", startCallNs);
-            j.put("stop_call_elapsed_ns", stopCallNs);
-            j.put("first_sensor_timestamp_ns", firstSensorTimestampNs);
-            j.put("last_sensor_timestamp_ns", lastUniqueSensorTimestampNs);
-            j.put("unique_sensor_frames", uniqueSensorFrames);
-            j.put("capture_failures", captureFailures);
-            j.put("encoded_frame_count", encodedFrameCount);
-            j.put("encoded_duration_us", encodedDurationUs);
-            j.put("encoded_fps", encodedFps);
             j.put(
-                    "video_path",
-                    videoFile == null
-                            ? JSONObject.NULL
-                            : videoFile.getAbsolutePath());
+                    "capture_backend",
+                    "MediaRecorder proven high-speed path");
+            j.put(
+                    "exposure_mode",
+                    "AE_AUTO");
+            j.put(
+                    "metered_exposure_ns",
+                    meteredExposureNs);
+            j.put(
+                    "metered_iso",
+                    meteredIso);
+            j.put(
+                    "recorder_start_elapsed_ns",
+                    recorderStartElapsedNs);
+            j.put(
+                    "scheduled_start_elapsed_ns",
+                    scheduledStartNs);
+            j.put(
+                    "official_start_elapsed_ns",
+                    officialStartElapsedNs);
+            j.put(
+                    "stop_elapsed_ns",
+                    stopCallNs);
+
+            long preRollNs =
+                    recorderStartElapsedNs > 0
+                            && officialStartElapsedNs > 0
+                            ? officialStartElapsedNs
+                                    - recorderStartElapsedNs
+                            : 0L;
+
+            j.put(
+                    "pre_roll_ns",
+                    preRollNs);
+
+            j.put(
+                    "first_sensor_timestamp_ns",
+                    firstSensorTimestampNs);
+
+            j.put(
+                    "last_sensor_timestamp_ns",
+                    lastUniqueSensorTimestampNs);
+
+            j.put(
+                    "unique_sensor_frames",
+                    uniqueSensorFrames);
+
+            j.put(
+                    "capture_failures",
+                    captureFailures);
+
+            j.put(
+                    "encoded_frame_count",
+                    encodedFrameCount);
+
+            j.put(
+                    "encoded_duration_us",
+                    encodedDurationUs);
+
+            j.put(
+                    "encoded_fps",
+                    encodedFps);
 
             if (uniqueSensorFrames > 1
                     && firstSensorTimestampNs > 0
@@ -1233,58 +1127,141 @@ public final class CameraEngine {
 
                 j.put(
                         "sensor_fps_estimate",
-                        (uniqueSensorFrames - 1) / seconds);
+                        (uniqueSensorFrames - 1)
+                                / seconds);
             }
 
             try (FileWriter writer =
-                         new FileWriter(metadataFile)) {
-                writer.write(j.toString(2));
+                         new FileWriter(
+                                 metadataFile)) {
+
+                writer.write(
+                        j.toString(2));
             }
         } catch (Exception e) {
-            status("Metadata write warning: " + describe(e));
+            status(
+                    "Metadata warning: "
+                            + describe(e));
         }
     }
 
-    private void closeEncoderAndMuxer() {
-        if (videoEncoder != null) {
-            try {
-                videoEncoder.stop();
-            } catch (Exception ignored) {}
-
-            try {
-                videoEncoder.release();
-            } catch (Exception ignored) {}
-
-            videoEncoder = null;
+    private String publishVideoToGallery() {
+        if (videoFile == null
+                || !videoFile.exists()
+                || videoFile.length() == 0) {
+            return null;
         }
 
-        if (mediaMuxer != null) {
-            if (muxerStarted) {
+        if (Build.VERSION.SDK_INT < 29) {
+            return videoFile
+                    .getAbsolutePath();
+        }
+
+        ContentResolver resolver =
+                activity
+                        .getContentResolver();
+
+        ContentValues values =
+                new ContentValues();
+
+        values.put(
+                MediaStore.Video.Media
+                        .DISPLAY_NAME,
+                videoFile.getName());
+
+        values.put(
+                MediaStore.Video.Media
+                        .MIME_TYPE,
+                "video/mp4");
+
+        values.put(
+                MediaStore.Video.Media
+                        .RELATIVE_PATH,
+                Environment
+                        .DIRECTORY_MOVIES
+                        + "/TKDPoomsae");
+
+        values.put(
+                MediaStore.Video.Media
+                        .IS_PENDING,
+                1);
+
+        Uri uri = null;
+
+        try {
+            uri =
+                    resolver.insert(
+                            MediaStore.Video.Media
+                                    .EXTERNAL_CONTENT_URI,
+                            values);
+
+            if (uri == null) {
+                return null;
+            }
+
+            try (InputStream in =
+                         new FileInputStream(
+                                 videoFile);
+                 OutputStream out =
+                         resolver.openOutputStream(
+                                 uri,
+                                 "w")) {
+
+                if (out == null) {
+                    return null;
+                }
+
+                byte[] buffer =
+                        new byte[1024 * 1024];
+
+                int read;
+
+                while ((read = in.read(
+                        buffer)) >= 0) {
+
+                    out.write(
+                            buffer,
+                            0,
+                            read);
+                }
+
+                out.flush();
+            }
+
+            ContentValues done =
+                    new ContentValues();
+
+            done.put(
+                    MediaStore.Video.Media
+                            .IS_PENDING,
+                    0);
+
+            resolver.update(
+                    uri,
+                    done,
+                    null,
+                    null);
+
+            return uri.toString();
+        } catch (Exception e) {
+            status(
+                    "Gallery warning: "
+                            + describe(e));
+
+            if (uri != null) {
                 try {
-                    mediaMuxer.stop();
+                    resolver.delete(
+                            uri,
+                            null,
+                            null);
                 } catch (Exception ignored) {}
             }
 
-            try {
-                mediaMuxer.release();
-            } catch (Exception ignored) {}
-
-            mediaMuxer = null;
+            return null;
         }
-
-        muxerStarted = false;
-        muxerVideoTrack = -1;
-
-        try {
-            if (encoderSurface != null) {
-                encoderSurface.release();
-            }
-        } catch (Exception ignored) {}
-
-        encoderSurface = null;
     }
 
-    private void closeCameraObjects() {
+    private void closeAll() {
         try {
             if (previewSession != null) {
                 previewSession.close();
@@ -1310,46 +1287,73 @@ public final class CameraEngine {
         cameraDevice = null;
 
         try {
+            if (mediaRecorder != null) {
+                mediaRecorder.release();
+            }
+        } catch (Exception ignored) {}
+
+        mediaRecorder = null;
+
+        try {
+            if (recorderSurface != null) {
+                recorderSurface.release();
+            }
+        } catch (Exception ignored) {}
+
+        recorderSurface = null;
+
+        try {
             if (previewSurface != null) {
                 previewSurface.release();
             }
         } catch (Exception ignored) {}
 
         previewSurface = null;
-
         highSpeedRequests = null;
-        highSpeedPreviewRequests = null;
-    }
-
-    private void closeAll() {
-        encoderRecording = false;
-        closeCameraObjects();
-        closeEncoderAndMuxer();
     }
 
     private void status(String message) {
         activity.runOnUiThread(
-                () -> listener.onCameraStatus(message));
+                () -> listener.onCameraStatus(
+                        message));
     }
 
     private void error(String message) {
         state = State.ERROR;
-        status("ERROR · " + message);
+
+        status(
+                "ERROR · " + message);
+
         activity.runOnUiThread(
-                () -> listener.onCameraError(message));
+                () -> listener.onCameraError(
+                        message));
+
         closeAll();
         closing = false;
     }
 
-    private static String describe(Exception e) {
-        String msg = e.getMessage();
-        return e.getClass().getSimpleName()
-                + (msg == null ? "" : ": " + msg);
+    private static String describe(
+            Exception e) {
+
+        String msg =
+                e.getMessage();
+
+        return e.getClass()
+                .getSimpleName()
+                + (msg == null
+                        ? ""
+                        : ": " + msg);
     }
 
-    private static String sanitizeSessionId(String id) {
-        if (id == null || id.isBlank()) {
-            return "session-" + System.currentTimeMillis();
+    private static String sanitizeSessionId(
+            String id) {
+
+        if (id == null
+                || id.isBlank()) {
+
+            return "session-"
+                    + System
+                            .currentTimeMillis();
         }
 
         return id.replaceAll(
@@ -1357,18 +1361,30 @@ public final class CameraEngine {
                 "_");
     }
 
-    private static String cameraErrorName(int error) {
+    private static String cameraErrorName(
+            int error) {
+
         switch (error) {
-            case CameraDevice.StateCallback.ERROR_CAMERA_IN_USE:
+            case CameraDevice.StateCallback
+                    .ERROR_CAMERA_IN_USE:
                 return "ERROR_CAMERA_IN_USE";
-            case CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE:
+
+            case CameraDevice.StateCallback
+                    .ERROR_MAX_CAMERAS_IN_USE:
                 return "ERROR_MAX_CAMERAS_IN_USE";
-            case CameraDevice.StateCallback.ERROR_CAMERA_DISABLED:
+
+            case CameraDevice.StateCallback
+                    .ERROR_CAMERA_DISABLED:
                 return "ERROR_CAMERA_DISABLED";
-            case CameraDevice.StateCallback.ERROR_CAMERA_DEVICE:
+
+            case CameraDevice.StateCallback
+                    .ERROR_CAMERA_DEVICE:
                 return "ERROR_CAMERA_DEVICE";
-            case CameraDevice.StateCallback.ERROR_CAMERA_SERVICE:
+
+            case CameraDevice.StateCallback
+                    .ERROR_CAMERA_SERVICE:
                 return "ERROR_CAMERA_SERVICE";
+
             default:
                 return "UNKNOWN";
         }
