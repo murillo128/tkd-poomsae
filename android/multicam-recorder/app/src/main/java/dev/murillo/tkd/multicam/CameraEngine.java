@@ -626,13 +626,15 @@ public final class CameraEngine {
             videoPath = videoFile.getAbsolutePath();
         }
         String jsonPath = metadataFile == null ? null : metadataFile.getAbsolutePath();
+        final String finalVideoPath = videoPath;
+        final String finalJsonPath = jsonPath;
 
         closeAll();
         state = State.IDLE;
         closing = false;
 
-        status("STOPPED · " + (videoPath == null ? "no video" : videoPath));
-        activity.runOnUiThread(() -> listener.onCameraStopped(videoPath, jsonPath));
+        status("STOPPED · " + (finalVideoPath == null ? "no video" : finalVideoPath));
+        activity.runOnUiThread(() -> listener.onCameraStopped(finalVideoPath, finalJsonPath));
     }
 
     private String publishVideoToGallery() {
