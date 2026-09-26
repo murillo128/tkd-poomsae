@@ -183,7 +183,7 @@ export function App() {
       <div className="time-readout"><span>Desired cursor <strong>{formatTime(playback.cursorSeconds)}</strong></span><span>Delivered video frame <strong>{playback.deliveredFrameSeconds === null ? 'Unavailable' : formatTime(playback.deliveredFrameSeconds)}</strong></span></div>
       <div className="step-options"><label>Step source <select disabled={!hasProject} value={playback.stepMode} onChange={event => dispatch({ type: 'mode', mode: event.target.value as 'camera' | 'reconstruction' })}>
         <option value="camera">Selected camera PTS</option><option value="reconstruction">Reconstruction samples</option>
-      </select></label>{playback.stepMode === 'camera' && <label>Camera <select disabled={!hasProject} value={playback.selectedCameraId ?? ''} onChange={event => { dispatch({ type: 'camera', id: event.target.value }); dispatch({ type: 'frameDelivered', seconds: null }) }}>
+      </select></label>{playback.stepMode === 'camera' && <label>Camera <select disabled={!hasProject} value={playback.selectedCameraId ?? ''} onChange={event => dispatch({ type: 'camera', id: event.target.value })}>
         {playback.cameras.map(camera => <option key={camera.id} value={camera.id}>{camera.id}</option>)}
       </select></label>}</div>
       {hasProject && !stepAvailable && <p className="hint">Frame stepping unavailable: {playback.stepMode === 'camera' ? `${selectedCamera?.id ?? 'selected camera'} PTS` : 'reconstruction sample grid'} is not exposed by the local service. Keyboard: Space plays or pauses; ← and → step when samples are available.</p>}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 from fractions import Fraction
@@ -149,4 +150,8 @@ for count in (2, 3, 4):
             key, _ = persist(pipe.store, value)
             observations.append(key)
     index.register(project, {"sync": sync_key}, observations=observations)
-app = create_app(pipe, allowed_roots={"fixture": root})
+app = create_app(
+    pipe,
+    allowed_roots={"fixture": root},
+    trusted_origins={os.environ.get("TKD_BROWSER_ORIGIN", "http://127.0.0.1:5173")},
+)

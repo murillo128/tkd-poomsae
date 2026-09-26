@@ -170,3 +170,41 @@ test('browsers without presented-frame metadata suppress playback overlays and p
   await expect(front.locator('img')).toBeVisible()
   await expect(front.locator('circle')).toHaveCount(4)
 })
+
+for (const count of [2, 3, 4]) {
+  test(`${count} cameras step past the delivered frame after an off-grid seek`, async ({ page }) => {
+    await open(page, count)
+    const front = page.getByRole('article', { name: 'Camera front', exact: true })
+    const delivered = page.locator('.time-readout span').filter({ hasText: 'Delivered video frame' })
+    await seek(page, '1.03')
+    await expect(front).toContainText('Delivered ordinal 26')
+    await expect(delivered).toContainText('1.040 s')
+    await page.getByRole('button', { name: 'Next native frame' }).click()
+    await expect(front).toContainText('Delivered ordinal 27')
+    await expect(delivered).toContainText('1.080 s')
+    await seek(page, '1.01')
+    await expect(front).toContainText('Delivered ordinal 25')
+    await expect(delivered).toContainText('1.000 s')
+    await page.getByRole('button', { name: 'Previous native frame' }).click()
+    await expect(front).toContainText('Delivered ordinal 24')
+    await expect(delivered).toContainText('0.960 s')
+  })
+}
+
+test('recommitting a paused cursor preserves verified delivery and its matching overlays', async ({ page }) => {
+  await open(page, 2)
+  const front = page.getByRole('article', { name: 'Camera front', exact: true })
+  const delivered = page.locator('.time-readout span').filter({ hasText: 'Delivered video frame' })
+  for (const [requested, ordinal, actual] of [['1.00', 25, '1.000 s'], ['1.03', 26, '1.040 s']] as const) {
+    await seek(page, requested)
+    await expect(front).toContainText(`Delivered ordinal ${ordinal}`)
+    await expect(front.locator('circle')).toHaveCount(4)
+    await expect(delivered).toContainText(actual)
+    const image = await front.locator('img').getAttribute('src')
+    await seek(page, requested)
+    await expect(front.locator('img')).toHaveAttribute('src', image!)
+    await expect(front.locator('circle')).toHaveCount(4)
+    await expect(front).toContainText(`Delivered ordinal ${ordinal}`)
+    await expect(delivered).toContainText(actual)
+  }
+})

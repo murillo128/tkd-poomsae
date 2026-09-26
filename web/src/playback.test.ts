@@ -42,6 +42,45 @@ describe('shared playback controller', () => {
     expect(state.cursorSeconds).toBeCloseTo(0.35)
   })
 
+  it.each([
+    { cursor: 0.19, delivered: 0.2, direction: 1 as const, expected: 0.4 },
+    { cursor: 0.21, delivered: 0.2, direction: -1 as const, expected: 0.1 },
+  ])('steps from delivered native time after an off-grid seek ($direction)', ({ cursor, delivered, direction, expected }) => {
+    let state = reduce(cameraState(), { type: 'seek', seconds: cursor })
+    state = reduce(state, { type: 'frameDelivered', seconds: delivered })
+    state = reduce(state, { type: 'step', direction })
+    expect(state.cursorSeconds).toBeCloseTo(expected)
+    expect(state.deliveredFrameSeconds).toBeNull()
+    expect(state.playing).toBe(false)
+  })
+
+  it('falls back to the requested cursor when native delivery is unavailable or not on its current grid', () => {
+    let state = reduce(cameraState(), { type: 'seek', seconds: 0.19 })
+    expect(reduce(state, { type: 'step', direction: 1 }).cursorSeconds).toBeCloseTo(0.2)
+    state = reduce(state, { type: 'frameDelivered', seconds: 0.3 })
+    expect(reduce(state, { type: 'step', direction: 1 }).cursorSeconds).toBeCloseTo(0.2)
+  })
+
+  it('keeps verified delivery on a same-cursor seek and invalidates it on a changed cursor', () => {
+    let state = reduce(cameraState(), { type: 'seek', seconds: 0.19 })
+    state = reduce(state, { type: 'frameDelivered', seconds: 0.2 })
+    expect(reduce(state, { type: 'seek', seconds: 0.19 }).deliveredFrameSeconds).toBe(0.2)
+    expect(reduce(state, { type: 'seek', seconds: 0.21 }).deliveredFrameSeconds).toBeNull()
+  })
+
+  it('does not reuse the former camera delivery after changing the selected camera', () => {
+    let state = reduce(cameraState(), { type: 'frameDelivered', seconds: 0.2 })
+    state = reduce(state, { type: 'camera', id: 'side' })
+    expect(state.deliveredFrameSeconds).toBeNull()
+  })
+
+  it('keeps reconstruction stepping relative to the requested reconstruction cursor', () => {
+    let state = reduce(cameraState(), { type: 'seek', seconds: 0.34 })
+    state = reduce(state, { type: 'frameDelivered', seconds: 0.4 })
+    state = reduce(state, { type: 'mode', mode: 'reconstruction' })
+    expect(reduce(state, { type: 'step', direction: 1 }).cursorSeconds).toBeCloseTo(0.35)
+  })
+
   it('propagates one selection and resets clock, selection and frame on project change', () => {
     let state = cameraState()
     state = reduce(state, { type: 'select', selection: { kind: 'entity', id: 'footprint-1', tracks: ['left_leg'] } })

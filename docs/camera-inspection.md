@@ -9,8 +9,12 @@ states. Missing observations remain absent.
 Paused seeking and native stepping use the exact PNG frame service. Delivered time
 and overlays appear after that image loads and its response headers match the indexed
 source hash, ordinal, and PTS. Native stepping uses a bounded 256-frame page around
-the current sample; each paused seek refreshes that page. Exact image requests are
-queued through two client decoder slots. No recordings are copied or estimated in
+the current sample; each changed paused cursor refreshes that page. When the selected
+camera's delivered sample is established, stepping advances from that sample even
+after an off-grid seek. Otherwise it uses the requested cursor as a fallback.
+Reconstruction stepping continues to use the requested reconstruction cursor. A
+same-cursor seek preserves verified delivery and the displayed image/overlays.
+Exact image requests are queued through two client decoder slots. No recordings are copied or estimated in
 the browser.
 
 During playback the shared clock controls video rate and corrects drift exceeding
@@ -39,8 +43,10 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The suite starts its own fixture service on port 18044 and Vite on port 5173. It
-creates two-, three-, and four-camera H.264 recordings, different PTS grids/offsets,
+The suite starts its own fixture service on port 18044 and Vite on port 5173.
+Set `TKD_BROWSER_WEB_PORT` and `TKD_BROWSER_SERVICE_PORT` to unused ports when
+other local sessions occupy the defaults; existing services are never reused.
+The fixtures create two-, three-, and four-camera H.264 recordings, different PTS grids/offsets,
 rotation, known colored pixels and persisted observation points in temporary storage.
 It exercises native stepping, seeking, selection, resize/letterboxing, exclusion,
 coverage, stale requests, identity rejection, missing observations, and playback
