@@ -46,3 +46,39 @@ service. It checks successful loads, gap-free adjacent windows for all five
 collections, selectable canonical entities, and rejection of the old nominal
 30-second request (whose actual floating-point duration exceeds 30 seconds).
 The client uses 29-second windows to leave rounding headroom under the API cap.
+
+Integrated acceptance (`npm run test:integrated`, also mandatory in
+`npm run test:browser`) starts Vite and the actual FastAPI application with a
+fresh temporary ArtifactStore via `tests.browser_service`. Its projects have
+2/3/4 generated H.264 clips at 25/30/20/24 Hz, nonzero offsets, rotated pixels,
+low-confidence and excluded views. `tests.fixtures.integrated_browser` supplies
+known 50 Hz synthetic geometry, ground products and overlapping synthetic
+semantic actions with one linked event. These are deterministic test inputs,
+including handcrafted semantics in the canonical assembly persistence format;
+they are **not MMPose output or evidence of reconstruction/parser accuracy**.
+Ground products run through the normal contact/footprint/pivot/view publishers.
+The integrated suite and its server configuration are type checked before the
+browser starts.
+
+`e2e/integrated.spec.ts` verifies positive rendering on the same instant across
+source images/2D overlays, WebGL 3D, ground and timeline; action/event/placement
+selection and entity-to-source frame provenance; native stepping; persisted
+parser editing/reload/undo; real-service error recovery; missing calibration and
+scale; keyboard selection/focus, named controls and textual uncertainty at
+1024/1280/1600 px; delayed cross-project responses, bounded API windows and
+repeated project switching without accumulating blob URLs, timers, canvases or live WebGL contexts.
+The camera and provenance suites additionally cover playback video, rapid seek
+responses, missing/mismatched observations, excluded views, sync edit/reload,
+server rejection and genuine concurrent-revision conflicts. The timeline suite
+covers genuine stale parser revisions and invalid edits.
+
+Set `TKD_BROWSER_WEB_PORT` and `TKD_BROWSER_SERVICE_PORT` to use isolated ports
+(defaults 5173/18044). Tests always start their own servers and never reuse a
+running app. Chromium is the tested browser; Firefox/WebKit are not claimed.
+The integrated desktop screenshot and failure-only screenshots/traces are kept
+in ignored `web/test-results/integrated`; component output uses
+`web/test-results/components` so it cannot erase integrated evidence. CI retains
+all browser evidence (including ground output) for seven days. Application CI
+runs once on PRs to `main` and `codex/epic-issue-*`, without a duplicate push
+trigger or changes to SkillForge dispatch. It generates all fixtures locally and
+never downloads a dataset or model weights.

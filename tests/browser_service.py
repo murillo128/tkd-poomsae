@@ -30,6 +30,7 @@ from contracts.models import (
 from media import ingest
 from pipeline import Pipeline
 from storage import ArtifactKey, ArtifactStore, StorageRoot, hash_file
+from tests.fixtures.integrated_browser import register_integrated
 from tests.test_inspection_api import persist
 from tkd_poomsae.api import create_app
 from tkd_poomsae.inspection import Inspection
@@ -152,7 +153,9 @@ for count in (2, 3, 4):
             )
             key, _ = persist(pipe.store, value)
             observations.append(key)
-    index.register(project, {"sync": sync_key}, observations=observations)
+    register_integrated(
+        index, project, sync_key, observations, dict(list(sources.items())[:count])
+    )
     if count == 2:
         pipe.register("provenance", dict(list(sources.items())[:count]))
         q = Quality(
