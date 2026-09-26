@@ -101,6 +101,15 @@ public final class MainActivity extends Activity
         cameraText.setText("Idle");
         sessionText.setText("No active session");
         showPreviousCrashIfAny();
+
+        if (savedInstanceState != null) {
+            String restoredRole = savedInstanceState.getString("role");
+            if ("CONTROLLER".equals(restoredRole)) {
+                chooseController();
+            } else if ("CAMERA".equals(restoredRole)) {
+                chooseCamera();
+            }
+        }
     }
 
     private void configureWindow() {
@@ -604,6 +613,7 @@ public final class MainActivity extends Activity
 
     private void armAll() {
         if (!ensureCameraPermission()) return;
+        lockCurrentOrientation();
 
         currentSessionId = new SimpleDateFormat(
                 "yyyyMMdd-HHmmss", Locale.US).format(new Date());
@@ -680,6 +690,7 @@ public final class MainActivity extends Activity
         sessionText.setText(
                 (currentSessionId == null ? "No session" : currentSessionId)
                         + " · STOPPED");
+        unlockOrientation();
     }
 
     private boolean ensureCameraPermission() {
@@ -773,6 +784,7 @@ public final class MainActivity extends Activity
         if (role == NetworkCoordinator.Role.CAMERA) {
             network.sendStopped(videoPath);
         }
+        unlockOrientation();
     }
 
     @Override
@@ -800,6 +812,7 @@ public final class MainActivity extends Activity
     public void onArmCommand(String sessionId) {
         if (role != NetworkCoordinator.Role.CAMERA) return;
 
+        lockCurrentOrientation();
         currentSessionId = sessionId;
         runOnUiThread(() -> sessionText.setText(sessionId + " · ARMING"));
         cameraEngine.arm(sessionId);
@@ -821,6 +834,24 @@ public final class MainActivity extends Activity
     public void onStopCommand() {
         if (role != NetworkCoordinator.Role.CAMERA) return;
         cameraEngine.stop();
+    }
+
+    private void lockCurrentOrientation() {
+        if (android.os.Build.VERSION.SDK_INT >= 18) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
+        }
+    }
+
+    private void unlockOrientation() {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (role != null) {
+            outState.putString("role", role.name());
+        }
+        super.onSaveInstanceState(outState);
     }
 
     @Override
