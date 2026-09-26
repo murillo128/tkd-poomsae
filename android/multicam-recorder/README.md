@@ -1,5 +1,7 @@
 # TKD MultiCam Recorder prototype
 
+Current test build: v0.2 safe startup.
+
 Experimental Android app for synchronized multi-phone poomsae capture.
 
 Modes:
