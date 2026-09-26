@@ -199,7 +199,7 @@ public final class NetworkCoordinator {
             try {
                 JSONObject j = base("arm");
                 j.put("sessionId", sessionId);
-                sendTo(peer.address, j);
+                sendReliableTo(peer.address, j);
             } catch (Exception e) {
                 peer.status = "arm send failed";
             }
@@ -219,7 +219,7 @@ public final class NetworkCoordinator {
                     j.put("targetLocalNs", 0L);
                     j.put("fallbackDelayMs", fallbackDelayMs);
                 }
-                sendTo(peer.address, j);
+                sendReliableTo(peer.address, j);
                 peer.status = peer.hasSync ? "start scheduled" : "start scheduled (delay fallback)";
             } catch (Exception e) {
                 peer.status = "start send failed";
@@ -232,7 +232,7 @@ public final class NetworkCoordinator {
         if (role != Role.CONTROLLER) return;
         for (Peer peer : getPeers()) {
             try {
-                sendTo(peer.address, base("stop"));
+                sendReliableTo(peer.address, base("stop"));
                 peer.status = "stopping";
             } catch (Exception e) {
                 peer.status = "stop send failed";
@@ -502,10 +502,30 @@ public final class NetworkCoordinator {
     }
 
     private void sendTo(InetAddress address, JSONObject j) throws Exception {
-        if (address == null || socket == null || socket.isClosed()) return;
-        byte[] data = j.toString().getBytes(StandardCharsets.UTF_8);
+        sendRaw(address, j.toString());
+    }
+
+    private void sendReliableTo(InetAddress address, JSONObject j) throws Exception {
+        final String payload = j.toString();
+        sendRaw(address, payload);
+
+        ScheduledExecutorService s = scheduler;
+        if (s != null && !s.isShutdown()) {
+            s.schedule(() -> {
+                try { sendRaw(address, payload); } catch (Exception ignored) {}
+            }, 40, TimeUnit.MILLISECONDS);
+            s.schedule(() -> {
+                try { sendRaw(address, payload); } catch (Exception ignored) {}
+            }, 100, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void sendRaw(InetAddress address, String payload) throws Exception {
+        DatagramSocket current = socket;
+        if (address == null || current == null || current.isClosed()) return;
+        byte[] data = payload.getBytes(StandardCharsets.UTF_8);
         DatagramPacket packet = new DatagramPacket(data, data.length, address, PORT);
-        socket.send(packet);
+        current.send(packet);
     }
 
     @SuppressWarnings("deprecation")
