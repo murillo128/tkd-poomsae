@@ -62,6 +62,7 @@ export interface SequenceStep { id: string; interval: Interval; action_ids: stri
 export interface MotionFeatures extends ArtifactBase { kind: 'motion_features'; reconstruction_id: string; ground_id: string; arrays: DenseArray[] }
 export interface Segmentation extends ArtifactBase { kind: 'segmentation'; reconstruction_id: string; ground_id: string; motion_features_id: string; execution: Interval | null; steps: SequenceStep[]; quality: Quality; arrays: DenseArray[] }
 export interface StanceState { id: string; interval: Interval; label: string; quality: Quality }
+export interface LowerBodyParsing extends ArtifactBase { kind: 'lower_body_parsing'; reconstruction_id: string; ground_id: string; motion_features_id: string; segmentation_id: string; arrays: DenseArray[] }
 export interface Action { id: string; interval: Interval; step_id: string; tracks: Track[]; category: 'arm' | 'placement' | 'pivot' | 'kick' | 'stance_transition' | 'special' | 'transition'; role?: 'attack' | 'defense' | 'preparation' | 'special' | 'unknown' }
 export interface Phase { id: string; action_id: string; interval: Interval; name: string }
 export interface Keyframe { id: string; action_id: string; phase_id?: string | null; global_seconds: number; event: string }
@@ -70,4 +71,4 @@ export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruct
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 export interface ManualEdit { id: string; target_id: string; field_path: string; replacement: JsonValue; author: string; reason?: string | null }
 export interface ManualEdits extends ArtifactBase { kind: 'manual_edits'; automatic_semantics_id: string; edits: ManualEdit[] }
-export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Segmentation | ArmActions | Semantics | ManualEdits
+export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Segmentation | ArmActions | LowerBodyParsing | Semantics | ManualEdits

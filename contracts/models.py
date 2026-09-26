@@ -830,6 +830,17 @@ class ArmActions(ArtifactBase):
     arrays: list[DenseArray]
 
 
+class LowerBodyParsing(ArtifactBase):
+    """Independent action candidates; coarse proposals do not clip intervals."""
+
+    kind: Literal["lower_body_parsing"]
+    reconstruction_id: str
+    ground_id: str
+    motion_features_id: str
+    segmentation_id: str
+    arrays: list[DenseArray]
+
+
 class StanceState(StrictModel):
     id: str
     interval: Interval
@@ -1003,6 +1014,7 @@ Artifact: TypeAlias = Annotated[
     | MotionFeatures
     | Segmentation
     | ArmActions
+    | LowerBodyParsing
     | Semantics
     | ManualEdits,
     Field(discriminator="kind"),
@@ -1067,7 +1079,10 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             allowed_contributors = (Reconstruction,)
         elif isinstance(item, Ground):
             allowed_contributors = (Reconstruction,)
-        elif isinstance(item, (Semantics, MotionFeatures, Segmentation, ArmActions)):
+        elif isinstance(
+            item,
+            (Semantics, MotionFeatures, Segmentation, ArmActions, LowerBodyParsing),
+        ):
             allowed_contributors = (Reconstruction, Ground)
         else:
             allowed_contributors = ()
@@ -1130,12 +1145,15 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 array.unit in {"m", "cm"} for array in item.arrays
             ):
                 raise ValueError("unresolved scale cannot emit metric arrays")
-        elif isinstance(item, (Semantics, MotionFeatures, Segmentation, ArmActions)):
+        elif isinstance(
+            item,
+            (Semantics, MotionFeatures, Segmentation, ArmActions, LowerBodyParsing),
+        ):
             require(item.reconstruction_id, Reconstruction)
             ground = require(item.ground_id, Ground)
             if ground.reconstruction_id != item.reconstruction_id:
                 raise ValueError("semantic ground and motion references disagree")
-            if isinstance(item, (Segmentation, ArmActions)):
+            if isinstance(item, (Segmentation, ArmActions, LowerBodyParsing)):
                 features = require(item.motion_features_id, MotionFeatures)
                 if (features.reconstruction_id, features.ground_id) != (
                     item.reconstruction_id,
@@ -1154,6 +1172,13 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                     item.motion_features_id,
                 ):
                     raise ValueError("arm action input references disagree")
+            if isinstance(item, LowerBodyParsing):
+                proposal = require(item.segmentation_id, Segmentation)
+                if (proposal.motion_features_id, proposal.ground_id) != (
+                    item.motion_features_id,
+                    item.ground_id,
+                ):
+                    raise ValueError("lower-body proposal references disagree")
         elif isinstance(item, ManualEdits):
             semantics = require(item.automatic_semantics_id, Semantics)
             valid_ids = {semantics.id} | {
