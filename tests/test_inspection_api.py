@@ -1061,3 +1061,58 @@ def test_final_published_motion_verifies_transitive_native_sync_lineage(
                 {"sync": other_key, "reconstruction": final_key},
                 lineage=lineage,
             )
+
+
+def test_registered_calibration_is_bounded_revision_safe_and_frame_checked(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    from contracts.models import Calibration, CameraCalibration, Intrinsics
+
+    index, products = inspection
+    clock = index.clock("demo")
+    calibration = Calibration(
+        kind="calibration",
+        id="cal",
+        schema_version="1.0.0",
+        provenance=Provenance(producer="fixture", config_digest="0" * 64),
+        scale="arbitrary",
+        world_unit="arbitrary",
+        ground_status="unresolved",
+        quality=Quality(state="observed"),
+        cameras=[
+            CameraCalibration(
+                camera_id=camera,
+                source_id="source:" + clock["sources"][camera],
+                intrinsics=Intrinsics(fx=100, fy=100, cx=50, cy=50),
+                world_to_camera=np.eye(4).tolist(),
+                quality=Quality(state="observed"),
+            )
+            for camera in ("left", "right")
+        ],
+    )
+    key, _ = persist(index.pipe.store, calibration)
+    with client(index) as http:
+        assert not http.get(BASE + "/calibration").json()["available"]
+        index.register("demo", products | {"calibration": key})
+        revision = http.get(BASE).json()["revision"]
+        data = http.get(BASE + "/calibration", params={"expected_revision": revision})
+        assert data.status_code == 200
+        matrix = data.json()["calibration"]["cameras"][0]["world_to_camera"]
+        assert matrix == np.eye(4).tolist()
+        assert "key" not in data.text and "signatures" not in data.text
+        assert http.get(BASE + "/calibration?expected_revision=old").status_code == 409
+        calibration.id = "other-frame"
+        wrong_key, _ = persist(index.pipe.store, calibration)
+        with pytest.raises(ValueError, match="exact reconstruction frame"):
+            index.register("demo", products | {"calibration": wrong_key})
+        edit = {
+            "expected_revision": 0,
+            "camera": "left",
+            "offset_seconds": 24,
+            **ATTRIBUTION,
+        }
+        assert (
+            http.post(BASE + "/sync-offset", json=edit, headers=WRITE).status_code
+            == 200
+        )
+        assert not http.get(BASE + "/calibration").json()["available"]

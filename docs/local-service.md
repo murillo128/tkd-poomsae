@@ -205,3 +205,10 @@ Delivered geometry remains visible with sampled/requested/cursor times shown
 separately. Paused seeks display only their matching response. Project or artifact
 revision changes abort the old request and discard its results. Native snapshot
 and gap decisions remain entirely in the service.
+
+The optional `calibration` inspection product registers the persisted calibrated
+world alongside synchronization and reconstruction. Registration checks camera
+source identities and the reconstruction's calibration ID and scale.
+`GET .../inspection/calibration?expected_revision=REVISION` returns only portable
+camera/ground/scale metadata (bounded to 2 MiB); unregistered or stale calibration
+has `available: false` with a reason. Storage paths and artifact keys are excluded.

@@ -21,6 +21,7 @@ import numpy as np
 
 from contracts.models import (
     Alignment,
+    Calibration,
     Ground,
     Observation,
     Reconstruction,
@@ -225,6 +226,7 @@ class Inspection:
         """
         allowed = {
             "sync": "synchronization",
+            "calibration": "calibration",
             "reconstruction": "reconstruction",
             "ground": "ground",
             "semantics": "semantics",
@@ -260,6 +262,29 @@ class Inspection:
                 clock["sources"],
                 lineage,
             )
+        calibration = handles.get("calibration")
+        if calibration:
+            value = calibration.metadata
+            if not isinstance(value, Calibration):
+                raise ValueError("calibration product required")
+            if any(
+                clock["sources"].get(camera.camera_id) is None
+                or camera.source_id != "source:" + clock["sources"][camera.camera_id]
+                for camera in value.cameras
+            ):
+                raise ValueError("calibration sources disagree with registered project")
+            if motion and (
+                not isinstance(motion.metadata, Reconstruction)
+                or motion.metadata.calibration_id != value.id
+                or motion.metadata.scale != value.scale
+            ):
+                raise ValueError("calibration must bind exact reconstruction frame")
+            if motion:
+                pinned = products["reconstruction"].calibration_revision
+                if pinned and pinned != hash_file(calibration.path / "manifest.json"):
+                    raise ValueError(
+                        "calibration revision disagrees with reconstruction"
+                    )
         ground = handles.get("ground")
         semantic = handles.get("semantics")
         if ground and (
@@ -487,7 +512,7 @@ class Inspection:
                 },
             }
         )
-        if name in {"reconstruction", "ground", "semantics"}:
+        if name in {"calibration", "reconstruction", "ground", "semantics"}:
             binding = encoded(clock).decode()
             previous = db.execute(
                 "SELECT clock FROM bindings WHERE product=? AND manifest=?",

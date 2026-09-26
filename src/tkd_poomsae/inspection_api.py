@@ -147,6 +147,42 @@ def routes(service: FastAPI, inspection: Inspection, media: MediaAccess) -> None
 
         return guarded(read)
 
+    @service.get("/api/projects/{project}/inspection/calibration")
+    def calibration(
+        project: str, request: Request, expected_revision: str | None = None
+    ) -> Response:
+        def read() -> Response:
+            with inspection.lease(project):
+                headers, clock = inspection.headers(project)
+                header = headers.get("calibration")
+                available = bool(header and inspection.current(header, clock))
+                value: dict[str, Any] = {
+                    "revision": inspection.revision(headers, clock),
+                    "available": available,
+                    "reason": None if available else "calibration unavailable or stale",
+                    "calibration": None,
+                }
+                if available and header:
+                    inspection.checked_path(header)
+                    # Explicit portable fields only; never expose keys or storage paths.
+                    value["calibration"] = {
+                        field: header[field]
+                        for field in (
+                            "id",
+                            "scale",
+                            "world_unit",
+                            "cameras",
+                            "ground_z",
+                            "ground_status",
+                            "scale_status",
+                            "quality",
+                        )
+                        if field in header
+                    }
+                return cached(request, value, expected_revision)
+
+        return guarded(read)
+
     @service.get("/api/projects/{project}/inspection/{product}/window")
     async def window(
         project: str,
