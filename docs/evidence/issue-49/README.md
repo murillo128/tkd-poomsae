@@ -46,7 +46,9 @@ selection, entity-to-source evidence, native stepping, playback/pause, rapid
 seeks, parser apply/reload/undo, sync writes and conflicts, missing geometry and
 scale, excluded/low-confidence cameras, server errors, delayed project responses,
 API bounds, resource release, and keyboard/focus/control labels with textual
-uncertainty at desktop widths 1024, 1280 and 1600 px.
+uncertainty at desktop widths 1024, 1280 and 1600 px. Playback checks permit
+the defined `outside_execution` state if a slower host pauses beyond the short
+geometry fixture; seeking back must restore exact synchronized positive evidence.
 
 The representative 1280 px screenshot is retained under ignored
 `web/test-results/integrated/*/integrated-desktop.png`. Failure screenshots/traces

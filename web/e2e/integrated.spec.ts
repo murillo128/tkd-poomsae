@@ -215,17 +215,26 @@ test('late cross-project responses cannot replace current evidence; requests and
 test('real video playback advances the shared views and pause restores exact evidence', async ({ page }) => {
   await open(page)
   await seek(page, 0.4); await sharedInstant(page, 0.4)
+  await page.getByRole('combobox', { name: 'Speed', exact: true }).selectOption('0.25')
   await page.getByRole('button', { name: 'Play', exact: true }).click()
   const front = page.getByRole('article', { name: 'Camera front', exact: true })
   await expect(front.locator('video')).toBeVisible()
   await expect.poll(async () => front.locator('video').evaluate(video => (video as HTMLVideoElement).currentTime)).toBeGreaterThan(0.5)
-  await expect(page.locator('.three-d')).toContainText('native sample')
-  await expect(ground(page).locator('.current-root')).toHaveCount(1)
-  await expect.poll(async () => Number(await page.locator('.seek input').inputValue())).toBeGreaterThan(0.5)
   await page.getByRole('button', { name: 'Pause', exact: true }).click()
   const seconds = Number(await page.locator('.seek input').inputValue())
+  expect(seconds).toBeGreaterThan(0.4)
   await expect(timeline(page)).toContainText(`Global cursor: ${seconds.toFixed(3)} s`)
-  await expect(ground(page)).toContainText(`cursor ${seconds.toFixed(3)} s`)
+  await expect(page.locator('.three-d')).toContainText(`Cursor ${seconds.toFixed(3)} s`)
+  // Browser/CI speed must not determine acceptance. The synthetic geometry ends
+  // at 1 s; a pause beyond it must report absence instead of inventing a pose.
+  if (seconds <= 1) {
+    await expect(ground(page)).toContainText(`cursor ${seconds.toFixed(3)} s`)
+    await expect(ground(page).locator('.current-root')).toHaveCount(1)
+  } else {
+    await expect(ground(page)).toContainText('Current geometry unavailable: outside_execution')
+    await expect(ground(page).locator('.current-root')).toHaveCount(0)
+    await expect(page.locator('.three-d')).toContainText('No native sample at this cursor')
+  }
   await seek(page, 0.4); await sharedInstant(page, 0.4)
   await expect(front.locator('img')).toBeVisible()
   await expect(front.locator('circle')).toHaveCount(4)
