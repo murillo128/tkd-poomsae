@@ -117,3 +117,11 @@ phase candidates plus stance states, linked to exact feature, ground and coarse
 segmentation artifacts. Its versioned payload preserves full native intervals
 and overlap associations without forcing actions into a single coarse container.
 See [`reconstruction/lower_body`](../reconstruction/lower_body/README.md).
+
+Revisioned semantic annotations extend `ManualEdits` with exact automatic manifest
+and parser identities, session/base/current/active revisions, typed boundary and
+keyframe operations, command and source/author/reason provenance. Legacy
+`ManualEdit` records remain readable but cannot mix with revisioned operations.
+Effective edited `Semantics` includes both automatic and manual artifact IDs and
+explicit edit provenance. The automatic artifact remains unchanged. See the
+[offline editing API and CLI](../src/tkd_poomsae/semantic_edits/README.md).

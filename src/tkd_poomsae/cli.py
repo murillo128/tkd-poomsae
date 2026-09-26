@@ -114,7 +114,18 @@ def main() -> int:
         command = model_commands.add_parser(name, help=f"Run local {name} inference")
         command.add_argument("--input", type=Path, required=True)
         command.add_argument("--device", default="cpu")
+    from tkd_poomsae.semantic_edits.cli import configure as configure_edits
+
+    configure_edits(subcommands)
     args = parser.parse_args()
+    if args.command == "semantic-edits":
+        from tkd_poomsae.semantic_edits.cli import run as run_edits
+
+        try:
+            return run_edits(args)
+        except StorageError as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
     if args.command in {"observations", "doctor"} or (
         args.command == "models" and args.model_command in {"smoke", "infer"}
     ):

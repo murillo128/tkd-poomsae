@@ -961,6 +961,22 @@ class Semantics(ArtifactBase):
     arrays: list[DenseArray] = Field(default_factory=list)
     motion_sample_indices: list[int] = Field(default_factory=list)
 
+    automatic_semantics_id: str | None = None
+    manual_edits_id: str | None = None
+
+    @model_validator(mode="after")
+    def manual_identity(self) -> Semantics:
+        if (self.automatic_semantics_id is None) != (self.manual_edits_id is None):
+            raise ValueError(
+                "effective semantics require automatic and edit identities"
+            )
+        if (
+            self.manual_edits_id is not None
+            and self.provenance.producer != "semantic_edits"
+        ):
+            raise ValueError("manual output must have explicit edit provenance")
+        return self
+
     @model_validator(mode="after")
     def valid_hierarchy(self) -> Semantics:
         groups: list[list[Any]] = [
@@ -1122,10 +1138,94 @@ class ManualEdit(StrictModel):
         return self
 
 
+class BoundaryEdit(StrictModel):
+    kind: Literal["boundary"]
+    target_id: str = Field(min_length=1)
+    interval: Interval
+
+
+class KeyframeAdd(StrictModel):
+    kind: Literal["keyframe_add"]
+    keyframe: Keyframe
+
+
+class KeyframeMove(StrictModel):
+    kind: Literal["keyframe_move"]
+    target_id: str = Field(min_length=1)
+    global_seconds: float
+
+
+class KeyframeRemove(StrictModel):
+    kind: Literal["keyframe_remove"]
+    target_id: str = Field(min_length=1)
+
+
+SemanticEditOperation: TypeAlias = Annotated[
+    BoundaryEdit | KeyframeAdd | KeyframeMove | KeyframeRemove,
+    Field(discriminator="kind"),
+]
+
+
 class ManualEdits(ArtifactBase):
     kind: Literal["manual_edits"]
     automatic_semantics_id: str
-    edits: list[ManualEdit]
+    edits: list[ManualEdit] = Field(default_factory=list)
+    automatic_manifest_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    automatic_parser_revision: str | None = Field(default=None, min_length=1)
+    session_id: str | None = Field(default=None, min_length=1)
+    revision: int | None = Field(default=None, ge=1)
+    base_revision: int | None = Field(default=None, ge=0)
+    state_revision: int | None = Field(default=None, ge=0)
+    parent_state_revision: int | None = Field(default=None, ge=0)
+    command: Literal["apply", "undo", "reset"] | None = None
+    operations: list[SemanticEditOperation] = Field(default_factory=list)
+    source: str | None = Field(default=None, min_length=1)
+    author: str | None = Field(default=None, min_length=1)
+    reason: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def revision_contract(self) -> ManualEdits:
+        fields = (
+            self.automatic_manifest_sha256,
+            self.automatic_parser_revision,
+            self.session_id,
+            self.revision,
+            self.base_revision,
+            self.state_revision,
+            self.parent_state_revision,
+            self.command,
+            self.source,
+            self.author,
+            self.reason,
+        )
+        if all(value is None for value in fields):
+            if self.operations:
+                raise ValueError("operations require a revisioned edit contract")
+            return self
+        if any(value is None for value in fields) or self.edits:
+            raise ValueError(
+                "complete revision contract required; legacy edits cannot mix"
+            )
+        assert self.revision is not None and self.base_revision is not None
+        assert (
+            self.state_revision is not None and self.parent_state_revision is not None
+        )
+        if self.base_revision != self.revision - 1:
+            raise ValueError("revision must follow exact base revision")
+        if self.parent_state_revision > self.base_revision:
+            raise ValueError("parent state must precede revision")
+        if self.command == "apply":
+            if not self.operations or self.state_revision != self.revision:
+                raise ValueError("apply requires operations and its own state revision")
+        elif self.operations or self.state_revision > self.base_revision:
+            raise ValueError(
+                "control revisions cannot contain operations or future state"
+            )
+        if self.command == "reset" and self.state_revision != 0:
+            raise ValueError("reset must restore automatic state")
+        return self
 
 
 Artifact: TypeAlias = Annotated[
