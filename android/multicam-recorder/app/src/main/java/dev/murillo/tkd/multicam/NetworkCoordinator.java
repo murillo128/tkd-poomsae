@@ -10,8 +10,10 @@ import org.json.JSONObject;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.MulticastSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import android.net.wifi.WifiManager;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,7 +27,8 @@ import java.util.concurrent.TimeUnit;
 
 public final class NetworkCoordinator {
     public static final int PORT = 45873;
-    private static final String PROTOCOL = "tkd-multicam-v1";
+    private static final String MULTICAST_GROUP = "239.255.42.99";
+    private static final String PROTOCOL = "tkd-multicam-v2";
     private static final long PEER_TIMEOUT_NS = 8_000_000_000L;
 
     public enum Role {
@@ -71,7 +74,9 @@ public final class NetworkCoordinator {
     private volatile Role role;
     private volatile boolean running;
     private volatile InetAddress controllerAddress;
-    private DatagramSocket socket;
+    private MulticastSocket socket;
+    private InetAddress multicastGroup;
+    private WifiManager.MulticastLock multicastLock;
     private Thread receiveThread;
     private ScheduledExecutorService scheduler;
 
@@ -110,12 +115,22 @@ public final class NetworkCoordinator {
         peers.clear();
 
         try {
-            socket = new DatagramSocket(null);
+            WifiManager wifi =
+                    (WifiManager) context.getApplicationContext()
+                            .getSystemService(Context.WIFI_SERVICE);
+            multicastLock = wifi.createMulticastLock("tkd-multicam-discovery");
+            multicastLock.setReferenceCounted(false);
+            multicastLock.acquire();
+
+            multicastGroup = InetAddress.getByName(MULTICAST_GROUP);
+            socket = new MulticastSocket(null);
             socket.setReuseAddress(true);
-            socket.setBroadcast(true);
             socket.bind(new InetSocketAddress(PORT));
+            socket.setTimeToLive(1);
+            socket.joinGroup(multicastGroup);
         } catch (Exception e) {
             running = false;
+            releaseMulticastLock();
             listener.onNetworkStatus("Network start failed: " + describe(e));
             return;
         }
@@ -157,9 +172,14 @@ public final class NetworkCoordinator {
         }
 
         if (socket != null) {
+            try {
+                if (multicastGroup != null) socket.leaveGroup(multicastGroup);
+            } catch (Exception ignored) {}
             socket.close();
             socket = null;
         }
+        multicastGroup = null;
+        releaseMulticastLock();
 
         if (receiveThread != null) {
             receiveThread.interrupt();
@@ -485,37 +505,15 @@ public final class NetworkCoordinator {
     }
 
     private void sendBroadcast(JSONObject j) throws Exception {
+        MulticastSocket current = socket;
+        InetAddress group = multicastGroup;
+        if (current == null || current.isClosed() || group == null) {
+            throw new IllegalStateException("Multicast socket is not active");
+        }
+
         byte[] data = j.toString().getBytes(StandardCharsets.UTF_8);
-        Exception lastError = null;
-        boolean sent = false;
-
-        InetAddress subnet = getWifiBroadcastAddress();
-        if (subnet != null) {
-            try {
-                DatagramPacket packet = new DatagramPacket(data, data.length, subnet, PORT);
-                socket.send(packet);
-                sent = true;
-            } catch (Exception e) {
-                lastError = e;
-            }
-        }
-
-        try {
-            InetAddress global = InetAddress.getByName("255.255.255.255");
-            if (subnet == null || !global.equals(subnet)) {
-                DatagramPacket packet = new DatagramPacket(data, data.length, global, PORT);
-                socket.send(packet);
-                sent = true;
-            }
-        } catch (Exception e) {
-            // Some Samsung/Android builds reject limited broadcast with EPERM.
-            // Subnet broadcast above is enough when available.
-            lastError = e;
-        }
-
-        if (!sent && lastError != null) {
-            throw lastError;
-        }
+        DatagramPacket packet = new DatagramPacket(data, data.length, group, PORT);
+        current.send(packet);
     }
 
     private void sendTo(InetAddress address, JSONObject j) throws Exception {
@@ -545,24 +543,14 @@ public final class NetworkCoordinator {
         current.send(packet);
     }
 
-    @SuppressWarnings("deprecation")
-    private InetAddress getWifiBroadcastAddress() {
+    private void releaseMulticastLock() {
         try {
-            WifiManager wifi =
-                    (WifiManager) context.getApplicationContext()
-                            .getSystemService(Context.WIFI_SERVICE);
-            DhcpInfo dhcp = wifi.getDhcpInfo();
-            if (dhcp == null) return null;
-
-            int broadcast = (dhcp.ipAddress & dhcp.netmask) | ~dhcp.netmask;
-            byte[] quads = new byte[4];
-            for (int k = 0; k < 4; k++) {
-                quads[k] = (byte) ((broadcast >> (k * 8)) & 0xFF);
+            if (multicastLock != null && multicastLock.isHeld()) {
+                multicastLock.release();
             }
-            return InetAddress.getByAddress(quads);
-        } catch (Exception e) {
-            return null;
+        } catch (Exception ignored) {
         }
+        multicastLock = null;
     }
 
     private static String describe(Exception e) {
