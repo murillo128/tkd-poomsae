@@ -82,8 +82,18 @@ class StageOutput:
     version: str = "1"
 
 
+@dataclass(frozen=True)
+class PublishedOutput:
+    """Existing publisher result and the keys needed to reopen its lineage."""
+
+    key: ArtifactKey
+    lineage: tuple[ArtifactKey, ...] = ()
+    diagnostics: tuple[str, ...] = ()
+
+
 Producer = Callable[
-    [ArtifactKey, Mapping[str, ArtifactHandle], Mapping[str, Any]], StageOutput
+    [ArtifactKey, Mapping[str, ArtifactHandle], Mapping[str, Any]],
+    StageOutput | PublishedOutput,
 ]
 
 
@@ -97,6 +107,7 @@ class Stage:
     model_revision: str | None = None
     schema_version: str = "1.0.0"
     capability_reason: str | None = None
+    publishes: bool = False
 
 
 def _unavailable(name: str) -> Producer:
@@ -222,6 +233,7 @@ class Pipeline:
         stages: tuple[Stage, ...] | None = None,
     ) -> None:
         self.store = store or ArtifactStore()
+        self.profile: str | None = None
         self.stages = {stage.name: stage for stage in (stages or default_stages())}
         if tuple(self.stages) != STAGE_ORDER or any(
             stage.layer != STAGE_LAYERS[name]
@@ -310,6 +322,11 @@ class Pipeline:
             for name, path in project_data["sources"].items()
         }
         keys: dict[str, ArtifactKey] = {}
+        identities: dict[str, tuple[str, str | None]] = {}
+        if project_data.get("pipeline_profile") == "offline-publishers-v1":
+            from pipeline.offline import stage_identities
+
+            identities = stage_identities()
         for name in STAGE_ORDER:
             stage = self.stages[name]
             inputs = {dep: keys[dep].digest for dep in stage.dependencies}
@@ -317,7 +334,7 @@ class Pipeline:
                 inputs.update(source_hashes)
             if name == "calibration":
                 settings = state["config"].get("calibration", {})
-                for asset in ("candidate", "evidence"):
+                for asset in ("candidate", "evidence", "artifact"):
                     if asset in settings:
                         path = Path(settings[asset])
                         inputs[asset] = (
@@ -325,12 +342,21 @@ class Pipeline:
                             if path.is_file()
                             else hash_config({"missing": asset, "path": str(path)})
                         )
+                        if asset == "artifact" and path.is_file():
+                            provisioned = ArtifactKey(**_read_json(path))
+                            handle = self.store.get(provisioned)
+                            inputs["provisioned_calibration"] = hash_file(
+                                handle.path / "manifest.json"
+                            )
+            revision, model_revision = identities.get(
+                name, (stage.revision, stage.model_revision)
+            )
             keys[name] = ArtifactKey(
                 layer=stage.layer,
                 inputs=inputs,
                 schema_version=stage.schema_version,
-                algorithm_revision=stage.revision,
-                model_revision=stage.model_revision,
+                algorithm_revision=revision,
+                model_revision=model_revision,
                 config_digest=hash_config(
                     {
                         "settings": state["config"].get(name, {}),
@@ -524,6 +550,20 @@ class Pipeline:
         rerun: str | None = None,
         reset_cancellation: bool = True,
     ) -> dict[str, Any]:
+        project_data = _read_json(self._files(project)[0])
+        if (
+            project_data.get("pipeline_profile") == "offline-publishers-v1"
+            and self.profile != "offline-publishers-v1"
+        ):
+            from pipeline.offline import configured_pipeline
+
+            return configured_pipeline(project, self.store).analyze(
+                project,
+                through,
+                config=config,
+                rerun=rerun,
+                reset_cancellation=reset_cancellation,
+            )
         if through not in STAGE_ORDER or (
             rerun is not None and rerun not in STAGE_ORDER
         ):
@@ -595,7 +635,14 @@ class Pipeline:
                     _write_json(state_path, state)
                     raise RunCancelled("analysis cancelled; resume to continue")
                 try:
-                    handle = self.store.get(key)
+                    if stage.publishes:
+                        if record.get("request_key") != key.digest:
+                            raise MissingResource("publisher inputs changed")
+                        handle = self.store.get(ArtifactKey(**record["artifact_key"]))
+                        for upstream in record.get("lineage", []):
+                            self.store.get(ArtifactKey(**upstream))
+                    else:
+                        handle = self.store.get(key)
                 except MissingResource:
                     handle = None
                 if handle is not None:
@@ -621,9 +668,12 @@ class Pipeline:
                     nonlocal output
                     if self._cancelled(project):
                         raise RunCancelled("analysis cancelled")
-                    output = stage.producer(
+                    produced = stage.producer(
                         key, {dep: handles[dep] for dep in stage.dependencies}, settings
                     )
+                    if not isinstance(produced, StageOutput):
+                        raise ValueError("inline stage requires StageOutput")
+                    output = produced
                     if output.version != "1":
                         raise ValueError(
                             f"unsupported stage result version: {output.version}"
@@ -633,9 +683,31 @@ class Pipeline:
                     return output.artifact, output.arrays
 
                 try:
-                    handles[name] = self.store.get_or_create(
-                        key, produce, cancelled=lambda: self._cancelled(project)
-                    )
+                    if stage.publishes:
+                        published = stage.producer(
+                            key,
+                            {dep: handles[dep] for dep in stage.dependencies},
+                            settings,
+                        )
+                        if not isinstance(published, PublishedOutput):
+                            raise ValueError("publisher stage requires PublishedOutput")
+                        if self._cancelled(project):
+                            raise RunCancelled("analysis cancelled")
+                        if published.key.layer != stage.layer:
+                            raise ValueError("published stage layer mismatch")
+                        handles[name] = self.store.get(published.key)
+                        record.update(
+                            request_key=key.digest,
+                            artifact_key=key_data(published.key),
+                            lineage=[key_data(k) for k in published.lineage],
+                        )
+                        output = StageOutput(
+                            handles[name].metadata, diagnostics=published.diagnostics
+                        )
+                    else:
+                        handles[name] = self.store.get_or_create(
+                            key, produce, cancelled=lambda: self._cancelled(project)
+                        )
                 except (CapabilityUnavailable, MissingResource) as exc:
                     record.update(
                         status="unavailable", progress=0, diagnostics=[str(exc)]
@@ -661,3 +733,8 @@ class Pipeline:
                 )
                 _write_json(state_path, state)
             return state
+
+
+def key_data(key: ArtifactKey) -> dict[str, Any]:
+    """JSON representation without serializing MappingProxyType."""
+    return key.__dict__ | {"inputs": dict(key.inputs)}

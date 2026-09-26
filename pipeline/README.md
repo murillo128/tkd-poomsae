@@ -5,6 +5,15 @@ The CLI records projects and run state below `TKD_DATA_ROOT/runs/projects/` (or
 their bytes are hashed for every analysis. Completed artifacts live in the shared
 immutable `derived/` store. Ordinary runs never download videos or models.
 
+The canonical operator path is `tkd-poomsae run PROJECT --config settings.json`;
+see the [runbook](../docs/local-runbook.md#canonical-offline-project-command) for
+resource inputs and reopening. `run PROJECT` resumes saved settings and indexes
+inspection automatically. `run PROJECT --config settings.json --rerun parsing`
+changes only parser products when only parser settings changed. Existing native
+publishers retain their own immutable keys; the runner journal records and
+verifies those keys and their lineage before reuse. Missing geometry stays
+unavailable while native observations remain usable.
+
 ```sh
 tkd-poomsae register demo --source left=/data/left.mp4 --source right=/data/right.mp4
 tkd-poomsae analyze demo --through observations
@@ -30,9 +39,10 @@ The explicit graph is `ingest → sync → calibration`, and
 `calibration + attachment → reconstruction → ground → parsing` follows. Thus
 `--through observations` can produce native-time 2D evidence without sync or
 calibration. When 3D capability is unavailable, completed 2D artifacts remain
-readable. Feature packages install actual stage producers through `Pipeline`'s
-stage registry. Until then, default CLI producers return actionable `unavailable`
-status, never placeholder motion artifacts.
+readable. The canonical `run` profile installs existing stage publishers through the
+registry. Unconfigured legacy projects retain the original explicit slots and
+actionable `unavailable` states. The profile is persisted in project registration
+so status and analysis use the matching publisher revisions.
 
 The calibration slot can consume a persisted natural-scene candidate via stage
 settings `candidate`, optional `evidence`, and optional stricter `thresholds`.

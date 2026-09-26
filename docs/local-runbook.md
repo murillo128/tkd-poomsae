@@ -6,8 +6,8 @@ The application observes motion; it makes no scoring, coaching or accuracy claim
 The [final requirement matrix](evidence/issue-52/README.md) evaluates #52 using
 separate real-data and controlled positive evidence tracks, as explicitly adopted
 in that issue. Real Mendeley camera/world/3D unavailability remains visible;
-capture-suitable real validation (#107) and one-command producer wiring (#108)
-are follow-ups. Controlled evidence establishes software integration, not accuracy.
+Capture-suitable real validation (#107) remains a follow-up. The canonical
+offline producer path from #108 is documented below. Controlled evidence establishes software integration, not accuracy.
 
 ## Environment and shared storage
 
@@ -72,6 +72,105 @@ The dataset is QingWei Zheng's [Mendeley version 1](https://doi.org/10.17632/bjy
 licence when sharing demos. It is only for integration, demos and software tests.
 Its MediaPipe CSVs are detector output, not ground truth: no training, held-out
 validation, accuracy evaluation, ranking or threshold tuning against these CSVs.
+
+## Canonical offline project command
+
+After registration/provisioning, `tkd-poomsae run PROJECT --config settings.json`
+is the supported operator path. It uses the existing stage runner and production
+publishers for ingest, cue synchronization, native MMPose windows, alignment,
+raw triangulation, morphology/articulated/temporal motion, physical ground
+products and the five automatic parser stages. It then registers inspection and
+writes `runs/projects/PROJECT/inspection-bundle.json` beside the journal and
+`inspection.sqlite3`. It never downloads datasets, models or runtimes.
+
+Register your own fixed-camera execution once, or use a project ID returned by
+`datasets register`. Keep camera IDs identical in source and calibration inputs:
+
+```sh
+tkd-poomsae register practice --source front=/data/front.mp4 --source side=/data/side.mp4
+```
+
+A complete 3D project requires independently supported calibration and ground/
+scale evidence. To export the key of a ChArUco calibration, follow the capture
+manifest contract in [calibration/README.md](../calibration/README.md), retaining
+the execution's exact source hashes, original image geometry and fixed lenses:
+
+```sh
+python -m calibration /data/captures.json --data-root "$TKD_DATA_ROOT" \
+  --key-output /data/calibration-key.json
+```
+
+Separate calibration captures do not replace the execution videos. Their
+`source_id` must identify the corresponding registered execution video as
+`source:SHA256`. The exported key references a verified immutable artifact;
+ordinary analysis checks its source/camera identities and any synchronization
+binding. For scene calibration, use `candidate` and optional `evidence` instead
+of `artifact`, as documented in the calibration guide. Scene inputs must bind
+this runner's exact synchronization artifact: first run `run practice --through
+sync`, then pass its printed sync stage key's directory under
+`$TKD_DATA_ROOT/derived/synchronization/` to the scene estimator. A calibration
+bound to an earlier sync cannot be reused after clock changes.
+
+Save `/data/settings.json` (paths for calibration files resolve relative to this
+settings file and are persisted as absolute paths):
+
+```json
+{
+  "observations": {"device": "cpu", "max_frames": 32},
+  "calibration": {"artifact": "calibration-key.json"},
+  "reconstruction": {"participant_id": "practitioner"}
+}
+```
+
+Native observation windows default to the full execution; optional
+`observations.start_seconds` and `end_seconds` bound a smoke run in each camera's
+native time. `max_frames` is the publication/decode batch size, not a total frame
+limit. The reconstruction grid uses the synchronization reference camera's
+native PTS. Synchronization remains automatic unless the operator supplies
+attributed `manual_offsets` using the existing offset contract. Missing geometry
+is never replaced by supplied example cameras or invented scale.
+
+With the core environment already installed, this works from an empty working
+directory. Put its absolute executable on PATH, or invoke that executable:
+
+```sh
+/path/to/checkout/.venv/bin/tkd-poomsae run practice --config /data/settings.json
+/path/to/checkout/.venv/bin/tkd-poomsae run practice
+/path/to/checkout/.venv/bin/tkd-poomsae status practice
+/path/to/checkout/.venv/bin/tkd-poomsae serve
+```
+
+The second `run` resumes the saved settings and verifies/reuses stage results
+and their published lineage. Partial native-window publications survive an
+interruption. A provisioned vision interpreter is discovered automatically;
+complete caches also work in the core interpreter without loading models.
+Open the viewer against the same service/data root and choose `practice`.
+No separate acceptance harness or `inspection-register` step is required.
+
+Change only `parsing` settings (for example
+`"parsing": {"features": {"max_gap_seconds": 0.08}}`) and run again with
+`--config /data/settings.json --rerun parsing`. Only parsing and its journal
+request change; source/observation/reconstruction/ground artifacts stay intact.
+`--rerun STAGE` retries that stage and descendants through the requested target;
+the existing publishers still reuse an identical immutable product when its
+actual inputs/settings are unchanged. Use `run` without flags to resume this
+canonical path, including its inspection registration.
+
+Exit zero means the requested path completed. Without provisioned model assets,
+`unavailable` diagnostics name the explicit model/runtime bootstrap commands.
+Without calibration, a full run returns nonzero, retains native 2D observations
+and synchronization for inspection, and reports calibration/3D/ground/parsing
+unavailable. Supply independent evidence and run again; no fallback success is
+reported. `--through observations` runs only native 2D production and does not
+create inspection until synchronization is available on a later invocation.
+
+Bounded offline checks are `pytest -q tests/test_offline_pipeline.py` and
+`tests/test_observation_run.py`. The canonical smoke uses supplied analytic
+observations/geometry and synthetic sync cues with the production solver and
+downstream publishers; it checks a clean
+cwd, persisted/reopened inspection, unchanged second-run artifacts, parser-only
+reuse, missing-model instructions and visible missing calibration. It establishes
+software wiring, not real-video reconstruction or inference accuracy.
 
 ## Import and reproduce the demo
 
@@ -261,7 +360,8 @@ uv run --frozen python -m calibration captures.json --data-root "$TKD_DATA_ROOT"
 
 This publishes a standalone immutable calibration; it is not an `analyze
 --config` capture file or automatic wiring into the default scene-only slot.
-An operator/developer must bind accepted artifacts through the producer APIs.
+Export its key with `--key-output` and bind it through the canonical `run`
+settings above.
 The linked calibration documentation also gives the marker-free scene CLI,
 measured intrinsic profiles, independent ground/upright/scale evidence and
 attributed manual recovery. Never invent scale from body proportions, contact
@@ -355,9 +455,9 @@ TKD_BROWSER_WEB_PORT=5252 TKD_BROWSER_SERVICE_PORT=18552 npm run test:integrated
 The `controlled.spec.ts` case navigates generated arm/kick actions and a keyframe,
 follows physical/camera evidence links and verifies the same cursor across all
 views. The remaining browser cases verify additional semantic classes and manual
-revision behavior using their explicitly constructed fixtures. The generic
-`analyze` producer slots are unchanged; this supported acceptance route is not
-a new one-command CLI implementation.
+revision behavior using their explicitly constructed fixtures. This fixture
+remains a separate controlled evidence route. The canonical
+operator command above wires the same publishers for registered local sources.
 
 ## Missing resources and safe cleanup
 

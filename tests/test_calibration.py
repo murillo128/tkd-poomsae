@@ -23,6 +23,7 @@ from calibration import (
     persist_calibration,
 )
 from calibration.manifest import calibrate_from_manifest, load_manifest
+from calibration.target import calibration_key
 from contracts.models import Intrinsics
 from storage import ArtifactStore, StorageRoot
 
@@ -99,6 +100,8 @@ def test_generated_multi_pose_recovers_cameras_and_persists(tmp_path: Path) -> N
     store = ArtifactStore(StorageRoot(tmp_path))
     first = persist_calibration(store, calibration, observations)
     second = persist_calibration(store, calibration, observations)
+    exported = calibration_key(calibration, [d.capture for d in observations])
+    assert store.get(exported).path == first.path
     assert first.path == second.path
     assert first.metadata == calibration
 
