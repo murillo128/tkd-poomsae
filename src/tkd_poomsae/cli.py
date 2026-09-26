@@ -130,6 +130,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "run":
         from pipeline.offline import run_project
+        from pipeline.runner import DEPENDENCIES, STAGE_ORDER
         from tkd_poomsae.vision.runtime import delegate, runtime_python
 
         try:
@@ -142,6 +143,10 @@ def main() -> int:
             config = None
             if args.config is not None:
                 config = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(config, dict) or not isinstance(
+                    config.get("calibration", {}), dict
+                ):
+                    raise ValueError("config must map stage names to settings objects")
                 for asset in ("artifact", "candidate", "evidence"):
                     calibration = config.get("calibration", {})
                     if asset in calibration:
@@ -154,10 +159,14 @@ def main() -> int:
                 args.project, config=config, through=args.through, rerun=args.rerun
             )
             print(json.dumps(result, sort_keys=True))
+            active = {args.through}
+            for name in reversed(STAGE_ORDER):
+                if name in active:
+                    active.update(DEPENDENCIES[name])
             return int(
                 any(
-                    stage["status"] in {"failed", "unavailable"}
-                    for stage in result["stages"].values()
+                    result["stages"][name]["status"] in {"failed", "unavailable"}
+                    for name in active
                 )
             )
         except (

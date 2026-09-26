@@ -267,6 +267,14 @@ def test_missing_vision_is_actionable_and_offline(
     assert "models runtime-bootstrap" in " ".join(observations["diagnostics"])
     assert not (root / "models").exists() or not list((root / "models").rglob("*.pth"))
 
+    # An unavailable descendant from an earlier run does not fail a later
+    # successful request for an upstream-only capability.
+    monkeypatch.setattr(
+        sys, "argv", ["tkd-poomsae", "run", "missing", "--through", "ingest"]
+    )
+    assert main() == 0
+    assert json.loads(capsys.readouterr().out)["stages"]["ingest"]["cached"]
+
 
 def test_scene_adapter_binds_runner_key_without_mutating_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
