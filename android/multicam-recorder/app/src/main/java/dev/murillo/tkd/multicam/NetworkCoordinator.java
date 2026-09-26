@@ -533,7 +533,7 @@ public final class NetworkCoordinator {
     }
 
     private void sendRaw(InetAddress address, String payload) throws Exception {
-        DatagramSocket current = socket;
+        MulticastSocket current = socket;
         if (address == null || current == null || current.isClosed()) return;
         byte[] data = payload.getBytes(StandardCharsets.UTF_8);
         DatagramPacket packet = new DatagramPacket(data, data.length, address, PORT);
