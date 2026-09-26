@@ -408,6 +408,18 @@ def estimate_calibration(
     )
 
 
+def calibration_key(candidate: Calibration, captures: list[Capture]) -> ArtifactKey:
+    """Return the exact reusable identity exported by target calibration."""
+    inputs = {capture.id: capture.sha256 for capture in captures}
+    if len(inputs) != len(captures):
+        raise ValueError("duplicate capture ID")
+    return ArtifactKey(
+        layer="calibration", inputs=inputs, schema_version="1.0.0",
+        algorithm_revision="charuco-target-v1",
+        config_digest=candidate.provenance.config_digest,
+    )
+
+
 def persist_calibration(
     store: ArtifactStore, candidate: Calibration, detections: list[Detection],
 ) -> ArtifactHandle:
@@ -416,12 +428,5 @@ def persist_calibration(
         d.capture.source_id for d in detections
     }:
         raise ValueError("candidate and capture sources disagree")
-    inputs = {d.capture.id: d.capture.sha256 for d in detections}
-    if len(inputs) != len(detections):
-        raise ValueError("duplicate capture ID")
-    key = ArtifactKey(
-        layer="calibration", inputs=inputs, schema_version="1.0.0",
-        algorithm_revision="charuco-target-v1",
-        config_digest=candidate.provenance.config_digest,
-    )
+    key = calibration_key(candidate, [d.capture for d in detections])
     return store.get_or_create(key, lambda: (candidate, {}))

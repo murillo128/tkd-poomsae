@@ -12,7 +12,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from pipeline import Pipeline, Stage, StageOutput
-from pipeline.runner import DEPENDENCIES, STAGE_LAYERS
+from pipeline.runner import DEPENDENCIES, STAGE_LAYERS, PublishedOutput
 from storage import ArtifactKey, ArtifactStore, StorageRoot
 from tests.test_pipeline import setup
 from tkd_poomsae.api import create_app
@@ -254,7 +254,9 @@ def test_conflict_cancellation_and_restart_recovery(tmp_path: Path) -> None:
     entered, release = Event(), Event()
     original = pipe.stages["ingest"]
 
-    def slow(key: ArtifactKey, inputs: Any, settings: Any) -> StageOutput:
+    def slow(
+        key: ArtifactKey, inputs: Any, settings: Any
+    ) -> StageOutput | PublishedOutput:
         entered.set()
         assert release.wait(5)
         return original.producer(key, inputs, settings)
@@ -309,7 +311,9 @@ def test_pending_queue_is_bounded_and_can_cancel_before_execution(
     entered, release = Event(), Event()
     original = pipe.stages["ingest"]
 
-    def slow(key: ArtifactKey, inputs: Any, settings: Any) -> StageOutput:
+    def slow(
+        key: ArtifactKey, inputs: Any, settings: Any
+    ) -> StageOutput | PublishedOutput:
         entered.set()
         assert release.wait(5)
         return original.producer(key, inputs, settings)

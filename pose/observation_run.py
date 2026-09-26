@@ -238,6 +238,28 @@ def run_selection(
     store = store or ArtifactStore()
     settings = settings or ObservationSettings()
     windows = resolve(selection, root=store.root)
+    return run_windows(
+        selection,
+        windows,
+        store=store,
+        settings=settings,
+        cancelled=cancelled,
+        adapter_factory=adapter_factory,
+    )
+
+
+def run_windows(
+    selection: str,
+    windows: tuple[Window, ...],
+    *,
+    store: ArtifactStore,
+    settings: ObservationSettings,
+    cancelled: Callable[[], bool] | None = None,
+    adapter_factory: Callable[..., Any] = MMPoseAdapter,
+) -> dict[str, Any]:
+    """Use the same native-window publisher for explicit registered sources."""
+    if not windows:
+        raise ValueError("observation run requires source windows")
     identity = {
         "selection": selection,
         "sources": [
