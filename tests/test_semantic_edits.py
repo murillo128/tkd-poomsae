@@ -534,3 +534,32 @@ def test_mutated_automatic_handle_is_rejected(
     mutated = ArtifactHandle(automatic.path, changed, automatic.files)
     with pytest.raises(IncompatibleAutomaticBase, match="differs from stored"):
         SemanticEditor(store, "mutated").view(mutated)
+
+
+def test_new_persisted_parser_revision_rejects_existing_session(
+    persisted: tuple[ArtifactStore, ArtifactHandle, ArtifactHandle],
+) -> None:
+    from reconstruction.semantics import load_semantic_evidence
+
+    store, automatic, _ = persisted
+    editor = SemanticEditor(store, "parser-version")
+    editor.apply(automatic, 0, [add_frame(automatic)], **PROVENANCE)
+    payload = load_semantic_evidence(automatic)
+    revision = "semantic-assembly-v2"
+    key = ArtifactKey(
+        layer="semantics",
+        inputs=payload["input_revisions"],
+        schema_version="1.0.0",
+        algorithm_revision=revision,
+        config_digest=automatic.metadata.provenance.config_digest,
+    )
+    metadata = automatic.metadata.model_copy(deep=True)
+    assert isinstance(metadata, Semantics)
+    metadata.id = f"semantics:{key.digest}"
+    metadata.provenance.model = revision
+    arrays = {a.id: automatic.read_array(a.id) for a in metadata.arrays}
+    future = store.get_or_create(key, lambda: (metadata, arrays))
+    with pytest.raises(IncompatibleAutomaticBase):
+        editor.apply(future, 1, [add_frame(future)], **PROVENANCE)
+    assert editor.view(automatic).revision == 1
+    assert editor.revision(1).automatic_parser_revision == "semantic-assembly-v1"
