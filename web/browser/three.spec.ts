@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { fixture } from './geometryFixture'
 
-async function service(page: Page) {
+async function service(page: Page, geometry = fixture) {
   await page.addInitScript(() => {
     const getContext = HTMLCanvasElement.prototype.getContext
     let lost = 0
@@ -23,19 +23,30 @@ async function service(page: Page) {
     else if (path.endsWith('/capabilities')) body = { project, stages }
     else if (path.endsWith('/media/front/metadata')) body = { source_id: 'front', first_frame: { oriented_width_px: 640, oriented_height_px: 480 } }
     else if (path.endsWith('/inspection')) body = { revision: 'r1', products: { semantics: { available: true } } }
-    else if (path.endsWith('/inspection/calibration')) body = { revision: 'r1', available: true, calibration: fixture.calibration, reason: null }
+    else if (path.endsWith('/inspection/calibration')) body = { revision: 'r1', available: true, calibration: geometry.calibration, reason: null }
     else if (path.includes('/window')) {
       const start = Number(url.searchParams.get('start')), end = Number(url.searchParams.get('end'))
-      const rows = path.includes('/semantics/') ? fixture.actions : fixture.samples.filter(row => row.global_seconds >= start && row.global_seconds <= end)
+      const rows = path.includes('/semantics/') ? geometry.actions : geometry.samples.filter(row => row.global_seconds >= start && row.global_seconds <= end)
       body = { revision: 'r1', available: true, unit: 'm', reason: null, rows, next_cursor: null }
       expect(end - start).toBeLessThanOrEqual(2); expect(url.searchParams.get('limit')).toBe('256'); expect(url.searchParams.get('expected_revision')).toBe('r1')
-    } else if (path.endsWith('/entities')) body = { entity: { id: url.searchParams.get('id'), quality: { state: 'observed', score: .95 } }, source_evidence: [{ camera_id: 'front', pts: 0 }], source_evidence_reason: null }
+    } else if (path.endsWith('/entities')) body = entityResponse(url.searchParams.get('id')!, geometry)
     else body = { id: project, sources: ['front'], state: { stages: Object.fromEntries(Object.entries(stages).map(([name, stage]) => [name, stage.status])) } }
     await route.fulfill({ json: body, headers: { 'access-control-allow-origin': '*' } })
   })
   await page.goto('/')
   await page.locator('.project-actions select').selectOption('synthetic')
   await expect(page.getByLabel('3D native sample')).toHaveValue('motion/samples/0')
+}
+function entityResponse(id: string, geometry = fixture) {
+  const sample = geometry.samples.find(row => id.startsWith(`${row.id}/`))
+  const point = sample?.landmarks.find(value => id.endsWith(`/${value.name}`))
+  return {
+    entity: sample && point ? { ...point, id, global_seconds: sample.global_seconds } : { id },
+    source_evidence: sample ? [{ observation_id: `native-front-${sample.global_seconds}`, frame: {
+      camera_id: 'front', pts: sample.global_seconds * 1000, global_seconds: sample.global_seconds,
+    } }] : [],
+    source_evidence_reason: null,
+  }
 }
 test('actual WebGL panel: native topology, picking, layers, clock, uncertainty, and project disposal', async ({ page }, testInfo) => {
   await service(page)
@@ -134,4 +145,86 @@ test('late geometry after a seek or project change never replaces the current wi
   await expect(page.locator('.project-summary')).toContainText('other')
   await expect(page.locator('.timeline')).toContainText('0.000 s')
   await expect(page.getByLabel('3D native sample')).toHaveValue('motion/samples/0')
+})
+
+test('selected landmark values and contributing evidence follow native seeks and clear at unavailable instants', async ({ page }) => {
+  const geometry = structuredClone(fixture)
+  geometry.samples[1].landmarks.find(point => point.name === 'left_index_tip')!.quality = { state: 'interpolated', score: .35, source_ids: ['native-front-0.5'] }
+  geometry.samples[2].landmarks.find(point => point.name === 'left_index_tip')!.xyz_world = null
+  geometry.samples.push({ ...structuredClone(geometry.samples[1]), id: 'motion/samples/3', global_seconds: 1.5, missing_mask: { left_index_tip: true } })
+  await service(page, geometry)
+  const inspector = page.locator('.inspector'), panel = page.locator('.three-d')
+  const entity = () => inspector.locator('pre').first().evaluate(element => JSON.parse(element.textContent!))
+  const evidence = () => inspector.locator('details pre').evaluate(element => JSON.parse(element.textContent!))
+  const requests: string[] = []
+  page.on('request', request => {
+    if (request.url().includes('/inspection/entities?')) requests.push(new URL(request.url()).searchParams.get('id')!)
+  })
+  await panel.getByLabel('Pick 3D landmark').selectOption('left_index_tip')
+  await expect(inspector).toContainText('motion/samples/0/left_index_tip')
+  expect((await entity()).global_seconds).toBe(0)
+  expect((await evidence())[0].frame.pts).toBe(0)
+  const initialPosition = (await entity()).xyz_world
+  await panel.getByLabel('3D native sample').selectOption('motion/samples/1')
+  await expect(inspector).toContainText('motion/samples/1/left_index_tip')
+  expect((await entity()).global_seconds).toBe(.5)
+  expect((await entity()).quality).toMatchObject({ state: 'interpolated', score: .35 })
+  await expect(inspector).not.toContainText('motion/samples/0/left_index_tip')
+  expect((await entity()).xyz_world).toEqual(geometry.samples[1].landmarks.find(point => point.name === 'left_index_tip')!.xyz_world)
+  expect((await entity()).xyz_world[0]).toBeCloseTo(initialPosition[0] + .1)
+  expect((await evidence())[0]).toMatchObject({ observation_id: 'native-front-0.5', frame: { pts: 500, global_seconds: .5 } })
+  await expect(page.locator('.track-list button').filter({ hasText: 'left arm' })).toHaveAttribute('aria-pressed', 'true')
+  expect(requests).toEqual(['motion/samples/0/left_index_tip', 'motion/samples/1/left_index_tip'])
+
+  const cursor = page.locator('.seek input')
+  await cursor.fill('0.25'); await cursor.blur()
+  await expect(inspector).toContainText('No native sample at 0.250 s')
+  await expect(inspector.locator('pre')).toHaveCount(0)
+  await panel.getByLabel('3D native sample').selectOption('motion/samples/2')
+  await expect(inspector).toContainText('left_index_tip unavailable at 1.000 s: landmark coordinates are missing or masked')
+  await expect(inspector.locator('pre')).toHaveCount(0)
+  await panel.getByLabel('3D native sample').selectOption('motion/samples/3')
+  await expect(inspector).toContainText('left_index_tip unavailable at 1.500 s: landmark coordinates are missing or masked')
+  await expect(inspector.locator('pre')).toHaveCount(0)
+  expect(requests).toEqual(['motion/samples/0/left_index_tip', 'motion/samples/1/left_index_tip'])
+  await panel.getByLabel('3D native sample').selectOption('motion/samples/0')
+  await expect(inspector).toContainText('motion/samples/0/left_index_tip')
+  expect((await entity()).global_seconds).toBe(0)
+  expect((await evidence())[0].frame.pts).toBe(0)
+})
+
+test('late landmark inspector responses cannot restore values or evidence after a seek or project change', async ({ page }) => {
+  await service(page)
+  const inspector = page.locator('.inspector'), panel = page.locator('.three-d')
+  await panel.getByLabel('Pick 3D landmark').selectOption('left_index_tip')
+  await expect(inspector).toContainText('motion/samples/0/left_index_tip')
+  for (const changeProject of [false, true]) {
+    let release!: () => void, started!: () => void, finished!: () => void
+    const pending = new Promise<void>(resolve => { release = resolve })
+    const requested = new Promise<void>(resolve => { started = resolve })
+    const delivered = new Promise<void>(resolve => { finished = resolve })
+    await page.route('**/synthetic/inspection/entities?**', async route => {
+      const id = new URL(route.request().url()).searchParams.get('id')!
+      if (id !== 'motion/samples/1/left_index_tip') return route.fallback()
+      started(); await pending
+      try { await route.fulfill({ json: entityResponse(id), headers: { 'access-control-allow-origin': '*' } }) }
+      catch { /* The browser may already have cancelled the transport. */ }
+      finally { finished() }
+    })
+    await panel.getByLabel('3D native sample').selectOption('motion/samples/1'); await requested
+    await expect(inspector.locator('pre')).toHaveCount(0)
+    if (changeProject) {
+      await page.locator('.project-actions select').selectOption('other')
+      await expect(page.getByLabel('3D native sample')).toHaveValue('motion/samples/0')
+    } else {
+      const cursor = page.locator('.seek input'); await cursor.fill('0.25'); await cursor.blur()
+      await expect(inspector).toContainText('No native sample at 0.250 s')
+    }
+    release(); await delivered
+    await expect(inspector.locator('pre')).toHaveCount(0)
+    if (!changeProject) {
+      await panel.getByLabel('3D native sample').selectOption('motion/samples/0')
+      await expect(inspector).toContainText('motion/samples/0/left_index_tip')
+    }
+  }
 })

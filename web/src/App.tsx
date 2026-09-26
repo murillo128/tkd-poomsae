@@ -6,7 +6,7 @@ import { canStep, initialPlayback, playbackReducer } from './playback'
 import { API_ROOT, listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
 
 import { ThreePanel } from './ThreePanel'
-import { GeometryInspector } from './GeometryInspector'
+import { GeometryInspector, selectedLandmarkName } from './GeometryInspector'
 import type { GeometryData } from './geometryApi'
 
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; value: T }
@@ -112,7 +112,7 @@ export function App() {
   const stepAvailable = hasProject && canStep(playback)
   const selectedCamera = playback.cameras.find(camera => camera.id === playback.selectedCameraId)
   const selectedTrack = playback.selection?.kind === 'track' ? playback.selection.id : null
-  const selectionLabel = playback.selection?.id ?? 'None'
+  const selectionLabel = selectedLandmarkName(playback.selection) ?? playback.selection?.id ?? 'None'
   function openProject(id: string) {
     setProjectId(id)
     setProject(null)
@@ -208,7 +208,7 @@ export function App() {
       <section className="panel timeline"><h2>Timeline</h2><p>Global cursor: <strong>{formatTime(playback.cursorSeconds)}</strong></p><p>Physical and semantic tracks: {stageMessage(capabilities?.parsing)}</p>
         <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={playback.selection?.tracks.includes(track) ?? false} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
       </section>
-      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{playback.selection?.id ?? 'None'}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} /></section>
+      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{selectionLabel}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} cursorSeconds={playback.cursorSeconds} /></section>
     </div>
   </main>
 }

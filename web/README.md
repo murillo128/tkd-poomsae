@@ -28,7 +28,11 @@ use the landmark chooser to select its persisted entity ID in the shared inspect
 and highlight its physical track. Action buttons select persisted action IDs and
 seek their interval start; selected paths remain within the returned window and
 selected action interval. Inspector evidence is fetched from the revision-pinned
-entity endpoint. Controls/observers/listeners/materials/geometries are disposed,
+entity endpoint. A landmark selection keeps its physical identity across seeks;
+the inspector resolves its entity ID from the current native sample and refreshes
+coordinates, confidence and camera evidence. Missing/masked landmarks and off-grid
+instants clear these values with an explicit unavailable reason. Other entity IDs
+remain fixed selections. Controls/observers/listeners/materials/geometries are disposed,
 and the WebGL context is released when changing projects or unmounting.
 
 Validation: `npm test`, `npm run build`, then `npx playwright install chromium`
@@ -37,3 +41,7 @@ actual Chromium WebGL rendering without model/data assets or external services.
 The browser suite captures `test-results/**/rendered-panel.png`; CI retains it
 as the `web-browser-evidence` artifact. Compact recorded evidence is in
 [docs/evidence/issue-45](../docs/evidence/issue-45/README.md).
+
+The browser suite always launches its own Vite server with a strict port. If
+another worktree uses 5173, run `TKD_BROWSER_PORT=5185 npm run test:browser`
+(or choose another free port); an unrelated server is never reused as evidence.
