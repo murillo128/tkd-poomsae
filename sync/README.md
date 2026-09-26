@@ -84,3 +84,78 @@ source SHA-256 identities for executed cases, and a cue-config digest. Pass
 registered `smoke-short` selection and a shared imposed-shift variant as an
 offline functional smoke test; it does not certify synchronization or pose
 accuracy.
+
+## Global-time observation queries
+
+`sync.alignment.ObservationJoin(observations, synchronization, config)` snapshots
+native observation contracts and the persisted `Synchronization` offsets. Use
+`ObservationJoin.from_windows(handles, synchronization, config)` to load verified
+native window artifacts. The join materializes the supplied windows; callers can select bounded windows
+for large executions. Both paths are offline readers; neither calls inference,
+decodes media, provisions a runtime, or downloads models/data. PTS and source
+seconds must agree, source IDs must match synchronization, and each source must
+have unique native timestamps and one camera identity.
+
+```python
+from sync.alignment import JoinConfig, ObservationJoin
+
+join = ObservationJoin.from_windows(native_windows, sync_handle.metadata,
+                                    JoinConfig(max_bracket_factor=2))
+query = join.query(5.125)
+coverage = join.coverage()
+```
+
+A query uses `source_seconds = global_seconds - effective_seconds` independently
+for each retained source. It exposes `exact`, `bracket`, or `unknown` time lookup,
+original endpoint observations with camera/frame/PTS identities, weights, per-point
+quality and explicit missing masks. `bracket` describes the source lookup; its
+geometry can still be unknown. Exact usable points remain `observed`; linear
+estimates are `interpolated`, with no invented raw detector scores or visibility.
+Endpoint observations retain original scores, model provenance, ROIs, subject
+selection, wholebody and refined channels, and original regional geometry.
+The effective offset on the query maps those native endpoints to the current
+clock without rewriting their original frame metadata.
+
+Interpolation needs two observed, usable endpoints on the same selected track.
+Unknown track identity, ambiguous/missing practitioners, rejected regional quality,
+missing/occluded points and provider-channel gaps stay unknown. Canonical masks
+also gate source-channel estimates, so raw wholebody fingers cannot replace an
+unavailable refined hand. Each source keeps its complete landmark vocabulary,
+including outside coverage where its geometry is explicitly null. Available
+sources are reported separately for every canonical landmark; a usable wrist
+does not imply a usable hand or foot.
+
+By default bracket spacing must not exceed twice the local median frame interval.
+`JoinConfig.local_radius` selects up to five neighboring intervals on each side;
+the tested gap is excluded from this median to avoid inflating its own limit.
+With only one interval, that interval defines cadence. An optional
+`max_bracket_seconds` supplies an additional absolute cap. Exact matching allows
+only numerical tolerance (default 1 ns); no extrapolation is performed. Query
+provenance includes the local median and effective bracket limit. Foot/head axes
+are interpolated only with compatible providers, complete supported endpoints and
+usable canonical landmarks. Their angle is derived from the interpolated axis;
+a collapsed axis remains degenerate. `regional_quality` distinguishes observed,
+interpolated and unknown regional estimates. Original regional provider outputs remain
+available in endpoints even when derived geometry is unavailable.
+
+`coverage()` reports closed global-time spans per source and per landmark,
+including isolated exact samples and gaps caused by rejected brackets. It also
+honors the retained synchronization source interval. Excluded sources and sources
+without native observations have explicit reasons and no usable coverage.
+
+`query_many(global_times)` accepts an explicit sampling grid. Requesting 60 Hz
+from 30 fps sources produces labeled estimates between native observations and
+adds no higher-frequency observed evidence. `publish_alignment(store, windows,
+sync_handle, global_times, config)` caches only this derived product in the
+immutable `alignment` layer. Its identity binds the native window manifests,
+synchronization manifest, algorithm revision, configuration and requested times.
+The version-1 byte payload retains settings, queries, masks and coverage;
+`load_alignment(handle)` returns typed queries and coverage. Changed offsets,
+reference clock, grid or interpolation settings produce new alignment artifacts
+while leaving native inference windows unchanged.
+
+Run `pytest tests/test_alignment.py` for synthetic mixed-rate, fractional-offset,
+nonzero-PTS, gap/mask, coverage, reference-clock and persistence regressions.
+`pytest -m local_data tests/test_alignment.py` reads existing `smoke-short`
+observation receipts with imposed fractional offsets, with networking disabled.
+It never infers missing observations or compares accuracy with dataset CSVs.

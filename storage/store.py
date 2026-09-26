@@ -33,6 +33,7 @@ _LAYERS = frozenset(
         "synchronization",
         "calibration",
         "observation",
+        "alignment",
         "reconstruction",
         "morphology",
         "ground",

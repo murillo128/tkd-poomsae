@@ -44,6 +44,7 @@ export interface SubjectCandidateEvidence { index: number; bbox_xyxy_px: [number
 export interface SubjectSelection { state: 'selected' | 'ambiguous' | 'missing'; track_id?: string | null; candidate_index?: number | null; method?: 'initial' | 'temporal' | 'operator' | null; reasons?: string[]; candidates?: SubjectCandidateEvidence[] }
 export interface ViewRegionQuality { part: 'body' | 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot' | 'head'; usable: boolean; reasons?: string[] }
 export interface Observation extends ArtifactBase { kind: 'observation'; frame: FrameTime; landmarks: Landmark2D[]; wholebody_landmarks?: Landmark2D[]; refined_landmarks?: Landmark2D[]; regions?: RegionOfInterest[]; regional_geometry?: RegionalGeometry2D[]; source_regional_geometry?: RegionalGeometry2D[]; subject_selection?: SubjectSelection | null; region_quality?: ViewRegionQuality[]; arrays?: DenseArray[] }
+export interface Alignment extends ArtifactBase { kind: 'alignment'; synchronization_id: string; observation_digests: string[]; query_count: number; arrays: DenseArray[] }
 export interface Landmark3D { name: Landmark; xyz_world: [number, number, number] | null; quality: Quality }
 export interface Quaternion { wxyz: [number, number, number, number] }
 export interface SegmentFrame { segment: string; parent: 'world' | 'root' | 'torso' | 'left_forearm' | 'right_forearm' | 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot' | 'head'; orientation: Quaternion | null; quality: Quality }
@@ -66,4 +67,4 @@ export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruct
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 export interface ManualEdit { id: string; target_id: string; field_path: string; replacement: JsonValue; author: string; reason?: string | null }
 export interface ManualEdits extends ArtifactBase { kind: 'manual_edits'; automatic_semantics_id: string; edits: ManualEdit[] }
-export type Artifact = Project | Source | Synchronization | Calibration | Observation | Reconstruction | Morphology | Ground | Semantics | ManualEdits
+export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | Semantics | ManualEdits

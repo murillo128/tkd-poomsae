@@ -40,3 +40,7 @@ Arrays use `.npy` with pickle disabled. A completion manifest binds the key,
 metadata and every array to a SHA-256 digest. `get` checks all hashes, descriptor
 types and shapes before a cache hit. Cross-artifact semantic references should
 be validated with `contracts.validate_bundle` when assembling a complete bundle.
+
+The `alignment` layer caches derived native-observation time joins independently
+of inference. Its synchronization revision and sampling/configuration digest
+change across offset edits while source observation artifacts remain immutable.

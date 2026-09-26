@@ -66,6 +66,66 @@
       "title": "Action",
       "type": "object"
     },
+    "Alignment": {
+      "additionalProperties": false,
+      "description": "Derived time queries; the versioned payload retains native observations.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "alignment",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observation_digests": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Observation Digests",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "query_count": {
+          "exclusiveMinimum": 0,
+          "title": "Query Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "synchronization_id": {
+          "title": "Synchronization Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "synchronization_id",
+        "observation_digests",
+        "query_count",
+        "arrays"
+      ],
+      "title": "Alignment",
+      "type": "object"
+    },
     "Calibration": {
       "additionalProperties": false,
       "properties": {
@@ -3264,6 +3324,7 @@
   "$id": "https://github.com/murillo128/tkd-poomsae/contracts/artifact.schema.json",
   "discriminator": {
     "mapping": {
+      "alignment": "#/$defs/Alignment",
       "calibration": "#/$defs/Calibration",
       "ground": "#/$defs/Ground",
       "manual_edits": "#/$defs/ManualEdits",
@@ -3292,6 +3353,9 @@
     },
     {
       "$ref": "#/$defs/Observation"
+    },
+    {
+      "$ref": "#/$defs/Alignment"
     },
     {
       "$ref": "#/$defs/Reconstruction"
