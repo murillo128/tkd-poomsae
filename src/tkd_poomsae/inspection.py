@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 
 from contracts.models import (
+    Alignment,
     Ground,
     Observation,
     Reconstruction,
@@ -188,9 +189,12 @@ class Inspection:
         products: Mapping[str, ArtifactKey],
         *,
         observations: Iterable[ArtifactKey] = (),
+        lineage: Iterable[ArtifactKey] = (),
     ) -> None:
         with self.lease(project, write=True):
-            self._register(project, products, observations=observations)
+            self._register(
+                project, products, observations=observations, lineage=lineage
+            )
             if "semantics" in products:
                 automatic = self.pipe.store.get(products["semantics"])
                 editor = SemanticEditor(
@@ -204,6 +208,7 @@ class Inspection:
         products: Mapping[str, ArtifactKey],
         *,
         observations: Iterable[ArtifactKey] = (),
+        lineage: Iterable[ArtifactKey] = (),
     ) -> None:
         """Atomically bind verified artifacts to this project's current clock.
 
@@ -239,6 +244,14 @@ class Inspection:
             if offset.effective_seconds != edit["offset_seconds"]:
                 raise ValueError("sync artifact does not include current manual offset")
         motion = handles.get("reconstruction")
+        if motion:
+            self._verify_motion_lineage(
+                products["reconstruction"],
+                products["sync"],
+                handles["sync"],
+                clock["sources"],
+                lineage,
+            )
         ground = handles.get("ground")
         semantic = handles.get("semantics")
         if ground and (
@@ -304,6 +317,113 @@ class Inspection:
                 raise InspectionError(413, "registered product inventory exceeds 8 MiB")
             if self.clock(project) != clock:
                 raise InspectionError(409, "project clock changed during registration")
+
+    def _verify_motion_lineage(
+        self,
+        motion_key: ArtifactKey,
+        sync_key: ArtifactKey,
+        synchronization: ArtifactHandle,
+        sources: dict[str, str],
+        lineage: Iterable[ArtifactKey],
+    ) -> None:
+        """Prove the immutable motion inputs before stamping any inspection clock.
+
+        Derived publishers bind raw/fit inputs by manifest hash; their upstream
+        keys are supplied by the trusted operator, then verified through storage.
+        A direct producer may bind source hashes and the synchronization manifest
+        in its key. An index's previous bindings are never a substitute for proof.
+        """
+        sync_revision = hash_file(synchronization.path / "manifest.json")
+        catalog: dict[str, ArtifactKey] = {}
+        size = 0
+        for key in lineage:
+            size += len(encoded(key.__dict__ | {"inputs": dict(key.inputs)}))
+            if size > MAX_EDIT_BYTES:
+                raise InspectionError(413, "upstream key inventory exceeds 8 MiB")
+            manifest = self.pipe.store._path(key) / "manifest.json"
+            # Full content verification occurs when the referenced key is opened.
+            if manifest.is_symlink() or manifest.parent.is_symlink():
+                raise InspectionError(409, "invalid upstream artifact manifest")
+            catalog[key.digest] = key
+            catalog[hash_file(manifest)] = key
+        verified: set[str] = set()
+        sync = synchronization.metadata
+        assert isinstance(sync, Synchronization)
+
+        def resolve(revision: str, layer: str) -> tuple[ArtifactKey, ArtifactHandle]:
+            key = catalog.get(revision)
+            if key is None or key.layer != layer:
+                raise InspectionError(409, "motion upstream lineage unavailable")
+            return key, self.pipe.store.get(key)
+
+        def alignment(revision: str) -> None:
+            key, handle = resolve(revision, "alignment")
+            metadata = handle.metadata
+            if not isinstance(metadata, Alignment) or (
+                metadata.synchronization_id != sync.id
+                or not (
+                    key.sync_revision == sync_revision
+                    or key.inputs.get("sync") == sync_key.digest
+                )
+            ):
+                raise InspectionError(409, "motion uses a different synchronization")
+            if not metadata.observation_digests:
+                raise InspectionError(409, "motion source lineage unavailable")
+            for digest in metadata.observation_digests:
+                window_key, window = resolve(digest, "observation")
+                if (
+                    not isinstance(window.metadata, Observation)
+                    or window.metadata.frame.source_id
+                    not in {"source:" + source_hash for source_hash in sources.values()}
+                    or window.metadata.frame.source_id.removeprefix("source:")
+                    not in window_key.inputs.values()
+                ):
+                    raise InspectionError(
+                        409, "motion observation source lineage changed"
+                    )
+
+        def motion(key: ArtifactKey, depth: int) -> None:
+            if key.digest in verified:
+                return
+            if depth > 8:
+                raise InspectionError(
+                    409, "motion upstream lineage exceeds depth bound"
+                )
+            handle = self.pipe.store.get(key)
+            if not isinstance(handle.metadata, Reconstruction):
+                raise InspectionError(409, "reconstruction lineage required")
+            if key.sync_revision == sync_revision and set(sources.values()) <= set(
+                key.inputs.values()
+            ):
+                verified.add(key.digest)
+                return
+            producer = handle.metadata.provenance.producer
+            if producer == "reconstruction.triangulation":
+                revision = key.inputs.get("attachment")
+                if revision is None:
+                    raise InspectionError(409, "motion alignment lineage unavailable")
+                alignment(revision)
+            else:
+                parents = {
+                    "reconstruction.articulated": ("raw_reconstruction",),
+                    "reconstruction.detailed": ("source_reconstruction",),
+                    "reconstruction.temporal": ("raw", "fit"),
+                }.get(producer)
+                if parents is None:
+                    raise InspectionError(
+                        409, "motion source/sync lineage unverifiable"
+                    )
+                for parent in parents:
+                    revision = key.inputs.get(parent)
+                    if revision is None:
+                        raise InspectionError(
+                            409, "motion reconstruction lineage unavailable"
+                        )
+                    parent_key, _ = resolve(revision, "reconstruction")
+                    motion(parent_key, depth + 1)
+            verified.add(key.digest)
+
+        motion(motion_key, 0)
 
     def _index(
         self,
@@ -749,11 +869,14 @@ class Inspection:
                     motion = json.loads(sample[0])
                     for point in motion["landmarks"]:
                         source_ids.update(point["quality"]["source_ids"])
+            unresolved: list[str] = []
             for source_id in sorted(source_ids)[:MAX_ROWS]:
                 source = db.execute(
                     "SELECT body FROM entities WHERE product='observations' AND id=?",
                     (source_id,),
                 ).fetchone()
+                if source is None:
+                    unresolved.append(source_id)
                 if source:
                     observation = json.loads(source[0])
                     evidence.append(
@@ -777,14 +900,28 @@ class Inspection:
                         "native_frame": value["frame"],
                     }
                 )
+                value = value | {
+                    "native_frame": value["frame"],
+                    "frame": evidence[-1]["frame"],
+                }
+        truncated = len(indices) > MAX_ROWS or len(source_ids) > MAX_ROWS
+        reason = (
+            f"{len(unresolved)} contributing native observation IDs unavailable"
+            if unresolved
+            else "contributing source evidence truncated"
+            if truncated
+            else None
+            if evidence
+            else "contributing native observation IDs unavailable"
+        )
         result = {
             "entity": value,
             "product": product,
             "source_evidence": evidence,
-            "source_evidence_reason": None
-            if evidence
-            else "contributing native observation IDs unavailable",
-            "evidence_truncated": len(indices) > MAX_ROWS or len(source_ids) > MAX_ROWS,
+            "source_evidence_reason": reason,
+            "source_evidence_unavailable_count": len(unresolved),
+            "source_evidence_unavailable_ids": unresolved,
+            "evidence_truncated": truncated,
             "revision": self.revision(headers, clock),
             "artifact_revision": relevant[0]["manifest_revision"],
             "effective_edit_revision": headers.get("semantics", {}).get(

@@ -59,11 +59,17 @@ def key_for(
 
 
 def persist(
-    store: ArtifactStore, value: Any, arrays: Any = None
+    store: ArtifactStore,
+    value: Any,
+    arrays: Any = None,
+    *,
+    inputs: dict[str, str] | None = None,
+    sync_revision: str | None = None,
 ) -> tuple[ArtifactKey, ArtifactHandle]:
     key = ArtifactKey(
         layer=value.kind,
-        inputs={"fixture": "0" * 64},
+        inputs=inputs or {"fixture": "0" * 64},
+        sync_revision=sync_revision,
         schema_version="1.0.0",
         algorithm_revision=value.id,
         config_digest=value.provenance.config_digest,
@@ -93,7 +99,7 @@ def inspection(tmp_path: Path) -> tuple[Inspection, dict[str, ArtifactKey]]:
             for path, offset in ((left, 23.0), (right, 22.5))
         ],
     )
-    sync_key, _ = persist(store, sync)
+    sync_key, sync_handle = persist(store, sync)
     obs = Observation(
         kind="observation",
         id="native-left",
@@ -162,6 +168,10 @@ def inspection(tmp_path: Path) -> tuple[Inspection, dict[str, ArtifactKey]]:
             "trajectory": np.array([[1.0, 2.0, 3.0]]),
             "missing": np.zeros((1, 3), dtype=bool),
         },
+        inputs={
+            name: hash_file(path) for name, path in (("left", left), ("right", right))
+        },
+        sync_revision=hash_file(sync_handle.path / "manifest.json"),
     )
     ground = Ground(
         kind="ground",
@@ -340,7 +350,6 @@ def test_parser_edits_preserve_vision_and_automatic_bytes(
         )
         for t in evidence["motion_times"]
     ]
-    motion_key, _ = persist(store, final_motion)
     pipe = Pipeline(store)
     for side in ("left", "right"):
         (tmp_path / side).write_bytes(side.encode())
@@ -359,7 +368,13 @@ def test_parser_edits_preserve_vision_and_automatic_bytes(
             for side in ("left", "right")
         ],
     )
-    sync_key, _ = persist(store, sync)
+    sync_key, sync_handle = persist(store, sync)
+    motion_key, _ = persist(
+        store,
+        final_motion,
+        inputs={side: hash_file(tmp_path / side) for side in ("left", "right")},
+        sync_revision=hash_file(sync_handle.path / "manifest.json"),
+    )
     index = Inspection(pipe)
     index.register(
         "demo",
@@ -456,7 +471,12 @@ def test_long_recording_paging_memory_and_cancellation(
         old.samples[0].model_copy(update={"global_seconds": i / 1000})
         for i in range(50000)
     ]
-    key, _ = persist(index.pipe.store, value)
+    key, _ = persist(
+        index.pipe.store,
+        value,
+        inputs=dict(products["reconstruction"].inputs),
+        sync_revision=products["reconstruction"].sync_revision,
+    )
     index.register("demo", {"sync": products["sync"], "reconstruction": key})
 
     # Queries must not reopen dense artifact metadata through the store.
@@ -567,3 +587,307 @@ def test_cli_registration_and_sync_compare_under_lock(
             "accepted",
             "conflict",
         ]
+
+
+def test_observation_entity_uses_the_same_effective_frame_as_window(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    index, _ = inspection
+    with client(index) as http:
+        for revision, start, expected in ((0, 23.3, 23.4), (1, 24.3, 24.4)):
+            if revision:
+                assert (
+                    http.post(
+                        BASE + "/sync-offset",
+                        headers=WRITE,
+                        json={
+                            "expected_revision": 0,
+                            "camera": "left",
+                            "offset_seconds": 24,
+                            **ATTRIBUTION,
+                        },
+                    ).status_code
+                    == 200
+                )
+            window = http.get(
+                BASE + "/observations/window",
+                params={
+                    "collection": "observations",
+                    "start": start,
+                    "end": start + 0.2,
+                },
+            ).json()
+            selected = http.get(BASE + "/entities", params={"id": "native-left"}).json()
+            assert selected["entity"]["frame"] == window["rows"][0]["frame"]
+            assert selected["entity"]["frame"]["global_seconds"] == pytest.approx(
+                expected
+            )
+            assert selected["entity"]["native_frame"]["global_seconds"] == 0.4
+            assert (
+                selected["source_evidence"][0]["frame"] == selected["entity"]["frame"]
+            )
+            assert selected["revision"] == window["revision"]
+
+
+@pytest.mark.parametrize("change", ["sync", "source"])
+def test_first_registration_rejects_preexisting_motion_with_stale_lineage(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+    change: str,
+) -> None:
+    index, products = inspection
+    motion = index.pipe.store.get(products["reconstruction"]).metadata.model_copy(
+        deep=True
+    )
+    motion.id = "unindexed-cached-motion"
+    old_key, _ = persist(
+        index.pipe.store,
+        motion,
+        inputs=dict(products["reconstruction"].inputs),
+        sync_revision=products["reconstruction"].sync_revision,
+        arrays={
+            "trajectory": np.array([[1.0, 2.0, 3.0]]),
+            "missing": np.zeros((1, 3), dtype=bool),
+        },
+    )
+    sync = index.pipe.store.get(products["sync"]).metadata.model_copy(deep=True)
+    assert isinstance(sync, Synchronization)
+    with client(index) as http:
+        if change == "sync":
+            assert (
+                http.post(
+                    BASE + "/sync-offset",
+                    headers=WRITE,
+                    json={
+                        "expected_revision": 0,
+                        "camera": "left",
+                        "offset_seconds": 24,
+                        **ATTRIBUTION,
+                    },
+                ).status_code
+                == 200
+            )
+            sync.offsets[0].manual_seconds = 24
+            sync.offsets[0].manual_author = "operator"
+            sync.offsets[0].manual_source = "inspector"
+            sync.offsets[0].manual_reason = "inspect"
+        else:
+            project_file, _ = index.pipe._files("demo")
+            path = Path(json.loads(project_file.read_text())["sources"]["left"])
+            path.write_bytes(path.read_bytes() + b"changed-source")
+            sync.offsets[0].source_id = "source:" + hash_file(path)
+        sync.id = "current-sync"
+        sync_key, _ = persist(index.pipe.store, sync)
+        with pytest.raises(InspectionError, match="lineage"):
+            index.register("demo", {"sync": sync_key, "reconstruction": old_key})
+        # A failed registration retains the existing stale index, never old rows
+        # certified under the new clock, even when this manifest was never indexed.
+        result = http.get(BASE + "/reconstruction/window?start=23&end=25").json()
+        assert result["available"] is False and result["rows"] == []
+
+
+def test_partial_source_resolution_keeps_valid_evidence_and_missing_reason(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    index, products = inspection
+    headers, _ = index.headers("demo")
+    observation_key = ArtifactKey(
+        **next(
+            h["key"] for name, h in headers.items() if name.startswith("observations:")
+        )
+    )
+    motion = index.pipe.store.get(products["reconstruction"]).metadata.model_copy(
+        deep=True
+    )
+    assert isinstance(motion, Reconstruction)
+    motion.id = "partly-indexed-motion"
+    motion.samples[0].landmarks[0].quality.source_ids = [
+        "native-left",
+        "native-right-not-indexed",
+    ]
+    motion.arrays = []
+    key, _ = persist(
+        index.pipe.store,
+        motion,
+        inputs=dict(products["reconstruction"].inputs),
+        sync_revision=products["reconstruction"].sync_revision,
+    )
+    index.register(
+        "demo",
+        {"sync": products["sync"], "reconstruction": key},
+        observations=[observation_key],
+    )
+    with client(index) as http:
+        result = http.get(
+            BASE + "/entities", params={"id": motion.id + "/samples/0/left_wrist"}
+        ).json()
+        assert [e["observation_id"] for e in result["source_evidence"]] == [
+            "native-left"
+        ]
+        assert result["source_evidence_reason"] is not None
+        assert result["source_evidence_unavailable_count"] == 1
+        assert result["source_evidence_unavailable_ids"] == ["native-right-not-indexed"]
+        assert result["evidence_truncated"] is False
+
+
+def test_final_published_motion_verifies_transitive_native_sync_lineage(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    """Real alignment/triangulation/fitting/temporal publishers remain inspectable."""
+    from reconstruction.articulated.core import REVISION as FIT_REVISION
+    from reconstruction.temporal import publish_temporal_motion
+    from reconstruction.temporal.core import REVISION as TEMPORAL_REVISION
+    from reconstruction.triangulation import REVISION as RAW_REVISION
+    from reconstruction.triangulation import publish_triangulation
+    from storage import hash_config
+    from sync.alignment import REVISION as ALIGNMENT_REVISION
+    from sync.alignment import JoinConfig, publish_alignment
+    from tests.test_triangulation import native, scene
+
+    index, products = inspection
+    store = index.pipe.store
+    sync_handle = store.get(products["sync"])
+    sync = sync_handle.metadata
+    assert isinstance(sync, Synchronization)
+    calibration, models = scene(2)
+    frames = native(models, times=(400, 440))
+    keys, windows = [], []
+    for i, camera in enumerate(("left", "right")):
+        source_id = sync.offsets[i].source_id
+        calibration.cameras[i].camera_id = camera
+        calibration.cameras[i].source_id = source_id
+        observations = frames[i * 2 : i * 2 + 2]
+        for obs in observations:
+            seconds = obs.frame.source_seconds + i * 0.5
+            obs.frame = FrameTime(
+                source_id=source_id,
+                camera_id=camera,
+                pts=obs.frame.pts + i * 500 if obs.frame.pts is not None else None,
+                time_base_num=1,
+                time_base_den=1000,
+                source_seconds=seconds,
+                global_seconds=seconds,
+                offset_seconds=0,
+            )
+        payload = np.frombuffer(
+            json.dumps(
+                {
+                    "version": 1,
+                    "records": [
+                        {
+                            "observation": obs.model_dump(mode="json"),
+                            "model_identity": {},
+                            "inference_settings": {},
+                            "hand_observations": {},
+                            "hand_roi_to_source": {},
+                            "source_orientation": {},
+                            "tracker_state": {},
+                        }
+                        for obs in observations
+                    ],
+                }
+            ).encode(),
+            dtype=np.uint8,
+        )
+        metadata = observations[0].model_copy(deep=True)
+        metadata.arrays = [
+            DenseArray(
+                id="window_records_json",
+                dtype="uint8",
+                shape=[len(payload)],
+                axes=["json_byte"],
+            )
+        ]
+        key, handle = persist(
+            store,
+            metadata,
+            {"window_records_json": payload},
+            inputs={"source": source_id.removeprefix("source:")},
+        )
+        keys.append(key)
+        windows.append(handle)
+    times = [23.4, 23.44]
+    alignment = publish_alignment(store, windows, sync_handle, times)
+    alignment_key = ArtifactKey(
+        layer="alignment",
+        inputs={
+            f"window_{i}": digest
+            for i, digest in enumerate(
+                sorted(hash_file(w.path / "manifest.json") for w in windows)
+            )
+        },
+        schema_version="1.0.0",
+        algorithm_revision=ALIGNMENT_REVISION,
+        config_digest=hash_config(
+            {"join": JoinConfig().model_dump(mode="json"), "global_times": times}
+        ),
+        sync_revision=hash_file(sync_handle.path / "manifest.json"),
+    )
+    _, cal = persist(store, calibration)
+    raw = publish_triangulation(store, cal, alignment, "practitioner")
+    raw_key = key_for(
+        raw,
+        "reconstruction",
+        {
+            "calibration": hash_file(cal.path / "manifest.json"),
+            "attachment": hash_file(alignment.path / "manifest.json"),
+        },
+        RAW_REVISION,
+    )
+    raw_key = replace(
+        raw_key,
+        calibration_revision=hash_file(cal.path / "manifest.json"),
+        sync_revision=hash_file(alignment.path / "manifest.json"),
+    )
+    final = publish_temporal_motion(store, raw)
+    fitted_key = key_for(
+        final.fitted,
+        "reconstruction",
+        {
+            "raw_reconstruction": hash_file(raw.path / "manifest.json"),
+            "morphology": hash_file(final.morphology.path / "manifest.json"),
+        },
+        FIT_REVISION,
+    )
+    final_key = key_for(
+        final.motion,
+        "reconstruction",
+        {
+            "raw": hash_file(raw.path / "manifest.json"),
+            "fit": hash_file(final.fitted.path / "manifest.json"),
+            "morphology": hash_file(final.morphology.path / "manifest.json"),
+        },
+        TEMPORAL_REVISION,
+    )
+    lineage = [alignment_key, raw_key, fitted_key, *keys]
+    with pytest.raises(InspectionError, match="lineage unavailable"):
+        index.register("demo", {"sync": products["sync"], "reconstruction": final_key})
+    index.register(
+        "demo",
+        {"sync": products["sync"], "reconstruction": final_key},
+        observations=keys,
+        lineage=lineage,
+    )
+    with client(index) as http:
+        value = http.get(BASE + "/reconstruction/window?start=23.3&end=23.5").json()
+        assert value["available"] and len(value["rows"]) == 2
+        entity = http.get(
+            BASE + "/entities",
+            params={"id": final.motion.metadata.id + "/samples/0/left_wrist"},
+        ).json()
+        assert {e["frame"]["camera_id"] for e in entity["source_evidence"]} == {
+            "left",
+            "right",
+        }
+        assert entity["source_evidence_reason"] is None
+        assert {e["frame"]["pts"] for e in entity["source_evidence"]} == {400, 900}
+        # Upstream proof must be checked again on first registration in a fresh
+        # index too: changing only the sync identity cannot certify old motion.
+        sync = sync.model_copy(deep=True)
+        sync.id = "other-automatic-sync"
+        other_key, _ = persist(store, sync)
+        with pytest.raises(InspectionError, match="synchronization"):
+            index.register(
+                "demo",
+                {"sync": other_key, "reconstruction": final_key},
+                lineage=lineage,
+            )

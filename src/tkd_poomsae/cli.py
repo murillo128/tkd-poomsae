@@ -328,9 +328,13 @@ def main() -> int:
             from tkd_poomsae.inspection import Inspection
 
             data = json.loads(args.artifacts.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or set(data) - {"products", "observations"}:
+            if not isinstance(data, dict) or set(data) - {
+                "products",
+                "observations",
+                "lineage",
+            }:
                 raise ValueError(
-                    "artifact bundle must contain products and observations"
+                    "artifact bundle accepts products, observations and lineage"
                 )
             Inspection(pipeline).register(
                 args.project,
@@ -338,6 +342,7 @@ def main() -> int:
                 observations=(
                     ArtifactKey(**key) for key in data.get("observations", [])
                 ),
+                lineage=(ArtifactKey(**key) for key in data.get("lineage", [])),
             )
             result = {"project": args.project, "inspection_registered": True}
         elif args.command == "status":

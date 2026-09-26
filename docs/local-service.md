@@ -70,22 +70,31 @@ not download datasets or model weights.
 
 Processed artifact inspection uses a persisted per-project SQLite index. The
 trusted producer/operator binds existing `ArtifactKey`s with
-`Inspection(pipeline).register(project, products, observations=window_keys)` or:
+`Inspection(pipeline).register(project, products, observations=window_keys,
+lineage=upstream_keys)` or:
 
 ```sh
 tkd-poomsae inspection-register PROJECT --artifacts artifact-keys.json
 ```
 
 The bundle contains `products` (required `sync`, optional `reconstruction`,
-`ground`, `semantics`) and an optional `observations` array of native window
-keys. Each key uses the same JSON fields as the immutable store and the
+`ground`, `semantics`), an optional `observations` array of native window
+keys to index, and an optional `lineage` array of upstream keys to verify. Each
+key uses the same JSON fields as the immutable store and the
 semantic-edit CLI: `layer`, `inputs`, `schema_version`, `algorithm_revision`,
 `config_digest`, and any optional model/calibration/sync revisions. Register the
 final reconstruction and ground product, not an earlier raw intermediate.
 Registration verifies source hashes, layer identities and physical/semantic
-lineage, indexes each native observation window separately, and preserves the
-first clock binding of every timed artifact. It cannot relabel an old product
-as current after a sync revision. Registration reads persisted data only and
+lineage before assigning a clock, including for previously unindexed motion.
+Direct motion keys must bind the current source hashes and synchronization
+manifest. Published derived motion instead requires upstream reconstruction,
+alignment and native observation keys in `lineage`, following their immutable
+input references to the current synchronization and sources. Unverifiable or
+mismatched lineage is rejected. The upstream key inventory is bounded to 8 MiB
+and reconstruction ancestry to eight edges. Registration indexes each native
+observation window separately and preserves the first clock binding of every
+timed artifact. It cannot relabel an old product as current after a sync
+revision. Registration reads persisted data only and
 never invokes a producer. No HTTP endpoint accepts artifact keys or file paths.
 Missing products remain explicitly unavailable until registered; this does not
 make an uninstalled producer available.
@@ -108,7 +117,12 @@ and local-mutation policy:
   footprint, action, phase or keyframe and follows retained native observation
   IDs to camera/frame/PTS evidence. Sample IDs are `{artifact_id}/samples/{index}`;
   joint IDs append `/{landmark_name}`. Persisted semantic/footprint IDs stay
-  unchanged. Missing or truncated contributing evidence has an explicit reason.
+  unchanged. Native observation entities return the effective global `frame`
+  and retain their original `native_frame`, matching window and evidence times.
+  Missing or truncated contributing evidence has an explicit reason. Partial
+  resolution retains valid evidence and reports bounded
+  `source_evidence_unavailable_ids` and `source_evidence_unavailable_count` for
+  the IDs examined; `evidence_truncated` reports unexamined excess IDs/rows.
   Reprojection diagnostics describe internal consistency, not accuracy.
 - `GET .../inspection/time/{camera}?seconds=T` maps global time using persisted
   offsets and current manual revisions, then uses the registered native media
