@@ -14,6 +14,7 @@ from contracts.models import FrameTime, RawScore
 from media import FrameRef
 from pose.observation_run import (
     ObservationSettings,
+    _key,
     load_receipt,
     load_window_records,
     run_selection,
@@ -114,6 +115,14 @@ def test_resume_and_cross_directory_cache(
 
     store = ArtifactStore(StorageRoot(tmp_path / "shared"))
     settings = ObservationSettings(max_frames=2)
+    later_origin = Window("other-execution", "camera", digest, source, 0.2, 0.3)
+    assert _key(window, refs[2:], settings).digest != _key(
+        later_origin, refs[2:], settings
+    ).digest
+    renamed = Window("other-execution", "camera", digest, source, 0, 0.3)
+    assert _key(window, refs[2:], settings).digest == _key(
+        renamed, refs[2:], settings
+    ).digest
     with pytest.raises(RuntimeError, match="interrupted"):
         run_selection(
             "smoke-short", store=store, settings=settings, adapter_factory=Adapter

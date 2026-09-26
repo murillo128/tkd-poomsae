@@ -253,7 +253,7 @@ def map_refinement(
         point = mapped[index]
         score = float(scores[index])
         visible = None if visibility is None else float(visibility[index])
-        if not math.isfinite(score) or not 0 <= score <= 1:
+        if not math.isfinite(score):
             raise ValueError("invalid hand model score")
         if visible is not None and not math.isfinite(visible):
             raise ValueError("invalid hand model visibility")

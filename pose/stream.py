@@ -570,7 +570,10 @@ def _assemble(
                         continue
                     raw_score = (
                         RawScore(
-                            value=refined_point.raw_score, range_min=0, range_max=1
+                            value=refined_point.raw_score,
+                            range_min=None,
+                            range_max=None,
+                            domain="rtmpose_simcc_response",
                         )
                         if refined_point.raw_score is not None
                         else None

@@ -51,8 +51,10 @@ class WholebodyRegionalProvider:
                 item is None
                 or item.xy_px is None
                 or item.raw_score is None
-                or item.raw_score.range_min != 0
-                or item.raw_score.range_max != 1
+                or not (
+                    item.raw_score.domain == "rtmpose_simcc_response"
+                    or (item.raw_score.range_min == 0 and item.raw_score.range_max == 1)
+                )
                 or item.raw_score.value < self.min_raw_score
                 or (
                     item.raw_visibility is not None

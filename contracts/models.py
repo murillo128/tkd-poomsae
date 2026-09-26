@@ -437,14 +437,22 @@ class Calibration(ArtifactBase):
 
 class RawScore(StrictModel):
     value: float
-    range_min: float
-    range_max: float
+    range_min: float | None
+    range_max: float | None
+    domain: str | None = None
 
     @model_validator(mode="after")
     def in_range(self) -> RawScore:
+        if (self.range_min is None or self.range_max is None) and not self.domain:
+            raise ValueError("unbounded raw score requires its model score domain")
         if (
-            self.range_min >= self.range_max
-            or not self.range_min <= self.value <= self.range_max
+            (self.range_min is not None and self.value < self.range_min)
+            or (self.range_max is not None and self.value > self.range_max)
+            or (
+                self.range_min is not None
+                and self.range_max is not None
+                and self.range_min >= self.range_max
+            )
         ):
             raise ValueError("raw score outside declared original range")
         return self

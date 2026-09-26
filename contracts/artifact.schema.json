@@ -1814,13 +1814,39 @@
     "RawScore": {
       "additionalProperties": false,
       "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
         "range_max": {
-          "title": "Range Max",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Range Max"
         },
         "range_min": {
-          "title": "Range Min",
-          "type": "number"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Range Min"
         },
         "value": {
           "title": "Value",

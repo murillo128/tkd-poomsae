@@ -72,9 +72,19 @@ class PoseFrame:
     inference_settings: dict[str, Any]
 
 
-def _score(value: Any) -> RawScore:
+def _score(value: Any, *, response: bool = False) -> RawScore:
     numeric = float(value)
-    if not math.isfinite(numeric) or not 0 <= numeric <= 1:
+    if not math.isfinite(numeric):
+        raise ValueError(f"nonfinite model score: {numeric}")
+    if response:
+        # Pinned SimCC decoding takes raw maxima without applying softmax.
+        return RawScore(
+            value=numeric,
+            range_min=None,
+            range_max=None,
+            domain="rtmpose_simcc_response",
+        )
+    if not 0 <= numeric <= 1:
         raise ValueError(f"model score outside declared [0, 1] range: {numeric}")
     return RawScore(value=numeric, range_min=0, range_max=1)
 
@@ -98,7 +108,11 @@ def _points(sample: Any, names: tuple[str, ...]) -> tuple[NamedPoint, ...]:
         raw_visibility = None if visibility is None else float(visibility[0, i])
         if raw_visibility is not None and not math.isfinite(raw_visibility):
             raise ValueError(f"nonfinite visibility for {name}")
-        points.append(NamedPoint(name, coords, _score(scores[0, i]), raw_visibility))
+        points.append(
+            NamedPoint(
+                name, coords, _score(scores[0, i], response=True), raw_visibility
+            )
+        )
     return tuple(points)
 
 
@@ -437,7 +451,7 @@ class MMPoseAdapter:
                                 NamedPoint(
                                     p.name,
                                     p.xy_px,
-                                    _score(p.raw_score),
+                                    _score(p.raw_score, response=True),
                                     p.raw_visibility,
                                 )
                                 for p in mapped

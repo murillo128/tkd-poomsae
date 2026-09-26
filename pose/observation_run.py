@@ -25,12 +25,12 @@ from storage import (
     ArtifactStore,
     MissingResource,
     hash_config,
-    hash_file,
 )
 from tkd_poomsae.selections import Window, resolve
 from tkd_poomsae.vision.assets import registry
+from tkd_poomsae.vision.runtime import runtime_revision
 
-REVISION = "native-observation-windows-v1"
+REVISION = "native-observation-windows-v3-tracking-origin"
 ARRAY_ID = "window_records_json"
 
 
@@ -71,8 +71,7 @@ class ObservationRecord:
 
 def _model_revision() -> str:
     # The pinned model bytes and runtime lock are identities, never download hints.
-    lock = Path(__file__).resolve().parents[1] / "vision/requirements.lock"
-    return hash_config({"registry": registry(), "runtime_lock_sha256": hash_file(lock)})
+    return hash_config({"registry": registry(), "runtime_revision": runtime_revision()})
 
 
 def _key(
@@ -93,6 +92,7 @@ def _key(
                 "last_pts": refs[-1].pts,
                 "preprocessing": "display-oriented-rgb-v1",
                 "tracking_revision": "practitioner-tracker-v1",
+                "tracking_origin_seconds": window.start_seconds,
                 "regional_revision": "wholebody-regions-v1",
                 "settings": asdict(settings),
             }

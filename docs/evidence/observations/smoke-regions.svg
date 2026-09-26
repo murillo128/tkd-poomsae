@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="650" viewBox="0 0 920 650">
+<rect width="920" height="650" fill="#101826"/>
+<g font-family="sans-serif" fill="#e5edf7">
+<text x="24" y="30" font-size="19">Real smoke: retained derived landmarks at native time 6.0 s</text>
+<text x="24" y="54" font-size="13">Observed points only; missing geometry is omitted. Positions use each camera’s own pixel frame.</text>
+<text x="24" y="86" font-size="16">mendeley-frontal</text>
+<rect x="24" y="100" width="412" height="345" rx="8" fill="#1c293b"/>
+<circle cx="63.03" cy="121.07" r="2.5" fill="#64dcc3"><title>nose</title></circle>
+<circle cx="70.98" cy="114.00" r="2.5" fill="#64dcc3"><title>left_eye</title></circle>
+<circle cx="56.84" cy="114.00" r="2.5" fill="#64dcc3"><title>right_eye</title></circle>
+<circle cx="95.73" cy="158.20" r="2.5" fill="#64dcc3"><title>left_shoulder</title></circle>
+<circle cx="56.84" cy="151.13" r="2.5" fill="#64dcc3"><title>right_shoulder</title></circle>
+<circle cx="83.36" cy="205.05" r="2.5" fill="#64dcc3"><title>left_elbow</title></circle>
+<circle cx="54.19" cy="190.91" r="2.5" fill="#64dcc3"><title>right_elbow</title></circle>
+<circle cx="62.14" cy="254.55" r="2.5" fill="#64dcc3"><title>left_wrist</title></circle>
+<circle cx="48.00" cy="205.93" r="2.5" fill="#64dcc3"><title>right_wrist</title></circle>
+<circle cx="89.55" cy="249.25" r="2.5" fill="#64dcc3"><title>left_hip</title></circle>
+<circle cx="62.14" cy="248.36" r="2.5" fill="#64dcc3"><title>right_hip</title></circle>
+<circle cx="93.97" cy="324.39" r="2.5" fill="#64dcc3"><title>left_knee</title></circle>
+<circle cx="81.59" cy="322.62" r="2.5" fill="#64dcc3"><title>right_knee</title></circle>
+<circle cx="96.62" cy="406.60" r="2.5" fill="#64dcc3"><title>left_ankle</title></circle>
+<circle cx="94.85" cy="375.66" r="2.5" fill="#64dcc3"><title>right_ankle</title></circle>
+<circle cx="74.52" cy="434.00" r="2.5" fill="#64dcc3"><title>left_forefoot</title></circle>
+<circle cx="87.78" cy="434.00" r="2.5" fill="#64dcc3"><title>left_foot_outer</title></circle>
+<circle cx="101.92" cy="415.44" r="2.5" fill="#64dcc3"><title>left_heel</title></circle>
+<circle cx="75.40" cy="399.52" r="2.5" fill="#64dcc3"><title>right_forefoot</title></circle>
+<circle cx="74.52" cy="389.80" r="2.5" fill="#64dcc3"><title>right_foot_outer</title></circle>
+<circle cx="101.92" cy="388.03" r="2.5" fill="#64dcc3"><title>right_heel</title></circle>
+<circle cx="55.41" cy="270.67" r="2.5" fill="#64dcc3"><title>left_index_mcp</title></circle>
+<circle cx="55.63" cy="281.31" r="2.5" fill="#64dcc3"><title>left_index_pip</title></circle>
+<circle cx="69.81" cy="269.90" r="2.5" fill="#64dcc3"><title>left_pinky_mcp</title></circle>
+<text x="24" y="469" font-size="13">24 retained points / 63 landmarks</text>
+<text x="24" y="493" font-size="13" fill="#64dcc3">body: usable evidence</text>
+<text x="24" y="515" font-size="13" fill="#64dcc3">left_hand: usable evidence</text>
+<text x="24" y="537" font-size="13" fill="#edb86a">right_hand: low / unknown evidence</text>
+<text x="24" y="559" font-size="13" fill="#64dcc3">left_foot: usable evidence</text>
+<text x="24" y="581" font-size="13" fill="#64dcc3">right_foot: usable evidence</text>
+<text x="24" y="603" font-size="13" fill="#edb86a">head: low / unknown evidence</text>
+<text x="484" y="86" font-size="16">mendeley-lateral</text>
+<rect x="484" y="100" width="412" height="345" rx="8" fill="#1c293b"/>
+<circle cx="579.52" cy="122.25" r="2.5" fill="#64dcc3"><title>nose</title></circle>
+<circle cx="583.19" cy="114.00" r="2.5" fill="#64dcc3"><title>left_eye</title></circle>
+<circle cx="579.52" cy="114.00" r="2.5" fill="#64dcc3"><title>right_eye</title></circle>
+<circle cx="605.19" cy="114.00" r="2.5" fill="#64dcc3"><title>left_ear</title></circle>
+<circle cx="607.94" cy="155.26" r="2.5" fill="#64dcc3"><title>left_shoulder</title></circle>
+<circle cx="620.78" cy="150.68" r="2.5" fill="#64dcc3"><title>right_shoulder</title></circle>
+<circle cx="583.19" cy="212.11" r="2.5" fill="#64dcc3"><title>left_elbow</title></circle>
+<circle cx="606.11" cy="266.21" r="2.5" fill="#64dcc3"><title>left_hip</title></circle>
+<circle cx="626.28" cy="264.37" r="2.5" fill="#64dcc3"><title>right_hip</title></circle>
+<circle cx="545.59" cy="326.72" r="2.5" fill="#64dcc3"><title>left_knee</title></circle>
+<circle cx="638.20" cy="336.81" r="2.5" fill="#64dcc3"><title>right_knee</title></circle>
+<circle cx="546.51" cy="419.33" r="2.5" fill="#64dcc3"><title>left_ankle</title></circle>
+<circle cx="697.80" cy="390.91" r="2.5" fill="#64dcc3"><title>right_ankle</title></circle>
+<circle cx="508.00" cy="429.42" r="2.5" fill="#64dcc3"><title>left_forefoot</title></circle>
+<circle cx="515.34" cy="434.00" r="2.5" fill="#64dcc3"><title>left_foot_outer</title></circle>
+<circle cx="554.76" cy="428.50" r="2.5" fill="#64dcc3"><title>left_heel</title></circle>
+<circle cx="666.62" cy="408.33" r="2.5" fill="#64dcc3"><title>right_forefoot</title></circle>
+<circle cx="671.21" cy="403.74" r="2.5" fill="#64dcc3"><title>right_foot_outer</title></circle>
+<circle cx="709.72" cy="394.57" r="2.5" fill="#64dcc3"><title>right_heel</title></circle>
+<text x="484" y="469" font-size="13">19 retained points / 63 landmarks</text>
+<text x="484" y="493" font-size="13" fill="#64dcc3">body: usable evidence</text>
+<text x="484" y="515" font-size="13" fill="#edb86a">left_hand: low / unknown evidence</text>
+<text x="484" y="537" font-size="13" fill="#edb86a">right_hand: low / unknown evidence</text>
+<text x="484" y="559" font-size="13" fill="#64dcc3">left_foot: usable evidence</text>
+<text x="484" y="581" font-size="13" fill="#64dcc3">right_foot: usable evidence</text>
+<text x="484" y="603" font-size="13" fill="#64dcc3">head: usable evidence</text>
+</g></svg>
