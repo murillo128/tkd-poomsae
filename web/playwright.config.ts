@@ -29,6 +29,7 @@ export default defineConfig({
   ],
   // Each suite owns its server; never test another worktree or revision silently.
   webServer: [
+    { command: '.venv/bin/python -m tests.fixtures.serve_timeline', cwd: '..', url: 'http://127.0.0.1:5197/health', reuseExistingServer: false },
     { command: `npm run dev -- --port ${groundPort} --strictPort`, url: groundOrigin, reuseExistingServer: false },
     { command: `npm run dev -- --port ${threePort} --strictPort`, url: threeOrigin, reuseExistingServer: false },
   ],

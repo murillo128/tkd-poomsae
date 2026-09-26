@@ -103,7 +103,10 @@ The inspection endpoints below share the existing Host, Origin, registered-media
 and local-mutation policy:
 
 - `GET /api/projects/{id}/inspection` reports source/artifact revisions, edit
-  revisions, availability, array descriptors and request limits.
+  revisions, availability, array descriptors and request limits. Each product
+  includes `origin` (`automatic` or `manual`) and indexed global `time_bounds`
+  (`{start, end}` or null). These bounds support bounded timeline paging without
+  reading whole dense artifacts; unavailable products do not imply usable motion.
 - `GET .../inspection/{product}/window?collection=samples&start=T&end=U` returns
   a closed global-time window. Products are `observations`, `reconstruction`,
   `ground`, `semantics`. Observations use collection `observations`; reconstruction

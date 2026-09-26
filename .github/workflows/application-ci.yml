@@ -46,6 +46,8 @@ jobs:
       - run: npm run test
       - run: npm run build
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
       - run: uv python install 3.11
       - run: uv sync --frozen --group dev
         working-directory: .
