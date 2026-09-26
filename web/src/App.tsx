@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { SyncControls } from './SyncControls'
 import { GroundView } from './GroundView'
 import { Timeline } from './Timeline'
 import { CameraPanel } from './CameraPanel'
@@ -6,6 +7,7 @@ import { canStep, initialPlayback, playbackReducer } from './playback'
 import { API_ROOT, listProjects, readProject, type ProjectSnapshot } from './projectApi'
 
 import { ThreePanel } from './ThreePanel'
+import { trackFor } from './sceneGeometry'
 import { GeometryInspector, selectedLandmarkName } from './GeometryInspector'
 import type { GeometryData } from './geometryApi'
 
@@ -21,6 +23,7 @@ export function App() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [project, setProject] = useState<LoadState<ProjectSnapshot> | null>(null)
   const [projectAttempt, setProjectAttempt] = useState(0)
+  const [refreshError, setRefreshError] = useState('')
   const [seekDraft, setSeekDraft] = useState<string | null>(null)
   const [seekError, setSeekError] = useState(false)
   const [geometry, setGeometry] = useState<GeometryData | null>(null)
@@ -29,6 +32,13 @@ export function App() {
     dispatch({ type: 'reconstructionSamples', times: data?.samples.map(sample => sample.global_seconds) ?? [] })
   }, [])
   const requestEpoch = useRef(0)
+  const loadedProject = useRef<string | null>(null)
+  const [windowSeconds, setWindowSeconds] = useState(1)
+  const refreshArtifacts = useCallback(() => {
+    dispatch({ type: 'play', playing: false })
+    setGeometry(null)
+    setProjectAttempt(n => n + 1)
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -45,23 +55,29 @@ export function App() {
     if (!projectId) { setProject(null); return }
     const controller = new AbortController()
     const epoch = ++requestEpoch.current
-    setProject({ status: 'loading' })
+    setRefreshError('')
+    function failure(message: string) {
+      if (loadedProject.current === projectId) setRefreshError(message)
+      else setProject({ status: 'error', message })
+    }
+    if (loadedProject.current !== projectId) setProject({ status: 'loading' })
     readProject(projectId, controller.signal).then(snapshot => {
       if (controller.signal.aborted || epoch !== requestEpoch.current) return
       // The paired metadata reads must describe the same stage revision.
       for (const [name, stage] of Object.entries(snapshot.capabilities.stages)) {
         const detailStage = snapshot.detail.state.stages[name]
         if (detailStage && (detailStage.key !== stage.status.key || detailStage.status !== stage.status.status)) {
-          setProject({ status: 'error', message: 'Project changed during metadata read. Retry to load its current revision.' })
+          failure('Project changed during metadata read. Retry to load its current revision.')
           return
         }
       }
       setProject({ status: 'ready', value: snapshot })
-      dispatch({ type: 'project', id: projectId,
+      if (loadedProject.current !== projectId) dispatch({ type: 'project', id: projectId,
         cameras: snapshot.detail.sources.map(id => ({ id, offsetSeconds: Number.NaN, frames: [] })) })
+      loadedProject.current = projectId
     }).catch(error => {
       if (!controller.signal.aborted && epoch === requestEpoch.current) {
-        setProject({ status: 'error', message: String(error) })
+        failure(String(error))
       }
     })
     return () => { controller.abort(); requestEpoch.current++ }
@@ -97,7 +113,7 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [playback, project?.status])
 
-  const snapshot = project?.status === 'ready' ? project.value : null
+  const snapshot = project?.status === 'ready' ? { ...project.value, revision: `${project.value.revision}/${projectAttempt}` } : null
   const capabilities = snapshot?.capabilities.stages
   const hasProject = Boolean(snapshot)
   const stepAvailable = hasProject && canStep(playback)
@@ -105,6 +121,8 @@ export function App() {
   const selectionLabel = selectedLandmarkName(playback.selection) ?? playback.selection?.id ?? 'None'
   function openProject(id: string) {
     setProjectId(id)
+    loadedProject.current = null
+    setGeometry(null)
     setProject(null)
     setSeekDraft(null)
     setSeekError(false)
@@ -148,6 +166,7 @@ export function App() {
     {projectId && project?.status === 'error' && <div role="alert" className="notice error">
       {project.message} <button type="button" onClick={() => setProjectAttempt(value => value + 1)}>Retry project</button>
     </div>}
+    {refreshError && <p role="alert">Project status refresh failed: {refreshError} <button onClick={refreshArtifacts}>Retry status refresh</button></p>}
     {snapshot && <section className="project-summary" aria-label="Project capabilities">
       <div><p className="eyebrow">Current project</p><h2>{snapshot.detail.id}</h2>
         <p>{snapshot.detail.sources.length} camera source{snapshot.detail.sources.length === 1 ? '' : 's'}</p></div>
@@ -187,16 +206,26 @@ export function App() {
       </select></label>}</div>
       {hasProject && !stepAvailable && <p className="hint">Frame stepping unavailable: {playback.stepMode === 'camera' ? `${selectedCamera?.id ?? 'selected camera'} PTS` : 'reconstruction sample grid'} is not exposed by the local service. Keyboard: Space plays or pauses; ← and → step when samples are available.</p>}
     </section>
+    {snapshot && <section className="panel" aria-label="Development controls"><h2>Development controls</h2>
+      <label>Local trajectory radius (seconds) <select value={windowSeconds} onChange={e => setWindowSeconds(Number(e.target.value))}>
+        {[0.5, 1, 2, 5, 10].map(value => <option key={value} value={value}>{value}</option>)}
+      </select></label><p>3D and dynamic ground trajectories use the same bounded window around the global cursor. Each panel exposes its analytical layers.</p>
+      {snapshot.detail.sources.map(camera => <SyncControls key={`${snapshot.detail.id}/${camera}`} project={snapshot.detail.id} camera={camera} revision={snapshot.revision} onChanged={refreshArtifacts} />)}
+    </section>}
     <div className="inspection-grid" aria-label="Inspection layout">
       <section className="panel cameras"><h2>Camera views</h2><div className="camera-grid">{snapshot?.detail.sources.map(id => <CameraPanel key={`${snapshot.detail.id}/${snapshot.revision}/${id}`} project={snapshot.detail.id} camera={id}
         seconds={playback.cursorSeconds} selected={playback.selectedCameraId === id} playing={playback.playing} speed={playback.speed}
         onClock={camera => dispatch({ type: 'cameraClock', camera })}
         onDelivered={(camera, seconds) => { if (camera === playback.selectedCameraId) dispatch({ type: 'frameDelivered', seconds }) }}
-        onSelect={(id, description) => dispatch({ type: 'select', selection: { kind: 'entity', id, tracks: [], description } })} />) ?? <p>Open a project to view cameras.</p>}</div></section>
-      <ThreePanel project={snapshot} playback={playback} dispatch={dispatch} onData={onGeometry} />
-      <GroundView projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
-      <Timeline key={projectId ?? 'no-project'} projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} selection={playback.selection} dispatch={dispatch} />
-      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{selectionLabel}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} cursorSeconds={playback.cursorSeconds} /></section>
+        onSelect={(id, description) => dispatch({ type: 'select', selection: { kind: 'entity', id, tracks: [trackFor(id.split('/').at(-1)!)], description } })} />) ?? <p>Open a project to view cameras.</p>}</div></section>
+      <ThreePanel project={snapshot} playback={playback} dispatch={dispatch} onData={onGeometry} windowSeconds={windowSeconds} />
+      <GroundView windowSeconds={windowSeconds} projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
+      <Timeline onChanged={refreshArtifacts} key={projectId ?? 'no-project'} projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} selection={playback.selection} dispatch={dispatch} />
+      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{selectionLabel}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} cursorSeconds={playback.cursorSeconds} revision={snapshot?.revision} onEntity={id => {
+        dispatch({ type: 'play', playing: false }); dispatch({ type: 'select', selection: { kind: 'entity', id, tracks: playback.selection?.tracks ?? [] } })
+      }} onCamera={camera => {
+        dispatch({ type: 'play', playing: false }); dispatch({ type: 'camera', id: camera })
+      }} /></section>
     </div>
   </main>
 }

@@ -1,5 +1,6 @@
 import type { Action, Calibration, MotionSample } from '../../contracts/types'
 import { readJson } from './projectApi'
+import type { FrameTime, Provenance } from '../../contracts/types'
 
 export interface Sample extends MotionSample { id: string; missing_mask?: Record<string, boolean> }
 export interface Window<T> { revision: string; available: boolean; reason: string | null; unit: string; rows: T[]; next_cursor: number | null }
@@ -8,10 +9,10 @@ export interface GeometryData {
   unit: string; cameraSizes?: Record<string, [number, number]>; reasons: string[]; truncated: boolean
 }
 export function inspectionPath(project: string) { return `/api/projects/${encodeURIComponent(project)}/inspection` }
-export async function readGeometry(project: string, seconds: number, signal: AbortSignal): Promise<GeometryData> {
+export async function readGeometry(project: string, seconds: number, signal: AbortSignal, windowSeconds = 1): Promise<GeometryData> {
   const path = inspectionPath(project)
   const info = await readJson<{ revision: string; products: Record<string, { available: boolean; reason: string | null }> }>(path, signal)
-  const start = Math.max(0, seconds - 1), end = seconds + 1
+  const start = Math.max(0, seconds - windowSeconds), end = seconds + windowSeconds
   const query = `start=${start}&end=${end}&limit=256&expected_revision=${encodeURIComponent(info.revision)}`
   const [motion, cameras, semantic] = await Promise.all([
     readJson<Window<Sample>>(`${path}/reconstruction/window?${query}`, signal),
@@ -40,7 +41,17 @@ export async function readGeometry(project: string, seconds: number, signal: Abo
     truncated: (cameras.calibration?.cameras.length ?? 0) > 16 || motion.next_cursor !== null || (semantic?.next_cursor ?? null) !== null,
     reasons: [motion.reason, cameras.reason, semantic?.reason, ...cameraReasons].filter((reason): reason is string => Boolean(reason)) }
 }
-export function readEntity(project: string, id: string, revision: string, signal: AbortSignal) {
-  return readJson<{ entity: unknown; source_evidence_reason: string | null; source_evidence: unknown[] }>(
+export interface SourceEvidence {
+  observation_id: string; frame: FrameTime; native_frame?: FrameTime; provenance?: Provenance; quality?: unknown
+}
+export interface EntityDetail {
+  physical_evidence?: { id: string; global_seconds: number; quality: unknown }[]
+  entity: unknown; source_evidence_reason: string | null; source_evidence: SourceEvidence[]
+  generating_revisions?: Record<string, string | null>; artifact_revision?: string; effective_edit_revision?: number; provenance?: Provenance; origin?: string; unit?: string
+}
+export async function readEntity(project: string, id: string, revision: string, signal: AbortSignal) {
+  const detail = await readJson<EntityDetail>(
     `${inspectionPath(project)}/entities?id=${encodeURIComponent(id)}&expected_revision=${encodeURIComponent(revision)}`, signal)
+  if (!detail.entity || !Array.isArray(detail.source_evidence)) throw new Error('Selected evidence response unavailable')
+  return detail
 }

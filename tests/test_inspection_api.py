@@ -19,11 +19,13 @@ from contracts.models import (
     Footprint,
     FrameTime,
     Ground,
+    Landmark2D,
     Landmark3D,
     MotionSample,
     Observation,
     Provenance,
     Quality,
+    RawScore,
     Reconstruction,
     Synchronization,
     SyncOffset,
@@ -1125,3 +1127,58 @@ def test_registered_calibration_is_bounded_revision_safe_and_frame_checked(
             == 200
         )
         assert not http.get(BASE + "/calibration").json()["available"]
+
+
+def test_selected_landmarks_keep_native_scores_and_precise_contributors(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+) -> None:
+    index, products = inspection
+    with index.connection("demo") as db:
+        body = json.loads(
+            db.execute("SELECT body FROM entities WHERE id='native-left'").fetchone()[0]
+        )
+    body.pop("missing_mask", None)
+    observation = Observation.model_validate(body)
+    observation.provenance = observation.provenance.model_copy(
+        update={"config_digest": "1" * 64}
+    )
+    observation.landmarks = [
+        Landmark2D(
+            name="left_wrist",
+            xy_px=(12, 34),
+            quality=Quality(state="observed", score=0.8),
+            raw_score=RawScore(value=0.7, range_min=0, range_max=1, domain="detector"),
+        )
+    ]
+    key, handle = persist(index.pipe.store, observation)
+    original = hash_file(handle.path / "manifest.json")
+    index.register("demo", products, observations=[key])
+    with client(index) as http:
+        camera = http.get(BASE + "/entities", params={"id": "native-left/left_wrist"})
+        assert camera.status_code == 200, camera.text
+        detail = camera.json()
+        assert detail["unit"] == "px"
+        assert detail["entity"]["raw_score"]["value"] == 0.7
+        assert detail["entity"]["frame"]["global_seconds"] == 23.4
+        assert detail["source_evidence"][0]["native_frame"]["global_seconds"] == 0.4
+        assert detail["provenance"]["config_digest"] == "1" * 64
+        assert (
+            http.get(
+                BASE + "/entities", params={"id": "native-left/nonexistent"}
+            ).status_code
+            == 404
+        )
+        missing = http.get(
+            BASE + "/entities", params={"id": "motion/samples/0/right_wrist"}
+        ).json()
+        # A missing joint must not inherit another joint's camera evidence.
+        assert missing["entity"]["xyz_world"] is None
+        assert missing["source_evidence"] == []
+        assert missing["unit"] == "arbitrary"
+        joint = http.get(
+            BASE + "/entities", params={"id": "motion/samples/0/left_wrist"}
+        ).json()
+        assert joint["source_evidence"][0]["landmarks"][0]["raw_score"]["value"] == 0.7
+        assert joint["physical_evidence"][0]["id"] == "motion/samples/0"
+        assert joint["physical_evidence"][0]["global_seconds"] == 23.4
+    assert hash_file(handle.path / "manifest.json") == original

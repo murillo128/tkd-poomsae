@@ -1,19 +1,21 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
 import type { Action, Interval, Semantics } from '../../contracts/types'
 const fixtureRoot = 'http://127.0.0.1:5197'
+// Complete fixture transports before disposing their shared API responses.
+test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'wait' }) })
 async function open(page: Page, id = 'demo', pagingBounds?: Interval) {
   // Only redirect transport; every semantic read/write uses the real service,
   // immutable ArtifactStore, SemanticEditor and optimistic SQLite session.
   await page.route('http://127.0.0.1:8000/**', async route => {
     const url = new URL(route.request().url())
-    const response = await route.fetch({ url: `${fixtureRoot}${url.pathname}${url.search}` })
     if (pagingBounds && url.pathname === `/api/projects/${id}/inspection`) {
       // A synthetic long extent isolates paging from parser fixture duration.
       // All window reads still run against the unchanged real service validator.
+      const response = await route.fetch({ url: `${fixtureRoot}${url.pathname}${url.search}` })
       const metadata = await response.json()
       metadata.products.semantics.time_bounds = pagingBounds
       await route.fulfill({ response, json: metadata })
-    } else await route.fulfill({ response })
+    } else await route.continue({ url: `${fixtureRoot}${url.pathname}${url.search}` })
   })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption(id)
@@ -109,6 +111,10 @@ test('real edit, reload, undo and reset preserve every original automatic artifa
   await panel(page).getByRole('button', { name: 'Apply edits', exact: true }).click()
   await expect(panel(page)).toContainText('Manual edits over preserved automatic artifact')
   await expect(entity(page, k.id)).toHaveAttribute('data-start', String(moved))
+  await expect(page.locator('.seek input')).toHaveValue(k.global_seconds.toFixed(3))
+  await expect(page.locator('.inspector')).toContainText('Origin manual')
+  const inspected = await page.locator('.inspector .geometry-values').evaluate(element => JSON.parse(element.textContent!))
+  expect(inspected.global_seconds).toBe(moved)
   await page.reload(); await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption('demo')
   await expect(entity(page, k.id)).toHaveAttribute('data-start', String(moved))
   await attribution(page)
@@ -223,4 +229,21 @@ test('fractional long bounds page gap-free within the real API limit', async ({ 
   await expect(page.locator('.seek input')).toHaveValue(demo.steps[0].interval.start.toFixed(3))
   await expect(panel(page).getByRole('button', { name: 'Draft timing edit' })).toBeEnabled()
   expect((await originals(request)).unchanged).toBe(true)
+})
+
+test('parser keyframes reach persisted physical samples while preserving the shared clock', async ({ page, request }) => {
+  const { demo } = await originals(request)
+  const keyframe = demo.keyframes.find(k => k.motion_sample_indices.length > 0)!
+  expect(keyframe).toBeTruthy()
+  await open(page)
+  await entity(page, keyframe.id).click()
+  const inspector = page.locator('.inspector')
+  await inspector.getByText('Contributing physical samples', { exact: true }).click()
+  await inspector.getByRole('button', { name: /Inspect physical sample/ }).first().click()
+  await expect(inspector.locator('.geometry-values')).toContainText('global_seconds')
+  const selected = await inspector.locator('.geometry-values').evaluate(element => JSON.parse(element.textContent!))
+  expect(selected.id).toContain('/samples/')
+  expect(selected).toHaveProperty('root_xyz_world')
+  await expect(page.locator('.seek input')).toHaveValue(keyframe.global_seconds.toFixed(3))
+  await expect(page.locator('.timeline')).toContainText(`${keyframe.global_seconds.toFixed(3)} s`)
 })
