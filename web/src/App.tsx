@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
+import { GroundView } from './GroundView'
 import type { Track } from '../../contracts/types'
 import { canStep, initialPlayback, playbackReducer } from './playback'
 import { listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
@@ -191,7 +192,7 @@ export function App() {
         <h3>{id}</h3><div className="viewport-placeholder">Video frame unavailable</div><p>Source and global time correspondence unavailable.</p><p>2D overlay: {stageMessage(capabilities?.observations)}</p>
       </article>) ?? <p>Open a project to view cameras.</p>}</div></section>
       <section className="panel three-d"><h2>3D reconstruction</h2><div className="viewport-placeholder">No 3D geometry to display</div><p>{stageMessage(capabilities?.reconstruction)}</p><p>Selected track or entity: {selectionLabel}</p></section>
-      <section className="panel ground"><h2>Ground view</h2><div className="viewport-placeholder">No ground geometry to display</div><p>{stageMessage(capabilities?.ground)}</p><p>Selected track or entity: {selectionLabel}</p></section>
+      <GroundView projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
       <section className="panel timeline"><h2>Timeline</h2><p>Global cursor: <strong>{formatTime(playback.cursorSeconds)}</strong></p><p>Physical and semantic tracks: {stageMessage(capabilities?.parsing)}</p>
         <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={selectedTrack === track} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
       </section>

@@ -22,9 +22,9 @@ export interface StageCapability {
 export interface ProjectCapabilities { project: string; stages: Record<string, StageCapability> }
 export interface ProjectSnapshot { detail: ProjectDetail; capabilities: ProjectCapabilities; revision: string }
 
-// Only the local service's bounded metadata endpoints are used by this shell.
+// Local service metadata and bounded inspection endpoints.
 const API_ROOT = 'http://127.0.0.1:8000'
-async function readJson<T>(path: string, signal: AbortSignal): Promise<T> {
+export async function readJson<T>(path: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(`${API_ROOT}${path}`, { signal })
   if (!response.ok) throw new Error(`Local service returned ${response.status} for ${path}`)
   return response.json() as Promise<T>

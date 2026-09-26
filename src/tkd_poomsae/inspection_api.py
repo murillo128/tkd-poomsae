@@ -194,6 +194,23 @@ def routes(service: FastAPI, inspection: Inspection, media: MediaAccess) -> None
             watcher.cancel()
             await asyncio.gather(watcher, return_exceptions=True)
 
+    @service.get("/api/projects/{project}/inspection/ground/snapshot")
+    def ground_snapshot(
+        project: str,
+        seconds: float,
+        request: Request,
+        expected_revision: str | None = None,
+    ) -> Response:
+        def read() -> Response:
+            with inspection.lease(project):
+                return cached(
+                    request,
+                    inspection.ground_snapshot(project, seconds),
+                    expected_revision,
+                )
+
+        return guarded(read)
+
     @service.get("/api/projects/{project}/inspection/entities")
     def entity(
         project: str, id: str, request: Request, expected_revision: str | None = None
