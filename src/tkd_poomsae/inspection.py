@@ -51,6 +51,11 @@ COLLECTIONS = {
     "phases",
     "keyframes",
     "joints",
+    "ground_frames",
+    "placements",
+    "rotations",
+    "placement_relations",
+    "contact_events",
 }
 
 
@@ -496,6 +501,77 @@ class Inspection:
                 "INSERT OR IGNORE INTO bindings VALUES (?, ?, ?)",
                 (name, header["manifest_revision"], binding),
             )
+        if name == "ground" and "ground_view_json" in handle.files:
+            from reconstruction.ground_view import load_ground_view
+
+            view = load_ground_view(handle)
+            if not view.root_trajectory:
+                raise ValueError("nonempty ground-view product required")
+            header["ground_view"] = {
+                "world_unit": view.world_unit,
+                "participant_id": view.participant_id,
+                "scene_bounds": view.scene_bounds.model_dump(mode="json")
+                if view.scene_bounds
+                else None,
+                "start_seconds": view.root_trajectory[0].global_seconds,
+                "end_seconds": view.root_trajectory[-1].global_seconds,
+                "max_gap_seconds": view.config.max_gap_seconds,
+            }
+            runs = {i: n for n, run in enumerate(view.root_path_indices) for i in run}
+            assert view.physical is not None
+            pivot_ids: dict[int, list[str]] = {}
+            for event in view.physical.events:
+                for index in event.rotation_indices:
+                    pivot_ids.setdefault(index // 2, []).append(event.pivot.id)
+            for i, root in enumerate(view.root_trajectory):
+                feet = view.physical.placements.trajectory[2 * i : 2 * i + 2]
+                contact = view.contact_events[i]
+                snapshot = {
+                    "requested_seconds": root.global_seconds,
+                    "sampled_seconds": root.global_seconds,
+                    "status": "native",
+                    "bracket_seconds": None,
+                    "root": root.model_dump(mode="json"),
+                    "feet": [foot.model_dump(mode="json") for foot in feet],
+                    "contact_event": contact.model_dump(mode="json"),
+                    "placement_ids": sorted({f.event_id for f in feet if f.event_id}),
+                    "pivot_ids": pivot_ids.get(i, []),
+                    "reasons": [],
+                }
+                self._row(
+                    db,
+                    name,
+                    "contact_events",
+                    contact.id,
+                    i,
+                    contact.model_dump(mode="json"),
+                    time=root.global_seconds,
+                )
+                self._row(
+                    db,
+                    name,
+                    "ground_frames",
+                    root.id,
+                    i,
+                    snapshot | {"path_run": runs.get(i)},
+                    time=root.global_seconds,
+                )
+            for collection, rows in (
+                ("placements", view.physical.placements.events),
+                ("rotations", view.physical.events),
+                ("placement_relations", view.physical.placements.relations),
+            ):
+                for i, entity in enumerate(rows):
+                    row = entity.model_dump(mode="json")
+                    if collection == "placements":
+                        row |= {"interval": row["footprint"]["interval"]}
+                        identifier = row["footprint"]["id"] + "/placement"
+                    elif collection == "rotations":
+                        row |= {"interval": row["pivot"]["interval"]}
+                        identifier = row["pivot"]["id"] + "/rotation"
+                    else:
+                        identifier = f"{body['id']}/placement_relations/{i}"
+                    self._row(db, name, collection, identifier, i, row)
         db.execute(
             "INSERT INTO products VALUES (?, ?)", (name, encoded(header).decode())
         )
@@ -593,7 +669,17 @@ class Inspection:
         allowed = {
             "observations": {"observations"},
             "reconstruction": {"samples", "joints"},
-            "ground": {"samples", "footprints", "pivots", "measurements"},
+            "ground": {
+                "samples",
+                "footprints",
+                "pivots",
+                "measurements",
+                "ground_frames",
+                "placements",
+                "rotations",
+                "placement_relations",
+                "contact_events",
+            },
             "semantics": {"steps", "stances", "actions", "phases", "keyframes"},
         }
         if (
@@ -642,6 +728,7 @@ class Inspection:
             "effective_edit_revision": headers.get("semantics", {}).get(
                 "edit_revision", 0
             ),
+            "ground_view": headers.get(product, {}).get("ground_view"),
             "origin": headers.get(product, {}).get("origin", "automatic"),
             "rows": [],
             "next_cursor": None,
@@ -729,6 +816,54 @@ class Inspection:
                 409, "clock changed during query; discard stale response"
             )
         return result
+
+    def ground_snapshot(self, project: str, seconds: float) -> dict[str, Any]:
+        """Read one indexed native snapshot; preserve the producer's gap policy."""
+        if not math.isfinite(seconds):
+            raise InspectionError(422, "finite global seconds required")
+        result = self.window(project, "ground", "ground_frames", seconds, seconds, 1)
+        metadata = result["ground_view"]
+        answer: dict[str, Any] = {
+            "revision": result["revision"],
+            "ground_view": metadata,
+            "available": False,
+            "reason": result["reason"],
+            "snapshot": None,
+        }
+        if not result["available"] or metadata is None:
+            return answer | {
+                "reason": result["reason"] or "ground-view product unavailable"
+            }
+        if not metadata["start_seconds"] <= seconds <= metadata["end_seconds"]:
+            return answer | {"reason": "outside_execution"}
+        with self.connection(project) as db:
+            before = db.execute(
+                "SELECT body, start FROM entities WHERE product='ground' "
+                "AND collection='ground_frames' AND start<=? "
+                "ORDER BY start DESC LIMIT 1",
+                (seconds,),
+            ).fetchone()
+            after = db.execute(
+                "SELECT start FROM entities WHERE product='ground' "
+                "AND collection='ground_frames' AND start>? ORDER BY start LIMIT 1",
+                (seconds,),
+            ).fetchone()
+        if before is None:
+            return answer | {"reason": "outside_execution"}
+        snapshot = json.loads(before["body"])
+        snapshot["requested_seconds"] = seconds
+        if before["start"] != seconds:
+            if (
+                after is None
+                or after["start"] - before["start"] > metadata["max_gap_seconds"]
+            ):
+                return answer | {"reason": "native_time_gap"}
+            snapshot |= {
+                "status": "native_snapshot",
+                "bracket_seconds": [before["start"], after["start"]],
+                "reasons": ["display_snapshot_not_interpolated_physics"],
+            }
+        return answer | {"available": True, "reason": None, "snapshot": snapshot}
 
     def automatic(self, project: str) -> ArtifactHandle:
         headers, clock = self.headers(project)

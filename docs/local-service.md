@@ -172,3 +172,29 @@ The compact product inventory and edit inputs are each capped at 8 MiB; oversize
 semantic artifacts must be partitioned by their owning producer before service
 editing. These limits cover service reads/edits; trusted registration may read
 one complete persisted physical artifact while constructing its disk index.
+
+The ground view requires a registered MVP-32 `reconstruction.ground_view`
+artifact. Re-register older indexes after updating the service. Registration
+validates its rendering payload and indexes native snapshots, placements, pivot
+translations and placement relations; request handling does not reload dense
+physical arrays or derive geometry.
+
+`GET .../inspection/ground/snapshot?seconds=T` returns a revision-bound native
+snapshot, scene bounds, participant identity and world units. Between samples
+it returns the preceding snapshot with requested/sampled times and bracket,
+following the producer's maximum-gap policy. Outside execution, across long
+gaps, or without the ground-view product it returns explicit unavailability.
+`expected_revision` and ETag validation work as for other inspection reads.
+Ground windows additionally expose `ground_frames`, `placements`, `rotations`,
+`placement_relations` and `contact_events` under the existing page/time/byte
+limits. `ground_frames.path_run` preserves backend root path gaps. The compact
+`ground_view` window metadata provides fixed execution-wide bounds and coverage.
+
+The web ground panel offers dynamic context within one second of the shared
+cursor and an execution summary. Geometry, foot axes and pivot trajectories use
+backend XY directly (+X right, +Y up), with fixed bounds and equal axis scale.
+Layers are independently switchable. Selecting a placement, pivot, contact or
+root sample sets shared time/entity selection; track and external entity
+selections highlight participating ground tracks. Metric labels require resolved
+scale; landmark axes/points remain distinct from approximate sole polygons.
+No reference comparison or coaching score is produced.
