@@ -12,7 +12,7 @@
     <application
         android:name=".CrashCatcherApp"
         android:allowBackup="false"
-        android:label="TKD MultiCam v0.8"
+        android:label="TKD MultiCam v0.9"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
