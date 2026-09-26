@@ -2,7 +2,7 @@ import type { Track } from '../../contracts/types'
 
 export interface FrameSample { pts: number; timeBaseNum: number; timeBaseDen: number }
 export interface CameraClock { id: string; offsetSeconds: number; frames: FrameSample[] }
-export interface Selection { kind: 'track' | 'entity'; id: string; tracks: Track[] }
+export interface Selection { kind: 'track' | 'entity'; id: string; tracks: Track[]; description?: string }
 export interface PlaybackState {
   projectId: string | null
   cursorSeconds: number
@@ -22,6 +22,7 @@ export type PlaybackAction =
   | { type: 'speed'; speed: number }
   | { type: 'tick'; elapsedSeconds: number }
   | { type: 'camera'; id: string }
+  | { type: 'cameraClock'; camera: CameraClock }
   | { type: 'mode'; mode: PlaybackState['stepMode'] }
   | { type: 'step'; direction: -1 | 1 }
   | { type: 'frameDelivered'; seconds: number | null }
@@ -54,13 +55,19 @@ export function playbackReducer(state: PlaybackState, action: PlaybackAction): P
         reconstructionTimes: action.reconstructionTimes ?? [] }
     }
     case 'seek':
-      return Number.isFinite(action.seconds) ? { ...state, cursorSeconds: Math.max(0, action.seconds) } : state
+      return Number.isFinite(action.seconds) ? { ...state, cursorSeconds: Math.max(0, action.seconds), deliveredFrameSeconds: null } : state
     case 'play': return { ...state, playing: action.playing }
     case 'speed': return Number.isFinite(action.speed) && action.speed > 0 ? { ...state, speed: action.speed } : state
     case 'tick':
       return state.playing && Number.isFinite(action.elapsedSeconds) && action.elapsedSeconds > 0
         ? { ...state, cursorSeconds: state.cursorSeconds + action.elapsedSeconds * state.speed }
         : state
+    case 'cameraClock': {
+      const cameras = state.cameras.some(camera => camera.id === action.camera.id)
+        ? state.cameras.map(camera => camera.id === action.camera.id ? action.camera : camera)
+        : [...state.cameras, action.camera]
+      return { ...state, cameras, selectedCameraId: state.selectedCameraId ?? action.camera.id }
+    }
     case 'camera': return state.cameras.some(camera => camera.id === action.id)
       ? { ...state, selectedCameraId: action.id } : state
     case 'mode': return { ...state, stepMode: action.mode }
@@ -70,7 +77,7 @@ export function playbackReducer(state: PlaybackState, action: PlaybackAction): P
       const target = action.direction > 0
         ? times.find(time => time > state.cursorSeconds + epsilon)
         : [...times].reverse().find(time => time < state.cursorSeconds - epsilon)
-      return target === undefined ? state : { ...state, cursorSeconds: Math.max(0, target), playing: false }
+      return target === undefined ? state : { ...state, cursorSeconds: Math.max(0, target), deliveredFrameSeconds: null, playing: false }
     }
     case 'frameDelivered': return { ...state, deliveredFrameSeconds: action.seconds }
     case 'select': return { ...state, selection: action.selection }

@@ -39,3 +39,5 @@ checkpoints/
 *.hdf5
 /datasets/**/Data/
 /datasets/**/*.zip
+web/test-results/
+web/playwright-report/

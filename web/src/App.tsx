@@ -1,8 +1,9 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { GroundView } from './GroundView'
 import type { Track } from '../../contracts/types'
+import { CameraPanel } from './CameraPanel'
 import { canStep, initialPlayback, playbackReducer } from './playback'
-import { listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
+import { API_ROOT, listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
 
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; value: T }
 const trackNames: Track[] = ['left_arm', 'right_arm', 'left_leg', 'right_leg', 'body_root', 'head']
@@ -57,7 +58,7 @@ export function App() {
       }
       setProject({ status: 'ready', value: snapshot })
       dispatch({ type: 'project', id: projectId,
-        cameras: snapshot.detail.sources.map(id => ({ id, offsetSeconds: 0, frames: [] })) })
+        cameras: snapshot.detail.sources.map(id => ({ id, offsetSeconds: Number.NaN, frames: [] })) })
     }).catch(error => {
       if (!controller.signal.aborted && epoch === requestEpoch.current) {
         setProject({ status: 'error', message: String(error) })
@@ -128,7 +129,7 @@ export function App() {
   return <main className="workspace">
     <header className="masthead">
       <div><p className="eyebrow">Local motion inspection</p><h1>TKD Poomsae</h1></div>
-      <span className="service-badge">Local service · 127.0.0.1:8000</span>
+      <span className="service-badge">Local service · {new URL(API_ROOT).host}</span>
     </header>
     <section className="project-bar" aria-label="Project browser">
       <div><h2>Projects</h2><p>Open a registered local project to inspect its current capabilities.</p></div>
@@ -182,21 +183,23 @@ export function App() {
       <div className="time-readout"><span>Desired cursor <strong>{formatTime(playback.cursorSeconds)}</strong></span><span>Delivered video frame <strong>{playback.deliveredFrameSeconds === null ? 'Unavailable' : formatTime(playback.deliveredFrameSeconds)}</strong></span></div>
       <div className="step-options"><label>Step source <select disabled={!hasProject} value={playback.stepMode} onChange={event => dispatch({ type: 'mode', mode: event.target.value as 'camera' | 'reconstruction' })}>
         <option value="camera">Selected camera PTS</option><option value="reconstruction">Reconstruction samples</option>
-      </select></label>{playback.stepMode === 'camera' && <label>Camera <select disabled={!hasProject} value={playback.selectedCameraId ?? ''} onChange={event => dispatch({ type: 'camera', id: event.target.value })}>
+      </select></label>{playback.stepMode === 'camera' && <label>Camera <select disabled={!hasProject} value={playback.selectedCameraId ?? ''} onChange={event => { dispatch({ type: 'camera', id: event.target.value }); dispatch({ type: 'frameDelivered', seconds: null }) }}>
         {playback.cameras.map(camera => <option key={camera.id} value={camera.id}>{camera.id}</option>)}
       </select></label>}</div>
       {hasProject && !stepAvailable && <p className="hint">Frame stepping unavailable: {playback.stepMode === 'camera' ? `${selectedCamera?.id ?? 'selected camera'} PTS` : 'reconstruction sample grid'} is not exposed by the local service. Keyboard: Space plays or pauses; ← and → step when samples are available.</p>}
     </section>
     <div className="inspection-grid" aria-label="Inspection layout">
-      <section className="panel cameras"><h2>Camera views</h2><div className="camera-grid">{snapshot?.detail.sources.map(id => <article key={id} className="camera-card">
-        <h3>{id}</h3><div className="viewport-placeholder">Video frame unavailable</div><p>Source and global time correspondence unavailable.</p><p>2D overlay: {stageMessage(capabilities?.observations)}</p>
-      </article>) ?? <p>Open a project to view cameras.</p>}</div></section>
+      <section className="panel cameras"><h2>Camera views</h2><div className="camera-grid">{snapshot?.detail.sources.map(id => <CameraPanel key={`${snapshot.detail.id}/${snapshot.revision}/${id}`} project={snapshot.detail.id} camera={id}
+        seconds={playback.cursorSeconds} selected={playback.selectedCameraId === id} playing={playback.playing} speed={playback.speed}
+        onClock={camera => dispatch({ type: 'cameraClock', camera })}
+        onDelivered={(camera, seconds) => { if (camera === playback.selectedCameraId) dispatch({ type: 'frameDelivered', seconds }) }}
+        onSelect={(id, description) => dispatch({ type: 'select', selection: { kind: 'entity', id, tracks: [], description } })} />) ?? <p>Open a project to view cameras.</p>}</div></section>
       <section className="panel three-d"><h2>3D reconstruction</h2><div className="viewport-placeholder">No 3D geometry to display</div><p>{stageMessage(capabilities?.reconstruction)}</p><p>Selected track or entity: {selectionLabel}</p></section>
       <GroundView projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
       <section className="panel timeline"><h2>Timeline</h2><p>Global cursor: <strong>{formatTime(playback.cursorSeconds)}</strong></p><p>Physical and semantic tracks: {stageMessage(capabilities?.parsing)}</p>
         <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={selectedTrack === track} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
       </section>
-      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{playback.selection?.id ?? 'None'}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>Selected values and confidence unavailable until bounded analysis data is exposed.</p></section>
+      <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{playback.selection?.id ?? 'None'}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? 'Selected values and confidence unavailable until bounded analysis data is exposed.'}</p></section>
     </div>
   </main>
 }
