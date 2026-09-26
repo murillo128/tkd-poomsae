@@ -2,12 +2,11 @@ package dev.murillo.highspeedprobe;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.ClipboardManager;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession;
@@ -17,6 +16,9 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.MediaMetadataRetriever;
+import android.media.MediaRecorder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -32,8 +34,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -53,11 +56,18 @@ public class MainActivity extends Activity {
     private CameraDevice cameraDevice;
     private CameraConstrainedHighSpeedCaptureSession highSpeedSession;
     private Surface previewSurface;
+    private Surface recorderSurface;
+    private MediaRecorder mediaRecorder;
+    private File outputFile;
 
     private volatile long firstSensorTimestampNs = -1;
     private volatile long lastSensorTimestampNs = -1;
     private volatile long captureCount = 0;
+    private volatile long captureFailedCount = 0;
+    private volatile long bufferLostCount = 0;
     private volatile boolean testing = false;
+    private volatile boolean closing = false;
+    private volatile boolean recorderStarted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,7 +93,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(12), dp(12), dp(12), dp(12));
 
         TextView title = new TextView(this);
-        title.setText("HighSpeedProbe");
+        title.setText("HighSpeedProbe v2");
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         root.addView(title, new LinearLayout.LayoutParams(
@@ -152,8 +162,9 @@ public class MainActivity extends Activity {
         closeCamera();
         testButtons.removeAllViews();
         reportView.setText("");
-        append("Device: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
-        append("Android: " + android.os.Build.VERSION.RELEASE + " (SDK " + android.os.Build.VERSION.SDK_INT + ")");
+        append("Device: " + Build.MANUFACTURER + " " + Build.MODEL);
+        append("Android: " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")");
+        append("Probe: v2 encoder-surface test");
         append("");
 
         try {
@@ -197,7 +208,8 @@ public class MainActivity extends Activity {
                             + " -> " + Arrays.toString(ranges));
 
                     for (Range<Integer> range : ranges) {
-                        if (range.getUpper() >= 120) {
+                        // With preview + recording surfaces Android requires a fixed range.
+                        if (range.getLower().equals(range.getUpper()) && range.getUpper() >= 120) {
                             addTestButton(id, size, range);
                         }
                     }
@@ -212,9 +224,9 @@ public class MainActivity extends Activity {
     private void addTestButton(String cameraId, Size size, Range<Integer> fpsRange) {
         Button b = new Button(this);
         b.setAllCaps(false);
-        b.setText("Test cam " + cameraId + " · "
+        b.setText("RECORD cam " + cameraId + " · "
                 + size.getWidth() + "x" + size.getHeight()
-                + " @ " + fpsRange + " for 5 s");
+                + " @ " + fpsRange.getUpper() + " fps · 5 s");
         b.setOnClickListener(v -> startHighSpeedTest(cameraId, size, fpsRange));
         testButtons.addView(b, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -231,12 +243,18 @@ public class MainActivity extends Activity {
         }
 
         testing = true;
+        closing = false;
+        recorderStarted = false;
         firstSensorTimestampNs = -1;
         lastSensorTimestampNs = -1;
         captureCount = 0;
+        captureFailedCount = 0;
+        bufferLostCount = 0;
+
         textureView.setVisibility(View.VISIBLE);
         append("TEST START: camera " + cameraId + " "
                 + size.getWidth() + "x" + size.getHeight() + " @ " + fpsRange);
+        append("  Mode: preview + H.264 encoder surface");
 
         Runnable open = () -> cameraHandler.post(() -> openHighSpeedCamera(cameraId, size, fpsRange));
 
@@ -276,6 +294,13 @@ public class MainActivity extends Activity {
         previewSurface = new Surface(st);
 
         try {
+            prepareRecorder(size, fpsRange.getUpper());
+        } catch (Exception e) {
+            failTest("Recorder prepare: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return;
+        }
+
+        try {
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 failTest("Camera permission missing");
                 return;
@@ -291,13 +316,15 @@ public class MainActivity extends Activity {
                 @Override
                 public void onDisconnected(CameraDevice camera) {
                     camera.close();
-                    failTest("Camera disconnected");
+                    if (!closing) failTest("Camera disconnected");
                 }
 
                 @Override
                 public void onError(CameraDevice camera, int error) {
                     camera.close();
-                    failTest("Camera error " + error);
+                    if (!closing) {
+                        failTest("Camera error " + error + " (" + cameraErrorName(error) + ")");
+                    }
                 }
             }, cameraHandler);
         } catch (Exception e) {
@@ -305,10 +332,36 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void prepareRecorder(Size size, int fps) throws Exception {
+        File dir = getExternalFilesDir("Movies");
+        if (dir == null) dir = getFilesDir();
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IllegalStateException("Cannot create output directory");
+        }
+
+        outputFile = new File(dir, "highspeed-" + size.getWidth() + "x" + size.getHeight()
+                + "-" + fps + "fps-" + System.currentTimeMillis() + ".mp4");
+
+        mediaRecorder = new MediaRecorder();
+        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        mediaRecorder.setVideoSize(size.getWidth(), size.getHeight());
+        mediaRecorder.setVideoFrameRate(fps);
+        mediaRecorder.setVideoEncodingBitRate(fps >= 240 ? 40_000_000 : 24_000_000);
+        mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
+        mediaRecorder.prepare();
+        recorderSurface = mediaRecorder.getSurface();
+    }
+
     private void createHighSpeedSession(Size size, Range<Integer> fpsRange) {
         try {
+            List<Surface> outputs = new ArrayList<>();
+            outputs.add(previewSurface);
+            outputs.add(recorderSurface);
+
             cameraDevice.createConstrainedHighSpeedCaptureSession(
-                    Collections.singletonList(previewSurface),
+                    outputs,
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(CameraCaptureSession session) {
@@ -323,6 +376,7 @@ public class MainActivity extends Activity {
                                 CaptureRequest.Builder builder =
                                         cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                                 builder.addTarget(previewSurface);
+                                builder.addTarget(recorderSurface);
                                 builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
                                 builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
                                 builder.set(CaptureRequest.CONTROL_AF_MODE,
@@ -334,11 +388,17 @@ public class MainActivity extends Activity {
                                 firstSensorTimestampNs = -1;
                                 lastSensorTimestampNs = -1;
                                 captureCount = 0;
+                                captureFailedCount = 0;
+                                bufferLostCount = 0;
 
                                 highSpeedSession.setRepeatingBurst(
                                         requests, captureCallback, cameraHandler);
 
-                                runOnUiThread(() -> append("  Session configured; sampling for 5 s..."));
+                                mediaRecorder.start();
+                                recorderStarted = true;
+
+                                runOnUiThread(() -> append(
+                                        "  Session configured; recorder started; sampling for 5 s..."));
                                 cameraHandler.postDelayed(
                                         () -> finishTest(size, fpsRange), TEST_DURATION_MS);
                             } catch (Exception e) {
@@ -365,27 +425,51 @@ public class MainActivity extends Activity {
                         CaptureRequest request,
                         TotalCaptureResult result) {
                     Long ts = result.get(CaptureResult.SENSOR_TIMESTAMP);
-                    if (ts == null) {
-                        return;
-                    }
-                    if (firstSensorTimestampNs < 0) {
-                        firstSensorTimestampNs = ts;
-                    }
+                    if (ts == null) return;
+                    if (firstSensorTimestampNs < 0) firstSensorTimestampNs = ts;
                     lastSensorTimestampNs = ts;
                     captureCount++;
+                }
+
+                @Override
+                public void onCaptureFailed(
+                        CameraCaptureSession session,
+                        CaptureRequest request,
+                        android.hardware.camera2.CaptureFailure failure) {
+                    captureFailedCount++;
+                }
+
+                @Override
+                public void onCaptureBufferLost(
+                        CameraCaptureSession session,
+                        CaptureRequest request,
+                        Surface target,
+                        long frameNumber) {
+                    bufferLostCount++;
                 }
             };
 
     private void finishTest(Size size, Range<Integer> fpsRange) {
+        closing = true;
         try {
             if (highSpeedSession != null) {
                 highSpeedSession.stopRepeating();
-                highSpeedSession.abortCaptures();
             }
-        } catch (Exception ignored) {
+        } catch (Exception ignored) {}
+
+        try {
+            if (recorderStarted && mediaRecorder != null) {
+                mediaRecorder.stop();
+            }
+        } catch (Exception e) {
+            runOnUiThread(() -> append("  Recorder stop warning: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage()));
         }
+        recorderStarted = false;
 
         long count = captureCount;
+        long failed = captureFailedCount;
+        long lost = bufferLostCount;
         long first = firstSensorTimestampNs;
         long last = lastSensorTimestampNs;
         double measuredFps = 0.0;
@@ -396,19 +480,54 @@ public class MainActivity extends Activity {
             measuredFps = (count - 1) / sensorSeconds;
         }
 
+        String metadata = inspectRecordedFile(outputFile);
+        long fileBytes = outputFile != null && outputFile.exists() ? outputFile.length() : 0;
+
         final double finalMeasuredFps = measuredFps;
         final double finalSensorSeconds = sensorSeconds;
+        final long finalCount = count;
+        final long finalFailed = failed;
+        final long finalLost = lost;
+        final long finalFileBytes = fileBytes;
+        final String finalMetadata = metadata;
+        final String finalPath = outputFile != null ? outputFile.getAbsolutePath() : "(none)";
+
         runOnUiThread(() -> {
             append(String.format(Locale.US,
-                    "  RESULT: %,d capture results over %.3f s sensor time -> %.2f fps",
-                    count, finalSensorSeconds, finalMeasuredFps));
+                    "  SENSOR RESULT: %,d completed over %.3f s -> %.2f callbacks/s",
+                    finalCount, finalSensorSeconds, finalMeasuredFps));
+            append("  Capture failures: " + finalFailed + "  buffer lost: " + finalLost);
             append("  Requested: " + size.getWidth() + "x" + size.getHeight()
                     + " @ " + fpsRange);
+            append("  MP4: " + finalPath);
+            append(String.format(Locale.US, "  MP4 size: %.2f MiB",
+                    finalFileBytes / 1048576.0));
+            append("  MP4 metadata: " + finalMetadata);
             append("");
         });
 
         closeCameraInternal();
         testing = false;
+        closing = false;
+    }
+
+    private String inspectRecordedFile(File file) {
+        if (file == null || !file.exists() || file.length() == 0) return "no file";
+        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+        try {
+            mmr.setDataSource(file.getAbsolutePath());
+            String duration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            String captureFps = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
+            String frames = null;
+            if (Build.VERSION.SDK_INT >= 28) {
+                frames = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT);
+            }
+            return "durationMs=" + duration + ", captureFps=" + captureFps + ", frames=" + frames;
+        } catch (Exception e) {
+            return "metadata error: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        } finally {
+            try { mmr.release(); } catch (Exception ignored) {}
+        }
     }
 
     private void failTest(String message) {
@@ -417,39 +536,46 @@ public class MainActivity extends Activity {
             append("");
             Toast.makeText(this, "Test failed: " + message, Toast.LENGTH_LONG).show();
         });
+        closing = true;
+        try {
+            if (recorderStarted && mediaRecorder != null) mediaRecorder.stop();
+        } catch (Exception ignored) {}
+        recorderStarted = false;
         closeCameraInternal();
         testing = false;
+        closing = false;
     }
 
     private void closeCamera() {
-        if (cameraHandler != null) {
-            cameraHandler.post(this::closeCameraInternal);
-        }
+        if (cameraHandler != null) cameraHandler.post(this::closeCameraInternal);
     }
 
     private void closeCameraInternal() {
+        closing = true;
+
         try {
-            if (highSpeedSession != null) {
-                highSpeedSession.close();
-            }
-        } catch (Exception ignored) {
-        }
+            if (highSpeedSession != null) highSpeedSession.close();
+        } catch (Exception ignored) {}
         highSpeedSession = null;
 
         try {
-            if (cameraDevice != null) {
-                cameraDevice.close();
-            }
-        } catch (Exception ignored) {
-        }
+            if (cameraDevice != null) cameraDevice.close();
+        } catch (Exception ignored) {}
         cameraDevice = null;
 
         try {
-            if (previewSurface != null) {
-                previewSurface.release();
-            }
-        } catch (Exception ignored) {
-        }
+            if (mediaRecorder != null) mediaRecorder.release();
+        } catch (Exception ignored) {}
+        mediaRecorder = null;
+
+        try {
+            if (recorderSurface != null) recorderSurface.release();
+        } catch (Exception ignored) {}
+        recorderSurface = null;
+
+        try {
+            if (previewSurface != null) previewSurface.release();
+        } catch (Exception ignored) {}
         previewSurface = null;
     }
 
@@ -479,6 +605,17 @@ public class MainActivity extends Activity {
         return String.valueOf(level);
     }
 
+    private String cameraErrorName(int error) {
+        switch (error) {
+            case CameraDevice.StateCallback.ERROR_CAMERA_IN_USE: return "ERROR_CAMERA_IN_USE";
+            case CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE: return "ERROR_MAX_CAMERAS_IN_USE";
+            case CameraDevice.StateCallback.ERROR_CAMERA_DISABLED: return "ERROR_CAMERA_DISABLED";
+            case CameraDevice.StateCallback.ERROR_CAMERA_DEVICE: return "ERROR_CAMERA_DEVICE";
+            case CameraDevice.StateCallback.ERROR_CAMERA_SERVICE: return "ERROR_CAMERA_SERVICE";
+            default: return "UNKNOWN";
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(
             int requestCode, String[] permissions, int[] grantResults) {
@@ -502,9 +639,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         closeCameraInternal();
-        if (cameraThread != null) {
-            cameraThread.quitSafely();
-        }
+        if (cameraThread != null) cameraThread.quitSafely();
         super.onDestroy();
     }
 }
