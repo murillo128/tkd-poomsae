@@ -3,6 +3,11 @@
 This guide describes delivered commands and the observed inspection demo.
 Requirements and component ownership remain in [spec/](../spec/README.md).
 The application observes motion; it makes no scoring, coaching or accuracy claim.
+The [final requirement matrix](evidence/issue-52/README.md) evaluates #52 using
+separate real-data and controlled positive evidence tracks, as explicitly adopted
+in that issue. Real Mendeley camera/world/3D unavailability remains visible;
+capture-suitable real validation (#107) and one-command producer wiring (#108)
+are follow-ups. Controlled evidence establishes software integration, not accuracy.
 
 ## Environment and shared storage
 
@@ -276,9 +281,83 @@ not prediction accuracy or fulfillment of every normative MVP requirement.
 | Scale and ground | Metric synthetic geometry/ground with supplied cameras | Real scale unknown; arbitrary units never imply metres; unresolved ground blocks ground-dependent products |
 | Occlusion/detail | Body/hand/foot/head evidence, raw scores and missing/low-evidence states persisted | Occluded or ambiguous points may be unavailable; no guarantee of detailed reconstruction or accuracy |
 | Temporal resolution | Dataset native 30 fps PTS retained; exact-frame browsing | Cannot resolve motion between captured frames; sync uncertainty and gaps remain visible; off-grid 3D does not invent a pose |
-| 3D and parsing | Synthetic production path: 141 samples, metric ground, zero automatic steps/actions | Real full 3D unavailable; no positive technique-label demonstration; manual edits remain distinct |
+| 3D and parsing | Controlled production path: 101 samples, metric ground, one automatic step, overlapping arms/kick and 58 keyframes | Supplied cameras/clocks/analytic observations; no real 3D or recognition accuracy claim. Older synthetic fixture has 141 samples and empty semantics |
 | Viewer | Nine real/synthetic Chromium cases passed in original smoke | Software WebGL; Firefox/WebKit, CUDA and pointer access to every overlapping point untested |
 | Recovery | Offline second cwd: no new artifacts/inference/network; cooperative cancellation/resume | Process-kill recovery and full inference on forms 2–8 untested |
+
+## Controlled positive reconstruction and automatic parsing
+
+This separate fixture reproduces the positive software path integrated by #106.
+It supplies metric cameras/ground, zero-offset clocks and analytic projected
+2D observations with a declared 0.001 px numerical precision floor. The videos
+show those dots; their pixels are not input to MMPose. Production publishers
+perform alignment, triangulation, participant morphology/articulated/temporal
+reconstruction, ground derivation and all five automatic parser stages with
+unchanged parser settings. No semantic entities or manual labels are injected.
+
+The exercised run produced 101 motion/ground samples, one automatic SequenceStep,
+three arm actions, one kick, eleven unknown transition actions and 58 keyframes.
+The arm/kick intervals overlap. Unknown transitions retain uncertain roles;
+these counts are functional outcomes, not technique-recognition accuracy. The
+fixture has 20 major body/foot landmarks; detailed hands/head, dynamic root,
+SpecialAction, pivots and relations are covered by separate component tests.
+
+From the checkout, with the already configured core environment:
+
+```sh
+export TKD_DATA_ROOT="${TKD_DATA_ROOT:-$HOME/.local/share/tkd-poomsae}"
+tkd_controlled_root="$TKD_DATA_ROOT/runs/controlled-issue-52"
+.venv/bin/python -m tests.fixtures.controlled_acceptance --root "$tkd_controlled_root"
+.venv/bin/python -m tests.fixtures.controlled_acceptance --root "$tkd_controlled_root"
+.venv/bin/python -m pytest -q tests/test_controlled_acceptance.py
+```
+
+The second fixture invocation reuses immutable artifacts. It regenerates the
+same deterministic source clips and index, and must retain the report and payload
+identities. The Python test independently reruns all five parser publishers with
+changed parser settings while forbidding upstream calls and checking original
+source/observation/reconstruction/ground bytes. It runs in an isolated temporary
+root and needs no dataset, model or network access.
+
+The [demo manifest](demo/inspection.json) pins the controlled sources and bundle
+relative to the original shared root. Before inspection, verify these references:
+
+```sh
+.venv/bin/python - <<'PY'
+import hashlib, json, os
+from pathlib import Path
+m = json.loads(Path("docs/demo/inspection.json").read_text())["controlled"]
+r = Path(os.environ["TKD_DATA_ROOT"])
+for ref in [m["inspection_bundle"], *m["sources"]]:
+    p = r / ref["relative_path"]
+    assert hashlib.sha256(p.read_bytes()).hexdigest() == ref["sha256"], p
+PY
+TKD_DATA_ROOT="$tkd_controlled_root/store" \
+  TKD_ALLOWED_SOURCE_ROOTS="{\"controlled\":\"$tkd_controlled_root\"}" \
+  .venv/bin/tkd-poomsae serve --host 127.0.0.1 --port 18052
+```
+
+The fixture has its own persisted store under the controlled run directory;
+this service's root differs from the original Mendeley store. In another terminal
+start `VITE_API_ROOT=http://127.0.0.1:18052 npm run dev -- --port 5173 --strictPort`
+from `web`. Choose `controlled-acceptance`. Select an automatic arm/kick action
+or keyframe and inspect the corresponding native camera frame, 3D/root, ground
+and source/physical provenance. Stop these issue-owned servers when finished.
+
+Automated real-browser reproduction creates an isolated controlled project in
+the ordinary fixture service and uses the actual viewer:
+
+```sh
+cd web
+TKD_BROWSER_WEB_PORT=5252 TKD_BROWSER_SERVICE_PORT=18552 npm run test:integrated
+```
+
+The `controlled.spec.ts` case navigates generated arm/kick actions and a keyframe,
+follows physical/camera evidence links and verifies the same cursor across all
+views. The remaining browser cases verify additional semantic classes and manual
+revision behavior using their explicitly constructed fixtures. The generic
+`analyze` producer slots are unchanged; this supported acceptance route is not
+a new one-command CLI implementation.
 
 ## Missing resources and safe cleanup
 
