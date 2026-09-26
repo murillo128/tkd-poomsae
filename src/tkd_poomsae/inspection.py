@@ -1017,12 +1017,19 @@ class Inspection:
             row = db.execute(
                 "SELECT * FROM entities WHERE id=? LIMIT 1", (identifier,)
             ).fetchone()
+            landmark_name = None
+            if row is None and "/" in identifier:
+                parent, landmark_name = identifier.rsplit("/", 1)
+                row = db.execute(
+                    "SELECT * FROM entities WHERE id=? AND product='observations'",
+                    (parent,),
+                ).fetchone()
             if row is None:
                 raise InspectionError(404, "unknown entity ID")
             product = row["product"]
             if product == "observations":
                 owner = db.execute(
-                    "SELECT product FROM observation_owners WHERE id=?", (identifier,)
+                    "SELECT product FROM observation_owners WHERE id=?", (row["id"],)
                 ).fetchone()
                 if owner is None or owner[0] not in headers:
                     raise InspectionError(
@@ -1038,6 +1045,18 @@ class Inspection:
             for header in relevant:
                 self.checked_path(header)
             value = json.loads(row["body"])
+            if landmark_name is not None:
+                point = next(
+                    (p for p in value["landmarks"] if p["name"] == landmark_name),
+                    None,
+                )
+                if point is None:
+                    raise InspectionError(404, "unknown observation landmark")
+                value = point | {
+                    "id": identifier,
+                    "frame": value["frame"],
+                    "provenance": value["provenance"],
+                }
             indices = set(value.get("motion_sample_indices", []))
             for link in value.get("motion_links", []):
                 indices.update(link["motion_sample_indices"])
@@ -1055,6 +1074,7 @@ class Inspection:
                     )
                 )
             evidence: list[dict[str, Any]] = []
+            physical_evidence: list[dict[str, Any]] = []
             source_ids = set(value.get("quality", {}).get("source_ids", []))
             for index in sorted(indices)[:MAX_ROWS]:
                 sample = db.execute(
@@ -1064,8 +1084,16 @@ class Inspection:
                 ).fetchone()
                 if sample:
                     motion = json.loads(sample[0])
-                    for point in motion["landmarks"]:
-                        source_ids.update(point["quality"]["source_ids"])
+                    physical_evidence.append(
+                        {
+                            "id": motion["id"],
+                            "global_seconds": motion["global_seconds"],
+                            "quality": motion["quality"],
+                        }
+                    )
+                    if row["collection"] != "joints":
+                        for point in motion["landmarks"]:
+                            source_ids.update(point["quality"]["source_ids"])
             unresolved: list[str] = []
             for source_id in sorted(source_ids)[:MAX_ROWS]:
                 source = db.execute(
@@ -1084,13 +1112,14 @@ class Inspection:
                             ),
                             "native_frame": observation["frame"],
                             "quality": observation.get("quality"),
+                            "landmarks": observation["landmarks"],
                             "provenance": observation["provenance"],
                         }
                     )
             if product == "observations":
                 evidence.append(
                     {
-                        "observation_id": identifier,
+                        "observation_id": row["id"],
                         "frame": self.effective_frame(
                             project, value["frame"], headers, clock
                         ),
@@ -1124,12 +1153,37 @@ class Inspection:
             "entity": value,
             "product": product,
             "source_evidence": evidence,
+            "physical_evidence": physical_evidence,
             "source_evidence_reason": "; ".join(reasons) if reasons else None,
             "source_evidence_unavailable_count": len(unresolved),
             "source_evidence_unavailable_ids": unresolved,
             "evidence_truncated": truncated,
             "revision": self.revision(headers, clock),
             "artifact_revision": relevant[0]["manifest_revision"],
+            "provenance": relevant[0]["provenance"],
+            "generating_revisions": {
+                name: relevant[0]["key"].get(name)
+                for name in (
+                    "algorithm_revision",
+                    "model_revision",
+                    "schema_version",
+                    "config_digest",
+                    "calibration_revision",
+                    "sync_revision",
+                )
+            },
+            "origin": relevant[0].get("origin", "automatic"),
+            "unit": "px"
+            if product == "observations"
+            else (
+                "m"
+                if relevant[0].get(
+                    "scale", headers.get("reconstruction", {}).get("scale")
+                )
+                == "metric"
+                or relevant[0].get("ground_view", {}).get("world_unit") == "m"
+                else "arbitrary"
+            ),
             "effective_edit_revision": headers.get("semantics", {}).get(
                 "edit_revision", 0
             ),

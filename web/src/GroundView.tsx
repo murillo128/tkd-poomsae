@@ -9,7 +9,8 @@ import type { Track } from '../../contracts/types'
 const layerNames = ['Footprints', 'Foot axes', 'Root path', 'Contacts', 'Pivots', 'Measurements'] as const
 type Layer = typeof layerNames[number]
 const footTrack = (foot: string): Track => foot === 'left' ? 'left_leg' : 'right_leg'
-export function GroundView({ projectId, revision, seconds, playing, selection, dispatch }: {
+export function GroundView({ projectId, revision, seconds, playing, selection, dispatch, windowSeconds = 1 }: {
+  windowSeconds?: number
   projectId: string | null; revision: string | undefined; seconds: number; playing: boolean; selection: Selection | null; dispatch: Dispatch<PlaybackAction>
 }) {
   const [mode, setMode] = useState<'dynamic' | 'summary'>('dynamic')
@@ -46,7 +47,7 @@ export function GroundView({ projectId, revision, seconds, playing, selection, d
   const summary = active?.summary
   const groundIds = new Set([...(summary?.placements.map(e => e.footprint.id) ?? []), ...(summary?.rotations.map(e => e.pivot.id) ?? []), ...(summary?.frames.flatMap(f => [f.id, f.contact_event?.id ?? '']) ?? [])])
   const snapshot = displayed?.response.snapshot ?? null
-  const near = (start: number, end: number) => mode === 'summary' || (start <= seconds + 1 && end >= seconds - 1)
+  const near = (start: number, end: number) => mode === 'summary' || (start <= seconds + windowSeconds && end >= seconds - windowSeconds)
   const visible = (layer: Layer) => layers.has(layer)
   // A fixed viewBox uses authoritative execution-wide bounds with equal XY scale.
   const extent = bounds ? Math.max(bounds.maximum_xy[0] - bounds.minimum_xy[0], bounds.maximum_xy[1] - bounds.minimum_xy[1], 0.001) : 1

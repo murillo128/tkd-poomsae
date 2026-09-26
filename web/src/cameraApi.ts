@@ -16,7 +16,7 @@ export interface MediaMetadata {
   first_frame: NativeFrame; last_frame: NativeFrame
 }
 export interface TimeMapping {
-  revision: string; camera: string; source_id: string; source_seconds: number
+  revision: string; sync_revision: number; manual_revision: unknown; camera: string; source_id: string; source_seconds: number
   effective_offset_seconds: number; offset: SyncOffset
   nearest: NativeFrame; nearest_gap_seconds: number; interpolation: string
 }

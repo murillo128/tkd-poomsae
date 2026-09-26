@@ -6,7 +6,8 @@ import type { PlaybackAction, PlaybackState } from './playback'
 import { readGeometry, type GeometryData } from './geometryApi'
 import { bodyEdges, handEdges, footEdges, buildScene, defaultLayers, disposeGroup, layerNames, sampleAt } from './sceneGeometry'
 
-export function ThreePanel({ project, playback, dispatch, onData }: {
+export function ThreePanel({ project, playback, dispatch, onData, windowSeconds = 1 }: {
+  windowSeconds?: number;
   project: ProjectSnapshot | null; playback: PlaybackState; dispatch: (action: PlaybackAction) => void
   onData: (data: GeometryData | null) => void
 }) {
@@ -23,7 +24,7 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
   const epoch = useRef(0)
   const [rendererReady, setRendererReady] = useState(0)
 
-  const windowSecond = Math.floor(playback.cursorSeconds)
+  const windowSecond = playback.playing ? Math.floor(playback.cursorSeconds) : playback.cursorSeconds
   useEffect(() => {
     setData(null); onData(null)
     if (!project) { setMessage('Open a project to inspect 3D geometry.'); return }
@@ -31,7 +32,7 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
     setMessage('Loading bounded native geometry…')
     // Debounce seeks/playback; all requests share one abortable revision-bound batch.
     const timer = window.setTimeout(() => {
-      readGeometry(project.detail.id, windowSecond, controller.signal).then(result => {
+      readGeometry(project.detail.id, windowSecond, controller.signal, windowSeconds + (playback.playing ? 1 : 0)).then(result => {
         if (controller.signal.aborted || epoch.current !== request) return
         setData(result); onData(result); setMessage(result.reasons.join('; '))
       }).catch(error => {
@@ -39,7 +40,7 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
       })
     }, 80)
     return () => { window.clearTimeout(timer); controller.abort(); epoch.current++ }
-  }, [project?.detail.id, project?.revision, windowSecond, retry, onData])
+  }, [project?.detail.id, project?.revision, windowSecond, windowSeconds, playback.playing, retry, onData])
 
   useEffect(() => {
     const element = host.current
@@ -93,11 +94,11 @@ export function ThreePanel({ project, playback, dispatch, onData }: {
     if (!view) return
     if (groupRef.current) { view.scene.remove(groupRef.current); disposeGroup(groupRef.current); groupRef.current = null }
     if (data) {
-      groupRef.current = buildScene(data, playback.cursorSeconds, playback.selection, layers)
+      groupRef.current = buildScene({ ...data, samples: data.samples.filter(row => Math.abs(row.global_seconds - playback.cursorSeconds) <= windowSeconds) }, playback.cursorSeconds, playback.selection, layers)
       view.scene.add(groupRef.current)
     }
     view.renderer.render(view.scene, view.camera)
-  }, [data, playback.cursorSeconds, playback.selection, layers, rendererReady])
+  }, [data, playback.cursorSeconds, playback.selection, layers, rendererReady, windowSeconds])
 
   const sample = data && sampleAt(data.samples, playback.cursorSeconds)
   const expected = new Set([...bodyEdges.flat(), ...handEdges.flat(), ...footEdges.flat()])

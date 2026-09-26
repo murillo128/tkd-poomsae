@@ -155,7 +155,7 @@ test('selected landmark values and contributing evidence follow native seeks and
   await service(page, geometry)
   const inspector = page.locator('.inspector'), panel = page.locator('.three-d')
   const entity = () => inspector.locator('pre').first().evaluate(element => JSON.parse(element.textContent!))
-  const evidence = () => inspector.locator('details pre').evaluate(element => JSON.parse(element.textContent!))
+  const evidence = () => inspector.locator('.camera-evidence-values').evaluate(element => JSON.parse(element.textContent!))
   const requests: string[] = []
   page.on('request', request => {
     if (request.url().includes('/inspection/entities?')) requests.push(new URL(request.url()).searchParams.get('id')!)
@@ -187,7 +187,8 @@ test('selected landmark values and contributing evidence follow native seeks and
   await expect(inspector).toContainText('left_index_tip unavailable at 1.500 s: landmark coordinates are missing or masked')
   await expect(inspector.locator('pre')).toHaveCount(0)
   expect(requests).toEqual(['motion/samples/0/left_index_tip', 'motion/samples/1/left_index_tip'])
-  await panel.getByLabel('3D native sample').selectOption('motion/samples/0')
+  // The earlier sample is outside the local trajectory window after this seek.
+  await page.locator('.seek input').fill('0'); await page.locator('.seek input').press('Enter')
   await expect(inspector).toContainText('motion/samples/0/left_index_tip')
   expect((await entity()).global_seconds).toBe(0)
   expect((await evidence())[0].frame.pts).toBe(0)

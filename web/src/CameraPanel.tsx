@@ -12,6 +12,7 @@ interface Props {
 }
 interface Delivery { frame: NativeFrame; requested: number; image: string | null; observations: Observation[]; observationStatus: string }
 export function CameraPanel({ project, camera, seconds, playing, speed, selected, onClock, onDelivered, onSelect }: Props) {
+  const [overlays, setOverlays] = useState(true)
   const [metadata, setMetadata] = useState<MediaMetadata | null>(null)
   const [mapping, setMapping] = useState<TimeMapping | null>(null)
   const [delivery, setDelivery] = useState<Delivery | null>(null)
@@ -155,9 +156,10 @@ export function CameraPanel({ project, camera, seconds, playing, speed, selected
   useEffect(() => {
     if (selected) callbacks.current.onDelivered(camera, frame && offset !== undefined ? frame.source_seconds + offset : null)
   }, [selected, camera, frame?.pts, frame?.source_seconds, offset])
-  const points = frame && visible ? delivery.observations.flatMap(observation => observation.landmarks.map(point => ({ observation, point }))) : []
+  const points = frame && visible && overlays ? delivery.observations.flatMap(observation => observation.landmarks.map(point => ({ observation, point }))) : []
   return <article className="camera-card" aria-label={`Camera ${camera}`}>
     <h3>{camera}</h3>
+    <label><input type="checkbox" checked={overlays} onChange={e => setOverlays(e.target.checked)} />Observation overlays</label>
     <p>{mapping ? `${mapping.offset.retained ? 'Retained' : 'Excluded'} · offset ${offset?.toFixed(6)} s · confidence ${mapping.offset.quality.score ?? 'unknown'} (${mapping.offset.quality.state})${mapping.offset.quality.score !== null && mapping.offset.quality.score !== undefined && mapping.offset.quality.score < 0.5 ? ' · Low confidence' : ''}` : 'Synchronization unavailable'}</p>
     <div className="camera-viewport">
       {playing && browserPlayable && <video ref={video} src={mediaPath(project, camera)} muted playsInline preload="metadata" style={{ visibility: inCoverage ? 'visible' : 'hidden' }} onSeeking={() => { epoch.current++; setDelivery(null); callbacks.current.onDelivered(camera, null) }} onError={() => setStatus('Browser playback unavailable; pause for exact source frames.')} />}
@@ -178,7 +180,7 @@ export function CameraPanel({ project, camera, seconds, playing, speed, selected
     <p>Requested global {seconds.toFixed(6)} s · source {offset === undefined ? 'unavailable' : (seconds - offset).toFixed(6) + ' s'}</p>
     <p>{frame ? `Delivered ordinal ${frame.ordinal} · PTS ${frame.pts} · source ${frame.source_seconds.toFixed(6)} s · global ${(frame.source_seconds + offset!).toFixed(6)} s · sample mismatch ${(frame.source_seconds + offset! - seconds).toFixed(6)} s` : 'Delivered frame identity unavailable'}</p>
     <p>{visible ? delivery.observationStatus : 'Overlays hidden until source frame identity is established'}</p>
-    {visible && delivery.observations.map(row => <details key={row.id}><summary>Observation confidence and provenance</summary><p>{row.id}</p>
+    {visible && overlays && delivery.observations.map(row => <details key={row.id}><summary>Observation confidence and provenance</summary><p>{row.id}</p>
       <p>{row.provenance.producer} · {row.provenance.model ?? 'no model'} · {row.provenance.model_version ?? 'no version'}</p>
       {row.region_quality?.map(region => <p key={region.part}>{region.part}: {region.usable ? 'usable' : 'unusable'} {region.reasons?.join('; ')}</p>)}
       {row.landmarks.map(point => <p key={point.name}>{point.name}: {pointDescription(point)}</p>)}

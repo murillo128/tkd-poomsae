@@ -15,7 +15,7 @@ function entities(data: TimelineData): Entity[] {
     ...data.stances.map(s => ({ id: s.id, kind: 'stance' as const, time: s.interval.start, interval: s.interval, tracks: ['left_leg', 'right_leg'] as Track[], label: `Stance ${s.label} ${s.id} · ${s.quality.state}`, detail: s })),
   ]
 }
-export function Timeline({ projectId, revision, seconds, selection, dispatch }: { projectId: string | null; revision?: string; seconds: number; selection: Selection | null; dispatch: Dispatch<PlaybackAction> }) {
+export function Timeline({ projectId, revision, seconds, selection, dispatch, onChanged }: { onChanged?: () => void; projectId: string | null; revision?: string; seconds: number; selection: Selection | null; dispatch: Dispatch<PlaybackAction> }) {
   const [data, setData] = useState<TimelineData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,7 +32,7 @@ export function Timeline({ projectId, revision, seconds, selection, dispatch }: 
   useEffect(() => () => write.current?.abort(), [])
   useEffect(() => {
     const controller = new AbortController()
-    setData(null); setError('')
+    setData(null); setError(previous => previous.includes('Stale revision / conflict') ? previous : '')
     if (!projectId) return
     setLoading(true)
     readTimeline(projectId, controller.signal).then(value => {
@@ -81,8 +81,8 @@ export function Timeline({ projectId, revision, seconds, selection, dispatch }: 
     try {
       await editTimeline(projectId, command === 'apply' && base ? base : { expected_revision: data.semantic.effective_edit_revision, automatic_revision: data.semantic.artifact_revision }, command, command === 'apply' ? queue : [], author, reason, controller.signal)
       if (controller.signal.aborted) return
-      setQueue([]); setBase(null); setDraft(null); setAttempt(value => value + 1)
-    } catch (e) { if (!controller.signal.aborted) setError(String(e)) }
+      setQueue([]); setBase(null); setDraft(null); setAttempt(value => value + 1); onChanged?.()
+    } catch (e) { if (!controller.signal.aborted) { setError(String(e)); if (String(e).includes('Stale revision / conflict')) onChanged?.() } }
     finally { if (!controller.signal.aborted) setBusy(false) }
   }
   function laneRows(items: Entity[]) {

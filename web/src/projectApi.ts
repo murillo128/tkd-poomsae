@@ -28,9 +28,19 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(API_ROOT).hostname)) {
   throw new Error('Inspection requires a local service URL')
 }
 export async function readJson<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_ROOT}${path}`, { signal })
-  if (!response.ok) throw new Error(`Local service returned ${response.status} for ${path}`)
-  return response.json() as Promise<T>
+  for (let attempt = 0; ; attempt++) {
+    signal.throwIfAborted()
+    const response = await fetch(`${API_ROOT}${path}`, { signal })
+    if (response.ok) return response.json() as Promise<T>
+    const body = await response.json().catch(() => null)
+    // Inspection reads briefly compete with an exclusive parser transaction.
+    // Retry only an explicit busy read, never a revision conflict or a write.
+    if (attempt < 3 && response.status === 409 && body?.detail === 'project is busy; retry inspection') {
+      await new Promise(resolve => window.setTimeout(resolve, 50 * (attempt + 1)))
+      continue
+    }
+    throw new Error(`Local service returned ${response.status} for ${path}: ${JSON.stringify(body?.detail ?? 'unavailable')}`)
+  }
 }
 export function listProjects(signal: AbortSignal): Promise<ProjectList> {
   return readJson('/api/projects', signal)

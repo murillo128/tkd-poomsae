@@ -16,17 +16,20 @@ from contracts.models import (
     FrameTime,
     Landmark,
     Landmark2D,
+    Landmark3D,
+    MotionSample,
     Observation,
     Provenance,
     Quality,
     RawScore,
+    Reconstruction,
     RegionOfInterest,
     Synchronization,
     SyncOffset,
 )
 from media import ingest
 from pipeline import Pipeline
-from storage import ArtifactKey, ArtifactStore, StorageRoot
+from storage import ArtifactKey, ArtifactStore, StorageRoot, hash_file
 from tests.test_inspection_api import persist
 from tkd_poomsae.api import create_app
 from tkd_poomsae.inspection import Inspection
@@ -150,6 +153,48 @@ for count in (2, 3, 4):
             key, _ = persist(pipe.store, value)
             observations.append(key)
     index.register(project, {"sync": sync_key}, observations=observations)
+    if count == 2:
+        pipe.register("provenance", dict(list(sources.items())[:count]))
+        q = Quality(
+            state="observed",
+            score=0.8,
+            source_ids=["cameras-2-front-4", "cameras-2-rotated-0"],
+        )
+        motion = Reconstruction(
+            kind="reconstruction",
+            id="inspection-motion",
+            schema_version="1.0.0",
+            provenance=provenance,
+            calibration_id="unresolved",
+            participant_id="fixture",
+            scale="arbitrary",
+            samples=[
+                MotionSample(
+                    global_seconds=0.2,
+                    root_xyz_world=(0, 0, 1),
+                    root_orientation=None,
+                    quality=q,
+                    landmarks=[
+                        Landmark3D(
+                            name="left_wrist", xyz_world=(0.2, 0.1, 1.2), quality=q
+                        )
+                    ],
+                )
+            ],
+        )
+        motion_key, _ = persist(
+            pipe.store,
+            motion,
+            inputs={
+                name: hash_file(path) for name, path in list(sources.items())[:count]
+            },
+            sync_revision=hash_file(pipe.store.get(sync_key).path / "manifest.json"),
+        )
+        index.register(
+            "provenance",
+            {"sync": sync_key, "reconstruction": motion_key},
+            observations=observations,
+        )
 app = create_app(
     pipe,
     allowed_roots={"fixture": root},

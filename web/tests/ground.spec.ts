@@ -12,6 +12,11 @@ async function open(page: Page, arbitrary = false, unavailable = false, snapshot
     let body: unknown
     if (url.pathname.endsWith('/api/projects')) body = { projects: ['synthetic'] }
     else if (url.pathname.endsWith('/capabilities')) body = { project: 'synthetic', stages: { ground: stage } }
+    else if (url.pathname.endsWith('/inspection')) body = { revision: 'fixture', products: {} }
+    else if (url.pathname.endsWith('/entities')) {
+      const footprint = data.summary.placements.find(p => p.footprint.id === url.searchParams.get('id'))?.footprint
+      body = { entity: footprint ?? { id: url.searchParams.get('id') }, unit: data.meta.world_unit, source_evidence: [], source_evidence_reason: 'native camera observations unavailable', artifact_revision: 'fixture', origin: 'automatic', effective_edit_revision: 0 }
+    }
     else if (url.pathname.endsWith('/snapshot')) {
       const seconds = Number(url.searchParams.get('seconds'))
       if (snapshotDelay) await new Promise(resolve => setTimeout(resolve, snapshotDelay))
@@ -96,6 +101,17 @@ test('unresolved scale and missing ground remain explicit', async ({ page }) => 
   await expect(panel).toContainText('Metric scale unresolved')
   await expect(panel).not.toContainText('coordinates (m)')
   await expect(panel.locator('.ground-measurements')).not.toContainText(/\d+(?:\.\d+)? m(?: |$)/)
+  const placement = fixture.summary.placements[0]
+  await panel.getByRole('combobox', { name: 'View', exact: true }).selectOption('summary')
+  await panel.locator('.ground-foot').first().focus(); await page.keyboard.press('Enter')
+  await expect(page.locator('.seek input')).toHaveValue(placement.event_seconds.toFixed(3))
+  await expect(page.locator('.timeline')).toContainText(`${placement.event_seconds.toFixed(3)} s`)
+  const inspector = page.locator('.inspector')
+  await expect(inspector).toContainText('arbitrary world units · metric scale unresolved')
+  await expect(inspector).toContainText(placement.footprint.id)
+  const inspected = await inspector.locator('.geometry-values').evaluate(element => JSON.parse(element.textContent!))
+  expect(inspected.xy_ground).toEqual(placement.footprint.xy_ground)
+  await expect(inspector).not.toContainText('metres (m)')
   await panel.screenshot({ path: test.info().outputPath('arbitrary.png') })
 })
 
