@@ -11,7 +11,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="TKD MultiCam"
+        android:label="TKD MultiCam v0.4"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
