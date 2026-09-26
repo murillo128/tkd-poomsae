@@ -198,3 +198,10 @@ root sample sets shared time/entity selection; track and external entity
 selections highlight participating ground tracks. Metric labels require resolved
 scale; landmark axes/points remain distinct from approximate sole polygons.
 No reference comparison or coaching score is produced.
+
+During playback the ground panel coalesces snapshot requests: one request may
+finish across several clock ticks before the latest desired time is fetched.
+Delivered geometry remains visible with sampled/requested/cursor times shown
+separately. Paused seeks display only their matching response. Project or artifact
+revision changes abort the old request and discard its results. Native snapshot
+and gap decisions remain entirely in the service.

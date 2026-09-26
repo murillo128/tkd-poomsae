@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch } from 'react'
+import { useGroundSnapshot } from './useGroundSnapshot'
 import { readGroundSnapshot, readGroundSummary } from './groundApi'
 import type { GroundFrame, GroundSummary, SnapshotResponse, Geometry, XY } from './groundApi'
 import type { PlaybackAction, Selection } from './playback'
@@ -8,17 +9,16 @@ import type { Track } from '../../contracts/types'
 const layerNames = ['Footprints', 'Foot axes', 'Root path', 'Contacts', 'Pivots', 'Measurements'] as const
 type Layer = typeof layerNames[number]
 const footTrack = (foot: string): Track => foot === 'left' ? 'left_leg' : 'right_leg'
-export function GroundView({ projectId, revision, seconds, selection, dispatch }: {
-  projectId: string | null; revision: string | undefined; seconds: number; selection: Selection | null; dispatch: Dispatch<PlaybackAction>
+export function GroundView({ projectId, revision, seconds, playing, selection, dispatch }: {
+  projectId: string | null; revision: string | undefined; seconds: number; playing: boolean; selection: Selection | null; dispatch: Dispatch<PlaybackAction>
 }) {
   const [mode, setMode] = useState<'dynamic' | 'summary'>('dynamic')
   const [layers, setLayers] = useState<Set<Layer>>(new Set(layerNames))
   const [data, setData] = useState<{ id: string; revision?: string; response: SnapshotResponse; summary: GroundSummary } | null>(null)
-  const [current, setCurrent] = useState<{ seconds: number; response: SnapshotResponse } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    setData(null); setCurrent(null); setError(null)
+    setData(null); setError(null)
     if (!projectId) return
     const controller = new AbortController()
     async function load() {
@@ -31,15 +31,8 @@ export function GroundView({ projectId, revision, seconds, selection, dispatch }
     return () => controller.abort()
   }, [projectId, revision, attempt])
   const active = data?.id === projectId && data.revision === revision ? data : null
-  useEffect(() => {
-    setCurrent(null)
-    if (!active) return
-    const controller = new AbortController()
-    readGroundSnapshot(active.id, seconds, controller.signal, active.response.revision).then(response => {
-      if (!controller.signal.aborted) setCurrent({ seconds, response })
-    }).catch(reason => { if (!controller.signal.aborted) setError(String(reason)) })
-    return () => controller.abort()
-  }, [active, seconds])
+  const { current, error: snapshotError } = useGroundSnapshot(active?.id ?? null, active?.response.revision ?? null, seconds)
+  const displayed = current && (playing || current.seconds === seconds) ? current : null
   function choose(id: string, time: number, tracks: Track[]) {
     dispatch({ type: 'play', playing: false })
     dispatch({ type: 'seek', seconds: time })
@@ -52,7 +45,7 @@ export function GroundView({ projectId, revision, seconds, selection, dispatch }
   const bounds = meta?.scene_bounds
   const summary = active?.summary
   const groundIds = new Set([...(summary?.placements.map(e => e.footprint.id) ?? []), ...(summary?.rotations.map(e => e.pivot.id) ?? []), ...(summary?.frames.flatMap(f => [f.id, f.contact_event?.id ?? '']) ?? [])])
-  const snapshot = current?.seconds === seconds ? current.response.snapshot : null
+  const snapshot = displayed?.response.snapshot ?? null
   const near = (start: number, end: number) => mode === 'summary' || (start <= seconds + 1 && end >= seconds - 1)
   const visible = (layer: Layer) => layers.has(layer)
   // A fixed viewBox uses authoritative execution-wide bounds with equal XY scale.
@@ -79,10 +72,10 @@ export function GroundView({ projectId, revision, seconds, selection, dispatch }
     <div className="ground-controls"><label>View <select value={mode} onChange={event => setMode(event.target.value as typeof mode)}><option value="dynamic">Dynamic</option><option value="summary">Summary</option></select></label>
       {layerNames.map(layer => <label key={layer}><input type="checkbox" checked={visible(layer)} onChange={() => setLayers(previous => { const next = new Set(previous); if (next.has(layer)) next.delete(layer); else next.add(layer); return next })} />{layer}</label>)}
     </div>
-    {!projectId ? <p>Open a project to inspect ground geometry.</p> : error ? <p role="alert">Ground view unavailable: {error} <button onClick={() => setAttempt(n => n + 1)}>Retry ground view</button></p> : !active ? <p role="status">Loading ground geometry…</p> : !bounds ? <p>Ground view unavailable: no projected geometry.</p> : <>
+    {!projectId ? <p>Open a project to inspect ground geometry.</p> : error || snapshotError ? <p role="alert">Ground view unavailable: {error || snapshotError} <button onClick={() => setAttempt(n => n + 1)}>Retry ground view</button></p> : !active ? <p role="status">Loading ground geometry…</p> : !bounds ? <p>Ground view unavailable: no projected geometry.</p> : <>
       <p>{meta?.participant_id} · {meta?.world_unit === 'm' ? 'Metric ground coordinates (m)' : 'Metric scale unresolved · arbitrary world units'} · +X right, +Y up</p>
       <p className="ground-legend">L = left · R = right · circles: measured landmarks · dashed shape: approximate sole · dashed paths: pivot trajectories</p>
-      {mode === 'dynamic' && <p role="status">{current?.seconds !== seconds ? 'Loading current native snapshot…' : current.response.available ? `${snapshot?.status === 'native_snapshot' ? 'Preceding native snapshot' : 'Native sample'} at ${snapshot?.sampled_seconds.toFixed(3)} s` : `Current geometry unavailable: ${current.response.reason}`}</p>}
+      {mode === 'dynamic' && <p role="status">{!displayed ? 'Loading current native snapshot…' : displayed.response.available ? `${snapshot?.status === 'native_snapshot' ? 'Preceding native snapshot' : 'Native sample'} at ${snapshot?.sampled_seconds.toFixed(3)} s · requested ${displayed.seconds.toFixed(3)} s · cursor ${seconds.toFixed(3)} s` : `Current geometry unavailable: ${displayed.response.reason}`}</p>}
       <svg className="ground-scene" aria-label="Top-down ground XY scene" viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
         <defs><marker id="ground-axis-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs>
         {visible('Root path') && [...rootRuns].map(([run, frames]) => <polyline key={run} points={points(frames.map(f => f.root!.xy_ground!))} className="root-path" />)}

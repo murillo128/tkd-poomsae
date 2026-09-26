@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import type { GroundSummary, GroundMetadata } from '../src/groundApi'
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/ground.json', import.meta.url), 'utf8')) as { meta: GroundMetadata; summary: { ground_frames: GroundSummary['frames']; placements: GroundSummary['placements']; rotations: GroundSummary['rotations']; placement_relations: GroundSummary['relations'] } }
 
-async function open(page: Page, arbitrary = false, unavailable = false) {
+async function open(page: Page, arbitrary = false, unavailable = false, snapshotDelay = 0) {
   const data = structuredClone(fixture)
   if (arbitrary) data.meta.world_unit = 'arbitrary'
   const stage = { available: true, reason: null, schema_version: '1.0.0', software_revision: 'fixture', model_revision: null, status: { status: 'complete', key: 'fixture' } }
@@ -14,13 +14,19 @@ async function open(page: Page, arbitrary = false, unavailable = false) {
     else if (url.pathname.endsWith('/capabilities')) body = { project: 'synthetic', stages: { ground: stage } }
     else if (url.pathname.endsWith('/snapshot')) {
       const seconds = Number(url.searchParams.get('seconds'))
-      const frame = data.summary.ground_frames.find(f => Math.abs(f.sampled_seconds - seconds) < 1e-8)
+      if (snapshotDelay) await new Promise(resolve => setTimeout(resolve, snapshotDelay))
+      const exact = data.summary.ground_frames.find(f => Math.abs(f.sampled_seconds - seconds) < 1e-8)
+      // Slow-transport fixture: retained native snapshots stay discrete; the
+      // service labels their requested/sampled times without interpolating feet.
+      const preceding = snapshotDelay && seconds >= 0 && seconds <= 1
+        ? [...data.summary.ground_frames].reverse().find(f => f.sampled_seconds <= seconds) : undefined
+      const frame = exact ?? (preceding ? { ...preceding, requested_seconds: seconds, status: 'native_snapshot' } : undefined)
       body = { revision: 'fixture', available: !unavailable && Boolean(frame), reason: unavailable ? 'ground_unavailable' : frame ? null : 'outside_execution', ground_view: unavailable ? null : data.meta, snapshot: frame ?? null }
     } else if (url.pathname.endsWith('/window')) {
       const name = url.searchParams.get('collection') as keyof typeof data.summary
       body = { revision: 'fixture', available: true, rows: data.summary[name], next_cursor: null }
     } else body = { id: 'synthetic', sources: [], state: { stages: { ground: stage.status } } }
-    await route.fulfill({ json: body, headers: { 'access-control-allow-origin': 'http://127.0.0.1:5186' } })
+    await route.fulfill({ json: body, headers: { 'access-control-allow-origin': route.request().headers().origin } })
   })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption('synthetic')
@@ -97,4 +103,29 @@ test('missing ground renders an unavailable panel', async ({ page }) => {
   await open(page, false, true)
   await expect(page.getByRole('region', { name: 'Ground view', exact: true })).toContainText('Ground view unavailable')
   await expect(page.getByLabel('Top-down ground XY scene')).toHaveCount(0)
+})
+
+
+test('continuous playback retains delivered geometry when snapshots take longer than a tick', async ({ page }) => {
+  await open(page, false, false, 80)
+  const panel = page.getByRole('region', { name: 'Ground view', exact: true })
+  const root = panel.locator('.current-root')
+  await expect(root).toBeVisible()
+  const initial = await root.getAttribute('cx')
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  const visible: boolean[] = []
+  for (let i = 0; i < 8; i++) {
+    await page.waitForTimeout(75)
+    visible.push(await root.isVisible())
+  }
+  expect(visible.every(Boolean)).toBe(true)
+  await expect(root).not.toHaveAttribute('cx', initial!)
+  await expect(panel.getByRole('status')).toContainText('requested')
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  // A paused seek must still land on the exact backend snapshot.
+  await page.locator('.seek input').fill('0.4')
+  await page.locator('.seek input').blur()
+  await expect(panel).toContainText('Native sample at 0.400 s')
+  await expect(root).toHaveAttribute('cx', String(fixture.summary.ground_frames[2].root!.xy_ground![0]))
+  await panel.screenshot({ path: test.info().outputPath('slow-playback.png') })
 })
