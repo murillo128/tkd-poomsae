@@ -67,3 +67,108 @@ physical GPU lease they require. Job records live under
 marked `interrupted` and can be submitted again. The pipeline's immutable
 artifacts and per-project state provide resumability. Normal API requests do
 not download datasets or model weights.
+
+Processed artifact inspection uses a persisted per-project SQLite index. The
+trusted producer/operator binds existing `ArtifactKey`s with
+`Inspection(pipeline).register(project, products, observations=window_keys,
+lineage=upstream_keys)` or:
+
+```sh
+tkd-poomsae inspection-register PROJECT --artifacts artifact-keys.json
+```
+
+The bundle contains `products` (required `sync`, optional `reconstruction`,
+`ground`, `semantics`), an optional `observations` array of native window
+keys to index, and an optional `lineage` array of upstream keys to verify. Each
+key uses the same JSON fields as the immutable store and the
+semantic-edit CLI: `layer`, `inputs`, `schema_version`, `algorithm_revision`,
+`config_digest`, and any optional model/calibration/sync revisions. Register the
+final reconstruction and ground product, not an earlier raw intermediate.
+Registration verifies source hashes, layer identities and physical/semantic
+lineage before assigning a clock, including for previously unindexed motion.
+Direct motion keys must bind the current source hashes and synchronization
+manifest. Published derived motion instead requires upstream reconstruction,
+alignment and native observation keys in `lineage`, following their immutable
+input references to the current synchronization and sources. Unverifiable or
+mismatched lineage is rejected. The upstream key inventory is bounded to 8 MiB
+and reconstruction ancestry to eight edges. Registration indexes each native
+observation window separately and preserves the first clock binding of every
+timed artifact. It cannot relabel an old product as current after a sync
+revision. Registration reads persisted data only and
+never invokes a producer. No HTTP endpoint accepts artifact keys or file paths.
+Missing products remain explicitly unavailable until registered; this does not
+make an uninstalled producer available.
+
+The inspection endpoints below share the existing Host, Origin, registered-media
+and local-mutation policy:
+
+- `GET /api/projects/{id}/inspection` reports source/artifact revisions, edit
+  revisions, availability, array descriptors and request limits.
+- `GET .../inspection/{product}/window?collection=samples&start=T&end=U` returns
+  a closed global-time window. Products are `observations`, `reconstruction`,
+  `ground`, `semantics`. Observations use collection `observations`; reconstruction
+  uses `samples` or `joints`; ground uses `samples`, `footprints`, `pivots`,
+  `measurements`; semantics uses `steps`, `stances`, `actions`, `phases`,
+  `keyframes`. Intervals overlap the requested window. Rows retain confidence,
+  native identities, null missing geometry and landmark masks. Geometry units
+  are `m` only for metric reconstruction; unresolved scale is `arbitrary`.
+  Root/landmark trajectories are native sample windows, without invented samples.
+- `GET .../inspection/entities?id=ENTITY_ID` resolves a selected joint,
+  footprint, action, phase or keyframe and follows retained native observation
+  IDs to camera/frame/PTS evidence. Sample IDs are `{artifact_id}/samples/{index}`;
+  joint IDs append `/{landmark_name}`. Persisted semantic/footprint IDs stay
+  unchanged. Native observation entities return the effective global `frame`
+  and retain their original `native_frame`, matching window and evidence times.
+  Their `artifact_revision` identifies the owning native window's manifest.
+  Indexes created before native ownership was recorded require re-registration
+  for native entity lookup and return an explicit conflict until then.
+  If a source has no usable synchronization offset, native frame/PTS evidence
+  stays available, but its mapped `frame.global_seconds` and `offset_seconds`
+  are null with a `global_time_reason` also reported in `source_evidence_reason`.
+  Window, entity/evidence and time lookup share the same offset policy: current
+  or persisted manual overrides take precedence; otherwise excluded cameras
+  and missing automatic estimates are unavailable. A retained timing reference
+  with no automatic estimate has its genuine zero offset.
+  Missing or truncated contributing evidence has an explicit reason. Partial
+  resolution retains valid evidence and reports bounded
+  `source_evidence_unavailable_ids` and `source_evidence_unavailable_count` for
+  the IDs examined; `evidence_truncated` reports unexamined excess IDs/rows.
+  Reprojection diagnostics describe internal consistency, not accuracy.
+- `GET .../inspection/time/{camera}?seconds=T` maps global time using persisted
+  offsets and current manual revisions, then uses the registered native media
+  index. It returns bracket/nearest ordinal, source hash, PTS, source/global
+  times and nearest-frame gap; outside-coverage lookup is labeled explicitly.
+  It never implies that a bracket has reconstructed/interpolated geometry.
+- `GET .../inspection/{product}/arrays/{array_id}?start=T&end=U` returns an NPZ
+  with `values`, optional `missing_mask`, and UTF-8 JSON `metadata` stored as
+  `uint8`. Use `allow_pickle=False` when opening it. Only registered arrays whose
+  leading axis is `native_time`, `time` or `sample` and whose length matches the
+  indexed samples are exposed. JSON evidence blobs and arbitrary storage files
+  are not array transports.
+- `POST .../inspection/sync-offset` takes `camera`, `offset_seconds`, integer
+  `expected_revision` and `author`/`source`/`reason`. Expected revisions are
+  compared under the pipeline's project lock. Original automatic estimates stay
+  visible; revised offsets immediately affect native observation/time lookup.
+  Reconstruction, ground and semantics become stale and return no current rows.
+- `POST .../inspection/parser-edits` takes `automatic_revision` (the registered
+  automatic manifest hash), integer `expected_revision`, `command`
+  (`apply`, `undo`, `reset`), typed `operations` and attribution. It delegates to
+  `SemanticEditor` and updates only the effective semantic index. Automatic bytes
+  and physical products stay intact. Each automatic artifact has a separate
+  project-scoped edit session. CLI edits outside this service make its semantic
+  index explicitly stale until re-registration, rather than silently serving
+  an earlier effective revision.
+
+Windows are at most 30 seconds, 256 rows (`limit`, default 100), and 2 MiB per
+response. `next_cursor` is a keyset cursor for another page of the same window;
+clients must bind it to the response `revision`. Arrays must fit one page.
+JSON, time and array responses have ETags; window/entity/array requests may supply
+`expected_revision` to reject superseded requests. Clients should abort old
+window fetches when the cursor changes; disconnects cancel window row assembly.
+Project leases exclude concurrent publication/editing during reads. Readers use
+indexed rows and mmap slices, not complete dense recording JSON. Changed
+registered artifact files fail closed until registration verifies them again.
+The compact product inventory and edit inputs are each capped at 8 MiB; oversized
+semantic artifacts must be partitioned by their owning producer before service
+editing. These limits cover service reads/edits; trusted registration may read
+one complete persisted physical artifact while constructing its disk index.

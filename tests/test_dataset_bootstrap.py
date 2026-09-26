@@ -174,13 +174,14 @@ def test_changed_content_and_corruption_require_repair(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, publisher: Any
 ) -> None:
     server, url = publisher
-    server.data, record = _fixture()
+    pristine, record = _fixture()
     monkeypatch.setattr(acquisition, "load_registration", lambda: record)
     root = StorageRoot(tmp_path)
-    server.data = server.data[:-1] + bytes([server.data[-1] ^ 1])
+    server.data = pristine[:-1] + bytes([pristine[-1] ^ 1])
     with pytest.raises(acquisition.AcquisitionError, match="SHA-256"):
         acquisition.bootstrap(root, url=url)
-    server.data, _ = _fixture()
+    # Restore the pinned bytes; regenerating ZIP timestamps changes their hash.
+    server.data = pristine
     acquisition.bootstrap(root, url=url)
     destination = root.namespace("datasets") / "mendeley/bjy7vr4xkt/v1"
     target = destination / "Data/video/test.mp4"
