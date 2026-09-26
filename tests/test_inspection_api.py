@@ -315,10 +315,11 @@ def test_sync_conflict_native_time_mapping_and_stale_geometry(
             index.register("demo", products | {"sync": key})
 
 
-def test_parser_edits_preserve_vision_and_automatic_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    physical, floor, geometry = compound()
+def parser_inspection(
+    tmp_path: Path, *, centered: bool = False, project: str = "demo"
+) -> tuple[Inspection, ArtifactHandle]:
+    """Build offline persisted semantic products for HTTP/browser acceptance."""
+    physical, floor, geometry = compound(centered)
     store = ArtifactStore(StorageRoot(tmp_path / "store"))
     features = persist_features(store, physical)
     coarse = publish_segmentation(store, features)
@@ -353,7 +354,7 @@ def test_parser_edits_preserve_vision_and_automatic_bytes(
     pipe = Pipeline(store)
     for side in ("left", "right"):
         (tmp_path / side).write_bytes(side.encode())
-    pipe.register("demo", {side: tmp_path / side for side in ("left", "right")})
+    pipe.register(project, {side: tmp_path / side for side in ("left", "right")})
     sync = Synchronization(
         kind="synchronization",
         id="sync",
@@ -377,7 +378,7 @@ def test_parser_edits_preserve_vision_and_automatic_bytes(
     )
     index = Inspection(pipe)
     index.register(
-        "demo",
+        project,
         {
             "sync": sync_key,
             "reconstruction": motion_key,
@@ -385,6 +386,14 @@ def test_parser_edits_preserve_vision_and_automatic_bytes(
             "semantics": semantics_key,
         },
     )
+    return index, automatic
+
+
+def test_parser_edits_preserve_vision_and_automatic_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    index, automatic = parser_inspection(tmp_path)
+    pipe = index.pipe
     original = hash_file(automatic.path / "metadata.json")
 
     def forbidden(*args: Any, **kwargs: Any) -> Any:

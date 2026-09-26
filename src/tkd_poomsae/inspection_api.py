@@ -138,6 +138,8 @@ def routes(service: FastAPI, inspection: Inspection, media: MediaAccess) -> None
                             else "source/sync revision changed",
                             "arrays": h["arrays"],
                             "provenance": h["provenance"],
+                            "origin": h.get("origin", "automatic"),
+                            "time_bounds": inspection.time_bounds(project, name),
                         }
                         for name, h in headers.items()
                         if not name.startswith("observations:")

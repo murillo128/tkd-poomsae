@@ -915,6 +915,15 @@ class Inspection:
         automatic = self.automatic(project)
         return SemanticEditor(self.pipe.store, project + ":" + automatic.path.name)
 
+    def time_bounds(self, project: str, product: str) -> dict[str, float] | None:
+        """Expose indexed global bounds without opening a dense artifact."""
+        with self.connection(project) as db:
+            start, end = db.execute(
+                "SELECT MIN(start), MAX(end) FROM entities WHERE product=?",
+                (product,),
+            ).fetchone()
+        return None if start is None else {"start": start, "end": end}
+
     def update_semantics(self, project: str, view: EffectiveSemanticView) -> None:
         with self.connection(project) as db:
             db.execute("DELETE FROM entities WHERE product='semantics'")

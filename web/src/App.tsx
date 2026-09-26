@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { GroundView } from './GroundView'
-import type { Track } from '../../contracts/types'
+import { Timeline } from './Timeline'
 import { CameraPanel } from './CameraPanel'
 import { canStep, initialPlayback, playbackReducer } from './playback'
 import { API_ROOT, listProjects, readProject, type ProjectSnapshot, type StageCapability } from './projectApi'
@@ -10,7 +10,6 @@ import { GeometryInspector, selectedLandmarkName } from './GeometryInspector'
 import type { GeometryData } from './geometryApi'
 
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; value: T }
-const trackNames: Track[] = ['left_arm', 'right_arm', 'left_leg', 'right_leg', 'body_root', 'head']
 const stages = ['ingest', 'sync', 'calibration', 'observations', 'attachment', 'reconstruction', 'ground', 'parsing']
 
 function stageMessage(stage: StageCapability | undefined): string {
@@ -111,7 +110,6 @@ export function App() {
   const hasProject = Boolean(snapshot)
   const stepAvailable = hasProject && canStep(playback)
   const selectedCamera = playback.cameras.find(camera => camera.id === playback.selectedCameraId)
-  const selectedTrack = playback.selection?.kind === 'track' ? playback.selection.id : null
   const selectionLabel = selectedLandmarkName(playback.selection) ?? playback.selection?.id ?? 'None'
   function openProject(id: string) {
     setProjectId(id)
@@ -205,9 +203,7 @@ export function App() {
         onSelect={(id, description) => dispatch({ type: 'select', selection: { kind: 'entity', id, tracks: [], description } })} />) ?? <p>Open a project to view cameras.</p>}</div></section>
       <ThreePanel project={snapshot} playback={playback} dispatch={dispatch} onData={onGeometry} />
       <GroundView projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} playing={playback.playing} selection={playback.selection} dispatch={dispatch} />
-      <section className="panel timeline"><h2>Timeline</h2><p>Global cursor: <strong>{formatTime(playback.cursorSeconds)}</strong></p><p>Physical and semantic tracks: {stageMessage(capabilities?.parsing)}</p>
-        <div className="track-list" aria-label="Shared track selection">{trackNames.map(track => <button type="button" key={track} disabled={!hasProject} aria-pressed={playback.selection?.tracks.includes(track) ?? false} onClick={() => dispatch({ type: 'select', selection: selectedTrack === track ? null : { kind: 'track', id: track, tracks: [track] } })}>{track.replaceAll('_', ' ')}</button>)}</div>
-      </section>
+      <Timeline key={projectId ?? 'no-project'} projectId={snapshot?.detail.id ?? null} revision={snapshot?.revision} seconds={playback.cursorSeconds} selection={playback.selection} dispatch={dispatch} />
       <section className="panel inspector"><h2>Inspector</h2><p>Selection: <strong>{selectionLabel}</strong></p><p>Participating tracks: {playback.selection?.tracks.join(', ') || 'None'}</p><p>{playback.selection?.description ?? ''}</p><GeometryInspector project={snapshot?.detail.id ?? null} data={geometry} selection={playback.selection} cursorSeconds={playback.cursorSeconds} /></section>
     </div>
   </main>

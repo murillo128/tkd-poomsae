@@ -97,3 +97,24 @@ h3 { font-size: .95rem; }
 .geometry-values { overflow: auto; max-height: 300px; font-size: .75rem; }
 .scene-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .three-d details { margin-top: .7rem; font-size: .85rem; }
+.timeline-controls { display: flex; flex-wrap: wrap; gap: .6rem; margin: .8rem 0; }
+.timeline-controls label, .timeline-editor label { display: inline-flex; align-items: center; gap: .4rem; margin: .3rem; }
+.timeline-controls button { font-size: .8rem; }
+.timeline-scrub { display: flex; gap: .5rem; align-items: center; }
+.timeline-scrub input { flex: 1; min-width: 0; }
+.timeline-ruler { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: .8rem; margin-top: .6rem; }
+.timeline-lanes { position: relative; border: 1px solid #526475; margin-top: .3rem; }
+.timeline-track { border-top: 1px solid #526475; padding-top: .3rem; }
+.timeline-track > button { font-size: .8rem; margin: .3rem; }
+.timeline-track[data-highlighted="true"] { background: #255d7f33; }
+.timeline-lane { padding: .3rem 0; min-height: 30px; }
+.timeline-row { height: 30px; position: relative; overflow: hidden; margin: 2px 0; }
+.timeline-entity { display: block; position: absolute; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .72rem; height: 28px; padding: .15rem .3rem; min-width: 3px; }
+.timeline-entity.phase { border-style: dashed; background: #243c4d; }
+.timeline-entity.keyframe { transform: translateX(-50%); min-width: 22px; padding: .15rem; }
+.timeline-entity.stance { background: #303d44; }
+.timeline-entity[aria-pressed="true"] { border-color: #fff; background: #366c8b; }
+.timeline-cursor { position: absolute; top: 0; bottom: 0; border-left: 2px solid #ffc47c; pointer-events: none; }
+.timeline-inspector, .timeline-editor { margin-top: 1rem; min-width: 0; }
+.timeline pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .75rem; max-height: 220px; overflow: auto; }
+.timeline-editor input { max-width: 180px; }

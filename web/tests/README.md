@@ -24,3 +24,18 @@ ground panel and stay outside Git, under `/tmp/tkd-ground-browser-evidence` by
 default. Set `GROUND_EVIDENCE_DIR` to retain them elsewhere; `CHROMIUM_PATH` may
 select a locally provisioned browser. Set `GROUND_PORT` when another inspection
 session owns the default test port. CI installs Chromium and runs this suite.
+
+Timeline acceptance also starts a disposable Python service on port 5197 using
+`tests.fixtures.serve_timeline`. Install the frozen Python dev environment with
+`uv sync --frozen --group dev` before running the browser suite. It constructs
+small ordinary, two-track SpecialAction and parsing-unavailable projects from
+local synthetic motion. HTTP is redirected to that service; semantic reads,
+boundary/keyframe apply, undo, reset, optimistic revision conflicts and persistence
+all use the real application API and ArtifactStore. No vision, external dataset or
+model download occurs. The service hashes every file in both original automatic
+artifacts and reports their preservation after browser edit round trips.
+Coincident and nonuniform keyframes navigate by stable ID and global time. The
+suite also verifies six tracks, independent overlapping bounds, shared selection,
+keyboard/pointer controls, zoom/pan, explicit drafts, retained stale/invalid edits,
+and raw track/time access without parsing. The timeline screenshot remains under
+the configured browser evidence directory outside Git.
