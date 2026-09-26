@@ -18,6 +18,8 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.MediaRecorder;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -96,6 +98,9 @@ public final class CameraEngine {
     private volatile long lastUniqueSensorTimestampNs = -1L;
     private volatile long uniqueSensorFrames = 0L;
     private volatile long captureFailures = 0L;
+    private volatile long encodedFrameCount = 0L;
+    private volatile long encodedDurationUs = 0L;
+    private volatile double encodedFps = 0.0;
 
     private volatile boolean recorderStarted = false;
     private volatile boolean closing = false;
@@ -116,6 +121,14 @@ public final class CameraEngine {
 
     public String getRecordingPath() {
         return videoFile == null ? null : videoFile.getAbsolutePath();
+    }
+
+    public double getLastEncodedFps() {
+        return encodedFps;
+    }
+
+    public long getLastEncodedFrameCount() {
+        return encodedFrameCount;
     }
 
     public void arm(String newSessionId) {
@@ -158,6 +171,9 @@ public final class CameraEngine {
         lastUniqueSensorTimestampNs = -1L;
         uniqueSensorFrames = 0L;
         captureFailures = 0L;
+        encodedFrameCount = 0L;
+        encodedDurationUs = 0L;
+        encodedFps = 0.0;
         meteredExposureNs = 8_000_000L;
         meteredIso = 200;
 
@@ -384,6 +400,10 @@ public final class CameraEngine {
                 : new MediaRecorder();
 
         mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        // Keep capture and playback cadence identical. Some Samsung builds otherwise
+        // negotiate a ~30 fps output timeline even while the high-speed sensor session
+        // is running at 120 fps.
+        mediaRecorder.setCaptureRate(FPS);
         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
         mediaRecorder.setVideoSize(WIDTH, HEIGHT);
@@ -594,10 +614,18 @@ public final class CameraEngine {
             uniqueSensorFrames = 0L;
             captureFailures = 0L;
 
-            mediaRecorder.start();
-            recorderStarted = true;
+            // Match the sequence that was verified on the S21 probe: switch the
+            // constrained session to the fixed 120 fps record burst first, then start
+            // MediaRecorder. Starting the recorder while the lower-rate armed preview
+            // burst is still active can make Samsung negotiate a ~30 fps MP4 timeline.
+            try {
+                highSpeedSession.stopRepeating();
+            } catch (Exception ignored) {
+            }
             highSpeedSession.setRepeatingBurst(
                     highSpeedRequests, recordingCaptureCallback, cameraHandler);
+            mediaRecorder.start();
+            recorderStarted = true;
             state = State.RECORDING;
 
             long deltaNs = scheduledStartNs > 0 ? startCallNs - scheduledStartNs : 0L;
@@ -666,6 +694,7 @@ public final class CameraEngine {
             recorderStarted = false;
         }
 
+        verifyRecordedVideo();
         writeMetadata();
         String videoPath = publishVideoToGallery();
         if (videoPath == null && videoFile != null) {
@@ -681,6 +710,64 @@ public final class CameraEngine {
 
         status("STOPPED · " + (finalVideoPath == null ? "no video" : finalVideoPath));
         activity.runOnUiThread(() -> listener.onCameraStopped(finalVideoPath, finalJsonPath));
+    }
+
+    private void verifyRecordedVideo() {
+        encodedFrameCount = 0L;
+        encodedDurationUs = 0L;
+        encodedFps = 0.0;
+
+        if (videoFile == null || !videoFile.exists() || videoFile.length() == 0) {
+            status("MP4 verification skipped: no file");
+            return;
+        }
+
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(videoFile.getAbsolutePath());
+
+            int videoTrack = -1;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime != null && mime.startsWith("video/")) {
+                    videoTrack = i;
+                    break;
+                }
+            }
+            if (videoTrack < 0) {
+                status("MP4 verification: no video track");
+                return;
+            }
+
+            extractor.selectTrack(videoTrack);
+            long firstUs = -1L;
+            long lastUs = -1L;
+            long frames = 0L;
+
+            while (true) {
+                long sampleUs = extractor.getSampleTime();
+                if (sampleUs < 0) break;
+                if (firstUs < 0) firstUs = sampleUs;
+                lastUs = sampleUs;
+                frames++;
+                if (!extractor.advance()) break;
+            }
+
+            encodedFrameCount = frames;
+            if (frames > 1 && lastUs > firstUs) {
+                encodedDurationUs = lastUs - firstUs;
+                encodedFps = (frames - 1) * 1_000_000.0 / encodedDurationUs;
+            }
+
+            status(String.format(Locale.US,
+                    "MP4 verified: %d frames · %.2f fps",
+                    encodedFrameCount, encodedFps));
+        } catch (Exception e) {
+            status("MP4 verification warning: " + describe(e));
+        } finally {
+            try { extractor.release(); } catch (Exception ignored) {}
+        }
     }
 
     private String publishVideoToGallery() {
@@ -762,6 +849,9 @@ public final class CameraEngine {
             j.put("last_sensor_timestamp_ns", lastUniqueSensorTimestampNs);
             j.put("unique_sensor_frames", uniqueSensorFrames);
             j.put("capture_failures", captureFailures);
+            j.put("encoded_frame_count", encodedFrameCount);
+            j.put("encoded_duration_us", encodedDurationUs);
+            j.put("encoded_fps", encodedFps);
             j.put("video_path", videoFile == null ? JSONObject.NULL : videoFile.getAbsolutePath());
 
             if (uniqueSensorFrames > 1
