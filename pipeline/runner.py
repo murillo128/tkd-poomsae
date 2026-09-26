@@ -45,7 +45,7 @@ STAGE_LAYERS = {
     "sync": "synchronization",
     "calibration": "calibration",
     "observations": "observation",
-    "attachment": "observation",
+    "attachment": "alignment",
     "reconstruction": "reconstruction",
     "ground": "ground",
     "parsing": "semantics",
@@ -154,18 +154,30 @@ def _scene_calibration(
 
 def default_stages() -> tuple[Stage, ...]:
     """Explicit stage slots; feature packages replace producers as they land."""
+    from reconstruction.triangulation import REVISION, produce_stage
+
     return tuple(
         Stage(
             name,
-            _scene_calibration if name == "calibration" else _unavailable(name),
+            _scene_calibration
+            if name == "calibration"
+            else produce_stage
+            if name == "reconstruction"
+            else _unavailable(name),
             STAGE_LAYERS[name],
             DEPENDENCIES[name],
-            capability_reason=f"{name} producer is not installed; provision it offline",
+            capability_reason=(
+                None
+                if name == "reconstruction"
+                else f"{name} producer is not installed; provision it offline"
+            ),
             revision=(
                 "solver-v1-cues-v1"
                 if name == "sync"
                 else "scene-quality-v1"
                 if name == "calibration"
+                else REVISION
+                if name == "reconstruction"
                 else "1"
             ),
         )

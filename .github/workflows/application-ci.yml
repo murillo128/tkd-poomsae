@@ -23,7 +23,7 @@ jobs:
       - run: uv sync --frozen --group dev
       - run: uv run --frozen tkd-poomsae --help
       - run: uv run --frozen pytest
-      - run: uv run --frozen ruff check src tests contracts storage media sync calibration pose
+      - run: uv run --frozen ruff check src tests contracts storage media sync calibration pose reconstruction
       - run: uv run --frozen mypy
 
   web:
