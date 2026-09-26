@@ -39,6 +39,7 @@ _LAYERS = frozenset(
         "ground",
         "motion_features",
         "segmentation",
+        "arm_actions",
         "semantics",
         "manual_edits",
     }

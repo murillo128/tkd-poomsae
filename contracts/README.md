@@ -96,3 +96,10 @@ proposals before action assembly. A null execution plus unknown quality represen
 indeterminate evidence. Resolved proposals tile the execution, retain empty action
 lists, and link their exact motion-feature artifact plus dense boundary evidence.
 See [`reconstruction/segmentation`](../reconstruction/segmentation/README.md).
+
+The additive `arm_actions` artifact holds automatic upper-body proposals before
+final semantic assembly. It binds reconstruction/ground, exact motion-feature
+and coarse-segmentation IDs and a versioned evidence array. Independent track
+intervals, SpecialAction candidates, provisional phases, complete crossing/depth
+and hand uncertainty, and dense references are owned by
+[`reconstruction/arms`](../reconstruction/arms/README.md).

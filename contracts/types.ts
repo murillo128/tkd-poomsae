@@ -22,6 +22,7 @@ export type BodyEntity = Landmark | 'root' | 'torso' | 'left_upper_arm' | 'right
 
 export interface Provenance { producer: string; model?: string | null; model_version?: string | null; config_digest: string }
 export interface ArtifactBase { id: string; schema_version: '1.0.0'; provenance: Provenance }
+export interface ArmActions extends ArtifactBase { kind: 'arm_actions'; reconstruction_id: string; ground_id: string; motion_features_id: string; segmentation_id: string; arrays: DenseArray[] }
 export interface Interval { start: number; end: number }
 export interface Quality { score?: number | null; uncertainty?: number | null; state: EvidenceState; source_ids?: string[] }
 export interface DenseArray { id: string; dtype: 'float32' | 'float64' | 'int32' | 'int64' | 'uint8' | 'bool'; shape: number[]; axes: string[]; unit?: string | null; missing_mask_id?: string | null }
@@ -69,4 +70,4 @@ export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruct
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 export interface ManualEdit { id: string; target_id: string; field_path: string; replacement: JsonValue; author: string; reason?: string | null }
 export interface ManualEdits extends ArtifactBase { kind: 'manual_edits'; automatic_semantics_id: string; edits: ManualEdit[] }
-export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Segmentation | Semantics | ManualEdits
+export type Artifact = Project | Source | Synchronization | Calibration | Observation | Alignment | Reconstruction | Morphology | Ground | MotionFeatures | Segmentation | ArmActions | Semantics | ManualEdits

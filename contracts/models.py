@@ -819,6 +819,17 @@ class Segmentation(ArtifactBase):
         return self
 
 
+class ArmActions(ArtifactBase):
+    """Automatic upper-body proposals and evidence, before final assembly."""
+
+    kind: Literal["arm_actions"]
+    reconstruction_id: str
+    ground_id: str
+    motion_features_id: str
+    segmentation_id: str
+    arrays: list[DenseArray]
+
+
 class StanceState(StrictModel):
     id: str
     interval: Interval
@@ -991,6 +1002,7 @@ Artifact: TypeAlias = Annotated[
     | Ground
     | MotionFeatures
     | Segmentation
+    | ArmActions
     | Semantics
     | ManualEdits,
     Field(discriminator="kind"),
@@ -1055,7 +1067,7 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
             allowed_contributors = (Reconstruction,)
         elif isinstance(item, Ground):
             allowed_contributors = (Reconstruction,)
-        elif isinstance(item, (Semantics, MotionFeatures, Segmentation)):
+        elif isinstance(item, (Semantics, MotionFeatures, Segmentation, ArmActions)):
             allowed_contributors = (Reconstruction, Ground)
         else:
             allowed_contributors = ()
@@ -1118,18 +1130,30 @@ def validate_bundle(data: list[Any]) -> list[Artifact]:
                 array.unit in {"m", "cm"} for array in item.arrays
             ):
                 raise ValueError("unresolved scale cannot emit metric arrays")
-        elif isinstance(item, (Semantics, MotionFeatures, Segmentation)):
+        elif isinstance(item, (Semantics, MotionFeatures, Segmentation, ArmActions)):
             require(item.reconstruction_id, Reconstruction)
             ground = require(item.ground_id, Ground)
             if ground.reconstruction_id != item.reconstruction_id:
                 raise ValueError("semantic ground and motion references disagree")
-            if isinstance(item, Segmentation):
+            if isinstance(item, (Segmentation, ArmActions)):
                 features = require(item.motion_features_id, MotionFeatures)
                 if (features.reconstruction_id, features.ground_id) != (
                     item.reconstruction_id,
                     item.ground_id,
                 ):
                     raise ValueError("segmentation feature references disagree")
+            if isinstance(item, ArmActions):
+                segmentation = require(item.segmentation_id, Segmentation)
+                if (
+                    segmentation.reconstruction_id,
+                    segmentation.ground_id,
+                    segmentation.motion_features_id,
+                ) != (
+                    item.reconstruction_id,
+                    item.ground_id,
+                    item.motion_features_id,
+                ):
+                    raise ValueError("arm action input references disagree")
         elif isinstance(item, ManualEdits):
             semantics = require(item.automatic_semantics_id, Semantics)
             valid_ids = {semantics.id} | {
