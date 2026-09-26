@@ -8,7 +8,7 @@ import jsonschema
 import pytest
 from pydantic import ValidationError
 
-from contracts.models import FrameTime, validate_artifact, validate_bundle
+from contracts.models import FrameTime, RawScore, validate_artifact, validate_bundle
 from contracts.schema import SCHEMA_PATH, schema_text
 
 PROV = {
@@ -20,6 +20,22 @@ PROV = {
 GOOD = {"state": "observed", "score": 0.7, "source_ids": []}
 UNKNOWN: dict[str, Any] = {"state": "unknown", "score": None, "source_ids": []}
 IDENTITY = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+
+
+def test_raw_score_preserves_declared_domain_and_rejects_invalid_values() -> None:
+    score = RawScore(
+        value=1.0008281469345093,
+        range_min=None,
+        range_max=None,
+        domain="rtmpose_simcc_response",
+    )
+    assert score.value == 1.0008281469345093
+    with pytest.raises(ValidationError, match="requires its model score domain"):
+        RawScore(value=1.1, range_min=None, range_max=None)
+    with pytest.raises(ValidationError, match="outside declared"):
+        RawScore(value=1.1, range_min=0, range_max=1)
+    with pytest.raises(ValidationError):
+        RawScore(value=float("inf"), range_min=None, range_max=None, domain="simcc")
 
 
 def base(kind: str, identifier: str) -> dict[str, Any]:

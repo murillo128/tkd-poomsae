@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -71,9 +72,19 @@ class PoseFrame:
     inference_settings: dict[str, Any]
 
 
-def _score(value: Any) -> RawScore:
+def _score(value: Any, *, response: bool = False) -> RawScore:
     numeric = float(value)
-    if not math.isfinite(numeric) or not 0 <= numeric <= 1:
+    if not math.isfinite(numeric):
+        raise ValueError(f"nonfinite model score: {numeric}")
+    if response:
+        # Pinned SimCC decoding takes raw maxima without applying softmax.
+        return RawScore(
+            value=numeric,
+            range_min=None,
+            range_max=None,
+            domain="rtmpose_simcc_response",
+        )
+    if not 0 <= numeric <= 1:
         raise ValueError(f"model score outside declared [0, 1] range: {numeric}")
     return RawScore(value=numeric, range_min=0, range_max=1)
 
@@ -97,7 +108,11 @@ def _points(sample: Any, names: tuple[str, ...]) -> tuple[NamedPoint, ...]:
         raw_visibility = None if visibility is None else float(visibility[0, i])
         if raw_visibility is not None and not math.isfinite(raw_visibility):
             raise ValueError(f"nonfinite visibility for {name}")
-        points.append(NamedPoint(name, coords, _score(scores[0, i]), raw_visibility))
+        points.append(
+            NamedPoint(
+                name, coords, _score(scores[0, i], response=True), raw_visibility
+            )
+        )
     return tuple(points)
 
 
@@ -199,6 +214,21 @@ class MMPoseAdapter:
         self.cancelled = cancelled
         self._backend_factory = _backend_factory
         self.regional_provider = regional_provider or WholebodyRegionalProvider()
+        self._session_backend: Any | None = None
+
+    @contextmanager
+    def session(self) -> Iterator[MMPoseAdapter]:
+        """Keep verified local models loaded across bounded inference windows."""
+        if self._session_backend is not None:
+            raise RuntimeError("an inference session is already active")
+        if self._backend_factory is _OpenMMLab:
+            verified_paths()
+        with inference_job(self.device, cancelled=self.cancelled):
+            self._session_backend = self._backend_factory(self.device)
+            try:
+                yield self
+            finally:
+                self._session_backend = None
 
     def infer(
         self, recording: Recording, frames: Iterable[DecodedFrame]
@@ -207,11 +237,13 @@ class MMPoseAdapter:
         import cv2
         import torch  # type: ignore[import-not-found]
 
-        with (
-            inference_job(self.device, cancelled=self.cancelled),
-            torch.inference_mode(),
-        ):
-            backend = self._backend_factory(self.device)
+        lease = (
+            nullcontext()
+            if self._session_backend is not None
+            else inference_job(self.device, cancelled=self.cancelled)
+        )
+        with lease, torch.inference_mode():
+            backend = self._session_backend or self._backend_factory(self.device)
             for count, decoded in enumerate(frames):
                 if count >= self.max_frames:
                     raise ValueError("pose input exceeds max_frames window")
@@ -419,7 +451,7 @@ class MMPoseAdapter:
                                 NamedPoint(
                                     p.name,
                                     p.xy_px,
-                                    _score(p.raw_score),
+                                    _score(p.raw_score, response=True),
                                     p.raw_visibility,
                                 )
                                 for p in mapped

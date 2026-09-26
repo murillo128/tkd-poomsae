@@ -34,6 +34,33 @@ provenance records the chosen model/configuration. No foot-only crop is sent to
 the wholebody model.
 Artifact IDs and final observation assembly belong to the integration stage.
 
+`tkd-poomsae observations smoke-short` runs the registered two-view native-time
+selection through the adapter and tracker. After that succeeds, run
+`tkd-poomsae observations demo-full`. Both commands accept `--device` and
+`--max-frames` (1–128, default 32). They use `TKD_DATA_ROOT` for the existing
+dataset, verified local model assets, hand crop cache, and immutable observation
+windows. No model or media download occurs. The command prints a compact run
+receipt path under `derived/observation-runs/`; raw observations stay outside Git.
+The command discovers the shared interpreter provisioned by
+`tkd-poomsae models runtime-bootstrap`, including the core PyAV media dependency.
+
+`Pipeline.observe_selection()` provides the same runner entry point. Each
+window is keyed by source hash, native frame bounds, pinned model/runtime
+revision, tracking origin, preprocessing, tracking and refinement settings.
+It is published only
+after every native frame has a typed observation. A killed process leaves
+completed windows reusable; missing windows retry. The tracker state is restored
+from each verified window, including when resuming after interruption. A final
+receipt appears only after all selected views are verified and at least one
+practitioner frame was selected. `pose.observation_run.verify_receipt()` checks
+the full run one window at a time; `load_receipt()` reloads typed observations
+offline for inspection. Source PTS, per-region masks, raw scores, model identities,
+hand crop transforms and settings are retained in the window records.
+The pinned RTMPose SimCC scores are raw unnormalized responses, which can exceed
+one. They retain the `rtmpose_simcc_response` domain and null numerical bounds;
+detector probabilities retain their `[0,1]` bounds. These source values are not
+converted into calibrated quality scores.
+
 `pose.stream.PractitionerTracker` assembles one camera/source stream in native
 frame order. Call `observe` for each `PoseFrame` with an artifact ID and producer
 provenance; keep one tracker per camera. Its initial automatic selection requires
@@ -79,9 +106,9 @@ under `${TKD_DATA_ROOT}/derived/hand-refinement-cache/` by source frame,
 crop content, model config/checkpoint/runtime, side, ROI transform, and settings.
 The cache does not alter wholebody observations or download assets.
 
-The optional vision interpreter in `vision/README.md` has the pinned models but
-does not include the core PyAV reader. A caller must supply already decoded
-frames in that interpreter or install compatible media dependencies there.
+The shared vision interpreter in `vision/README.md` includes the pinned model
+runtime and PyAV reader. Providers accept already decoded native-time frames;
+the selection runner supplies those frames from shared source media.
 No network is needed for inference after model bootstrap. The explicit
 `model_required` test runs detector, wholebody and hand models on a bounded
 synthetic image with network access disabled.

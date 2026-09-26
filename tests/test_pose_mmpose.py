@@ -55,7 +55,12 @@ def test_full_topology_and_canonical_projection() -> None:
         _points(_sample(133, bad=True), NAMES)
     invalid_score = _sample(133)
     invalid_score.pred_instances.keypoint_scores[0, 20] = 1.1
-    with pytest.raises(ValueError, match="score outside"):
+    response = _points(invalid_score, NAMES)[20].raw_score
+    assert response.value == 1.1
+    assert response.range_max is None
+    assert response.domain == "rtmpose_simcc_response"
+    invalid_score.pred_instances.keypoint_scores[0, 20] = float("nan")
+    with pytest.raises(ValueError, match="nonfinite model score"):
         _points(invalid_score, NAMES)
     invalid_visibility = _sample(133)
     invalid_visibility.pred_instances.keypoints_visible = np.ones((1, 132))

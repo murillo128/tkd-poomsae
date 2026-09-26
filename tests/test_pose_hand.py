@@ -93,6 +93,7 @@ def test_per_finger_identity_missing_and_implausible_refinement() -> None:
     )
     scores = np.full(21, 0.9)
     scores[7] = 0.05
+    scores[8] = 1.0008281469345093
     visible = np.ones(21)
     visible[11] = 0
     result = map_refinement(
@@ -105,6 +106,7 @@ def test_per_finger_identity_missing_and_implausible_refinement() -> None:
     assert result[7].raw_score == 0.05
     assert result[11].reason == "low_model_evidence"
     assert result[8].xy_px == pytest.approx((22, 50))
+    assert result[8].raw_score == 1.0008281469345093
     off_frame = xy.copy()
     off_frame[20] = roi.transform.to_model((-5, 50))
     truncated = map_refinement(

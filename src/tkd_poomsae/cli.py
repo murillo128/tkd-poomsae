@@ -3,6 +3,7 @@
 import argparse
 import json
 import signal
+import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -78,6 +79,14 @@ def main() -> int:
     rerun = subcommands.add_parser("rerun", help="Force one stage and its descendants")
     rerun.add_argument("project")
     rerun.add_argument("stage")
+    observations = subcommands.add_parser(
+        "observations", help="Infer or reuse a local native-time selection"
+    )
+    observations.add_argument(
+        "selection", choices=["smoke-short", "demo-full", "all-forms"]
+    )
+    observations.add_argument("--device", default="cpu")
+    observations.add_argument("--max-frames", type=int, default=32)
     rerun.add_argument("--through", default="parsing")
     cancel = subcommands.add_parser("cancel", help="Request cancellation")
     cancel.add_argument("project")
@@ -98,11 +107,37 @@ def main() -> int:
     model_commands.add_parser(
         "bootstrap", help="Download and verify pinned model assets"
     )
+    model_commands.add_parser(
+        "runtime-bootstrap", help="Provision the shared locked vision interpreter"
+    )
     for name in ("smoke", "infer"):
         command = model_commands.add_parser(name, help=f"Run local {name} inference")
         command.add_argument("--input", type=Path, required=True)
         command.add_argument("--device", default="cpu")
     args = parser.parse_args()
+    if args.command in {"observations", "doctor"} or (
+        args.command == "models" and args.model_command in {"smoke", "infer"}
+    ):
+        from tkd_poomsae.vision.runtime import delegate, runtime_python
+
+        try:
+            if args.command != "doctor" or runtime_python().is_file():
+                delegated = delegate(sys.argv[1:])
+                if delegated is not None:
+                    return delegated
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+    if args.command == "observations":
+        try:
+            result = Pipeline().observe_selection(
+                args.selection, device=args.device, max_frames=args.max_frames
+            )
+        except (ImportError, OSError, ValueError, RuntimeError) as exc:
+            print(f"tkd-poomsae: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(result, sort_keys=True))
+        return 0
     if args.command == "serve":
         if args.host not in {"localhost", "127.0.0.1", "::1"}:
             parser.error("the local API must bind to a loopback address")
@@ -189,7 +224,10 @@ def main() -> int:
             verified_paths,
         )
 
-        report: dict[str, object] = {"models_root": str(models_root())}
+        report: dict[str, object] = {
+            "models_root": str(models_root()),
+            "interpreter": sys.executable,
+        }
         try:
             report["assets"] = f"verified ({len(verified_paths())})"
         except ModelAssetError as error:
@@ -220,7 +258,11 @@ def main() -> int:
         from tkd_poomsae.vision.assets import bootstrap as bootstrap_models
 
         try:
-            if args.model_command == "bootstrap":
+            if args.model_command == "runtime-bootstrap":
+                from tkd_poomsae.vision.runtime import bootstrap_runtime
+
+                print(json.dumps(bootstrap_runtime(), sort_keys=True))
+            elif args.model_command == "bootstrap":
                 installed = bootstrap_models()
                 print(json.dumps({"installed": installed, "cache_hit": not installed}))
             else:
@@ -245,7 +287,13 @@ def main() -> int:
                     )
                 )
             return 0
-        except (ModelAssetError, RuntimeError, ValueError, FileNotFoundError) as error:
+        except (
+            ModelAssetError,
+            RuntimeError,
+            ValueError,
+            OSError,
+            subprocess.CalledProcessError,
+        ) as error:
             print(f"tkd-poomsae: {error}", file=sys.stderr)
             return 1
     if args.command is None:

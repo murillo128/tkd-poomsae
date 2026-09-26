@@ -56,7 +56,10 @@ Low raw visibility masks derived geometry without changing the source record;
 unavailable detailed hand refinement likewise leaves coarse fingers only in
 `wholebody_landmarks`.
 Raw model scores retain their original declared range and are never interpreted
-as calibrated accuracy probabilities. Derived quality is separate. Source IDs
+as calibrated accuracy probabilities. Unbounded model responses use null bounds
+and an explicit score domain; RTMPose SimCC responses can exceed one and are
+retained without clipping. Detector probabilities keep their bounded range.
+Derived quality is separate. Source IDs
 on quality values identify contributing artifacts: synchronization, calibration,
 and observations reference `Source`; reconstruction references `Observation`;
 morphology and ground reference `Reconstruction`; semantics references

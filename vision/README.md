@@ -7,18 +7,27 @@ application's `uv.lock` and CI checks. It pins PyTorch 2.1.0+cpu, torchvision
 MMCV wheel is built for PyTorch 2.1.0. CUDA wheels must be resolved and tested
 against the actual host driver and GPU before claiming CUDA support.
 
-From the repository root:
+Provision once into persistent shared storage from a repository checkout:
 
 ```sh
-uv venv --python 3.11 .venv-vision
-uv pip install --python .venv-vision/bin/python pip setuptools wheel
-uv pip sync --python .venv-vision/bin/python vision/requirements.lock --no-build-isolation
-export PYTHONPATH=src:.
 export TKD_DATA_ROOT=/absolute/shared/data/root
-.venv-vision/bin/python -m tkd_poomsae.cli doctor
-.venv-vision/bin/python -m tkd_poomsae.cli models bootstrap
-.venv-vision/bin/python -m tkd_poomsae.cli models smoke --input /absolute/local/image.png --device cpu
+uv run --frozen tkd-poomsae models runtime-bootstrap
+uv run --frozen tkd-poomsae models bootstrap
+uv run --frozen tkd-poomsae doctor
+uv run --frozen tkd-poomsae observations smoke-short --device cpu
+uv run --frozen tkd-poomsae observations demo-full --device cpu
 ```
+
+The default root is `~/.local/share/tkd-poomsae`. The interpreter lives at
+`${TKD_DATA_ROOT}/runtime/vision/bin/python`; a shared lock and a recipe receipt
+make repeated runtime bootstrap a local cache hit. `media-requirements.lock`
+adds the core's pinned PyAV 16.1.0 wheel to the vision lock without installing
+the core's NumPy 2 dependency. `observations`, `models smoke/infer`, and `doctor`
+discover this interpreter automatically from every worktree/cwd. An existing
+compatible interpreter may be selected explicitly with absolute
+`TKD_VISION_PYTHON`. Ordinary commands only use an existing interpreter;
+provisioning remains an explicit operation. Keep both the interpreter and
+model files outside disposable issue/review worktrees and `/tmp`.
 
 The legacy `chumpy` source package imports `pip` in its build script without
 declaring it, so the bootstrap installs `pip`, `setuptools`, and `wheel` before
