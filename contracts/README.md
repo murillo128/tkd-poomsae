@@ -68,6 +68,11 @@ enclosing artifact or frame carries the only available provenance. Dense arrays
 have typed shape/axis/mask descriptors; the storage format and location are owned
 by producers. JSON must contain `null`, never NaN or Infinity.
 
+`Morphology` also permits optional dense array descriptors for separately
+persisted shape evidence. Participant-specific skeletal fitting publishes
+morphology and fitted pose independently; see
+[`reconstruction/articulated/README.md`](../reconstruction/articulated/README.md).
+
 Semantic intervals are absolute global seconds and permit overlapping actions.
 The six physical tracks are fixed for this version. Spatial relations describe
 geometry, including crossing front order, not correctness. Manual edits live in
