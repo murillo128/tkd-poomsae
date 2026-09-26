@@ -11,7 +11,7 @@ from contracts.models import Ground, Interval, Quality, SequenceStep, StrictMode
 from reconstruction.features import FeatureSample, FeatureSeries
 from reconstruction.segmentation import SegmentationResult
 
-REVISION: Literal["lower-body-rules-v1"] = "lower-body-rules-v1"
+REVISION: Literal["lower-body-rules-v2"] = "lower-body-rules-v2"
 Leg = Literal["left_leg", "right_leg"]
 Class = Literal["kick", "placement", "pivot", "unknown"]
 
@@ -62,7 +62,7 @@ class StanceCandidate(Evidence):
 
 class LowerBodyResult(StrictModel):
     version: Literal[1] = 1
-    algorithm_revision: Literal["lower-body-rules-v1"] = REVISION
+    algorithm_revision: Literal["lower-body-rules-v1", "lower-body-rules-v2"] = REVISION
     reconstruction_id: str
     ground_id: str
     config: LowerBodyConfig
@@ -113,6 +113,12 @@ class LowerBodyResult(StrictModel):
                     raise ValueError("coarse overlap associations disagree")
                 if item.category == "unknown" and item.quality.state != "unknown":
                     raise ValueError("unknown class cannot carry confident quality")
+                if item.category == "kick" and not {
+                    "chamber",
+                    "extension",
+                    "retraction",
+                } <= {p.name for p in item.phases if p.quality.state == "inferred"}:
+                    raise ValueError("independent kick phase evidence required")
                 if item.previous_action_id is not None:
                     previous = actions.get(item.previous_action_id)
                     if (
@@ -331,6 +337,7 @@ def parse_lower_body(
             recovery_end = a
             kick_like = False
             partial_phases: list[PhaseCandidate] = []
+            missing_chamber = False
             if qualified:
                 ext = [float(cast(float, v)) for v in values]
                 peak = a + max(range(len(ext)), key=ext.__getitem__)
@@ -352,31 +359,44 @@ def parse_lower_body(
                 )
                 if kick_like:
                     partial_phases.append(phase(rows, chamber, peak, "extension"))
-                if (
-                    kick_like
-                    and ext[peak - a] - ext[recovery - a] > excursion
-                    and times[peak] - times[chamber] >= config.min_phase_seconds
-                    and times[recovery] - times[peak] >= config.min_phase_seconds
-                ):
-                    phases = [
-                        phase(rows, chamber, peak, "extension"),
-                        phase(rows, peak, recovery, "retraction"),
-                    ]
-                    if chamber > a:
-                        phases.insert(0, phase(rows, a, chamber, "chamber"))
-                    # Chamber evidence exists even when onset is already flexed.
-                    elif peak > a + 1:
-                        phases.insert(0, phase(rows, a, a + 1, "chamber"))
-                    kick = add(
-                        rows,
-                        a,
-                        recovery,
-                        "kick",
-                        ["airborne_chamber_extension_retraction"],
-                        phases,
+                    # A chamber phase needs its own native sample bracket. An
+                    # already-flexed onset followed immediately by the peak does
+                    # not substantiate an interval; do not invent one.
+                    chamber_end = (
+                        chamber
+                        if times[chamber] - times[a] + 1e-9 >= config.min_phase_seconds
+                        else next(
+                            (
+                                i
+                                for i in range(a + 1, peak)
+                                if times[i] - times[a] + 1e-9
+                                >= config.min_phase_seconds
+                                and max(ext[: i - a + 1]) < config.chamber_max_ratio
+                            ),
+                            None,
+                        )
                     )
-                    recovery_end = recovery
-                    covered.update(range(a, recovery + 1))
+                    chamber_observed = chamber_end is not None
+                    missing_chamber = not chamber_observed
+                    if chamber_end is not None:
+                        partial_phases.insert(0, phase(rows, a, chamber_end, "chamber"))
+                    retraction_observed = (
+                        ext[peak - a] - ext[recovery - a] > excursion
+                        and times[recovery] - times[peak] >= config.min_phase_seconds
+                    )
+                    if retraction_observed:
+                        partial_phases.append(phase(rows, peak, recovery, "retraction"))
+                    if chamber_observed and retraction_observed:
+                        kick = add(
+                            rows,
+                            a,
+                            recovery,
+                            "kick",
+                            ["airborne_chamber_extension_retraction"],
+                            partial_phases,
+                        )
+                        recovery_end = recovery
+                        covered.update(range(a, recovery + 1))
             # Placement requires a bracketed lift/landing and observed displacement.
             start, end = a - 1, b + 1
             landed = (
@@ -419,7 +439,8 @@ def parse_lower_body(
                         []
                         if kick or (qualified and not kick_like)
                         else ["kick_phase_evidence_incomplete"]
-                    ),
+                    )
+                    + (["chamber_interval_unavailable"] if missing_chamber else []),
                     phases,
                     previous=kick.id if kick else None,
                     ground_ids=[
@@ -436,7 +457,8 @@ def parse_lower_body(
                     a,
                     b,
                     "unknown",
-                    ["airborne_motion_without_class_evidence"],
+                    ["airborne_motion_without_class_evidence"]
+                    + (["chamber_interval_unavailable"] if missing_chamber else []),
                     partial_phases,
                 )
                 covered.update(range(a, b + 1))

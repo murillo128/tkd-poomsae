@@ -4,7 +4,7 @@
 `FeatureSeries`, canonical `Ground`, and `SegmentationResult` on their original
 absolute clock. It does not invoke vision, reconstruction or any upstream
 producer, read dataset CSV labels, or assign correctness, force or scores.
-`lower-body-rules-v1` is a transparent offline heuristic, not a trained classifier
+`lower-body-rules-v2` is a transparent offline heuristic, not a trained classifier
 or fixed formal technique vocabulary.
 
 Each leg is processed independently:
@@ -12,6 +12,10 @@ Each leg is processed independently:
 - A contiguous observed no-contact bout with qualified chain extension contains
   a kick when a flexed chamber precedes a significant extension and retraction.
   Chamber, extension and retraction are separately persisted phase candidates.
+  A confident kick requires all three independently supported phase intervals;
+  an already-flexed onset with a next-sample peak stays unknown when no chamber
+  interval can be observed. Available extension, retraction and subsequent
+  placement evidence remains intact.
 - Placement requires observed contact on either side of the airborne interval,
   qualified planar displacement beyond the configured distance and uncertainty
   bound, and contiguous native timing. Following a kick, its recovery/placement
@@ -57,6 +61,7 @@ The additive `lower_body_parsing` artifact references the exact feature, ground,
 reconstruction and segmentation IDs. Content addressing includes the three input
 manifest digests, effective config and rule revision. Its versioned inspectable
 JSON payload is stored as `lower_body_evidence_json` in the existing array store.
+The v2 algorithm revision invalidates v1 cache keys for the chamber-evidence fix.
 Cache hits and reloads do not rerun classification. Manual edits cannot masquerade
 as this automatic product.
 

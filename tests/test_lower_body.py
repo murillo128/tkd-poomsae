@@ -410,7 +410,7 @@ def test_incomplete_kick_preserves_extension_and_placement_evidence() -> None:
     result = parse(source, floor)
     left = [a for a in result.actions if a.track == "left_leg"]
     assert [a.category for a in left] == ["unknown"]
-    assert {p.name for p in left[0].phases} == {"extension", "placement"}
+    assert {p.name for p in left[0].phases} == {"chamber", "extension", "placement"}
     assert left[0].quality.state == "unknown"
     assert all(p.quality.state == "inferred" for p in left[0].phases)
 
@@ -448,3 +448,52 @@ def test_lower_body_bundle_checks_all_input_references() -> None:
     data[-1]["segmentation_id"] = "features"
     with pytest.raises(ValueError, match="reference"):
         validate_bundle(data)
+
+
+def test_next_sample_extension_peak_keeps_chamber_unknown_at_native_cadence() -> None:
+    source, floor = fixture(kick=True)
+    source.trajectory = [
+        row for row in source.trajectory if row.motion_sample_index % 5 == 0
+    ]
+    floor.samples = floor.samples[::5]
+    for row in source.trajectory:
+        row.motion_sample_index //= 5
+        if row.ground_sample_index is not None:
+            row.ground_sample_index //= 5
+        if row.track == "left_leg" and 23.8 <= row.global_seconds < 25:
+            row.extension.value = 0.98 if row.global_seconds == 23.9 else 0.5
+    source = FeatureSeries.model_validate(source.model_dump())
+    floor = Ground.model_validate(floor.model_dump())
+    result = parse(source, floor)
+    left = [a for a in result.actions if a.track == "left_leg"]
+    assert not any(a.category == "kick" for a in left)
+    assert len(left) == 1 and left[0].category == "unknown"
+    assert left[0].quality.state == "unknown" and left[0].quality.score is None
+    assert {p.name for p in left[0].phases} == {
+        "extension",
+        "retraction",
+        "placement",
+    }
+    phases = {p.name: p for p in left[0].phases}
+    assert phases["extension"].interval == Interval(start=23.8, end=23.9)
+    assert phases["retraction"].interval == Interval(start=23.9, end=24)
+    assert phases["placement"].interval.end == 25
+    assert "chamber_interval_unavailable" in left[0].reasons
+    for evidence in [left[0], *left[0].phases]:
+        assert evidence.motion_sample_indices == list(
+            range(
+                evidence.motion_sample_indices[0],
+                evidence.motion_sample_indices[-1] + 1,
+            )
+        )
+        assert evidence.ground_sample_indices == evidence.motion_sample_indices
+    assert LowerBodyResult.model_validate_json(result.model_dump_json()) == result
+
+
+def test_inferred_kick_requires_independent_phase_evidence_on_reload() -> None:
+    source, floor = fixture(kick=True)
+    payload = parse(source, floor).model_dump()
+    kick = next(a for a in payload["actions"] if a["category"] == "kick")
+    kick["phases"] = [p for p in kick["phases"] if p["name"] != "chamber"]
+    with pytest.raises(ValidationError, match="independent kick phase evidence"):
+        LowerBodyResult.model_validate(payload)
