@@ -105,11 +105,14 @@ def compound(
 
 
 def split(
-    coarse: SegmentationResult, start: float | None = None, end: float | None = None
+    coarse: SegmentationResult,
+    start: float | None = None,
+    end: float | None = None,
+    cut: float = 24.2,
 ) -> SegmentationResult:
     assert coarse.execution is not None
     times = [a.global_seconds for a in coarse.activity]
-    edges = [start or coarse.execution.start, 24.2, end or coarse.execution.end]
+    edges = [start or coarse.execution.start, cut, end or coarse.execution.end]
     cuts = [times.index(t) for t in edges]
     coarse.execution = Interval(start=edges[0], end=edges[-1])
     coarse.steps = [
@@ -499,3 +502,25 @@ def test_bundle_checks_exact_semantic_input_identity() -> None:
     data[-1]["segmentation_id"] = "features"
     with pytest.raises(ValueError, match="reference|identity"):
         validate_bundle(data)
+
+
+def test_execution_starting_during_recovery_retains_preceding_kick() -> None:
+    physical, floor, geometry = compound()
+    coarse = split(segment_execution(physical), start=24.8, end=25.6, cut=25)
+    arms = parse_arm_actions(physical, coarse, geometry)
+    lower = parse_lower_body(physical, floor, coarse)
+    # Isolate the compound leg chain: another track's spanning unknown action
+    # must not be necessary to discover the recovery predecessor.
+    lower.actions = [a for a in lower.actions if a.track == "left_leg"]
+    lower.stances = []
+    kick_proposal = next(a for a in lower.actions if a.category == "kick")
+    assert coarse.execution is not None
+    assert kick_proposal.interval.end < coarse.execution.start
+    result = assemble_semantics(physical, coarse, arms, lower)
+    kick = next(a for a in result.actions if a.category == "kick")
+    placement = next(a for a in result.actions if a.category == "placement")
+    assert placement.previous_action_id == kick.id
+    assert kick.interval == kick_proposal.interval
+    assert (
+        result.execution is not None and result.execution.start == kick.interval.start
+    )

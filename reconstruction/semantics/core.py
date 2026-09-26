@@ -116,6 +116,7 @@ def assemble_semantics(
             for a in lower.actions
             if overlaps(a.interval, extent)
             or any(a.previous_action_id == b.id for b in selected_lower)
+            or any(b.previous_action_id == a.id for b in selected_lower)
         ]
         edges = [extent, *(a.interval for a in expanded)]
         updated = Interval(

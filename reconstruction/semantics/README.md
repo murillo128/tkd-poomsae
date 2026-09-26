@@ -39,7 +39,7 @@ the step containing its onset; every overlapping `SequenceStep.action_ids` list
 references that same Action ID. Steps tile the execution with half-open ownership
 at a shared boundary, while dense references include both endpoint samples.
 An action crossing a coarse boundary is never clipped or duplicated. Lower-body
-proposals intersecting the execution and connected recovery/placement successors
+proposals intersecting the execution and connected kick/recovery/placement chains
 retain their complete intervals; only outer execution/step edges expand to
 include them. The changed execution extent has unknown quality, and the original
 coarse proposals remain evidence. Disjoint pre/post-roll candidates remain in
