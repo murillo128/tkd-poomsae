@@ -126,6 +126,66 @@
       "title": "Alignment",
       "type": "object"
     },
+    "ArmActions": {
+      "additionalProperties": false,
+      "description": "Automatic upper-body proposals and evidence, before final assembly.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "arm_actions",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "segmentation_id": {
+          "title": "Segmentation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "segmentation_id",
+        "arrays"
+      ],
+      "title": "ArmActions",
+      "type": "object"
+    },
     "Calibration": {
       "additionalProperties": false,
       "properties": {
@@ -3460,6 +3520,7 @@
   "discriminator": {
     "mapping": {
       "alignment": "#/$defs/Alignment",
+      "arm_actions": "#/$defs/ArmActions",
       "calibration": "#/$defs/Calibration",
       "ground": "#/$defs/Ground",
       "manual_edits": "#/$defs/ManualEdits",
@@ -3508,6 +3569,9 @@
     },
     {
       "$ref": "#/$defs/Segmentation"
+    },
+    {
+      "$ref": "#/$defs/ArmActions"
     },
     {
       "$ref": "#/$defs/Semantics"
