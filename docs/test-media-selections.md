@@ -1,12 +1,13 @@
 # Shared test media selections
 
-`datasets/mendeley-bjy7vr4xkt-v1/selections.json` pins three named selections
+`datasets/mendeley-bjy7vr4xkt-v1/selections.json` pins four named selections
 to the registered version-1 source SHA-256 hashes, camera IDs, and measured
 native PTS ranges:
 
 - `smoke-short`: both Taegeuk 1 views from 5 to 7 seconds;
 - `demo-full`: both Taegeuk 1 views from 0 through the common final PTS;
-- `all-forms`: all eight paired forms, each through its common final PTS.
+- `all-forms`: all eight paired forms, each through its common final PTS;
+- `all-forms-smoke`: all eight pairs bounded to native 5–7 seconds.
 
 These are virtual windows. `tkd-poomsae datasets selections NAME` resolves
 source paths from the shared registered projects and validates hashes and time

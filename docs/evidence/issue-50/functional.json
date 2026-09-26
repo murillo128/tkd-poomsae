@@ -1,0 +1,1101 @@
+{
+  "dataset_integrity": {
+    "archive_sha256": "8447119933de8032296c1d60dc0ba5f5586fe9cd2d8560c267bd1d53a29c7940",
+    "bytes": 293982328,
+    "files": 32,
+    "receipt_sha256": "3eeea9e4b101ea15822b14781919a64d48b206cebf0c3549f63c27c4a2e964ea",
+    "state": "verified"
+  },
+  "models": {
+    "asset_sha256": {
+      "checkpoints/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth": "229f527ca88498e8894a778a62a878a322b4a3ea2cae09ea537d34b7e907792b",
+      "checkpoints/rtmpose-m_simcc-coco-wholebody_pt-aic-coco_270e-256x192-cd5e845c_20230123.pth": "3da02694cd6479d3b333ff42ebd0723f96bfa06adac1db1e2e815ed2e9e1b02d",
+      "checkpoints/rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.pth": "b74fb5941684fe13c337b8d4fce644293e12903fed5407f8b27921f107dc6003",
+      "mmdetection/configs/_base_/datasets/coco_detection.py": "331362fd27f59bc08d911eb8bd959a14dd8ed8fd8b048d7e11ec692ebd7ae985",
+      "mmdetection/configs/_base_/default_runtime.py": "f4ed2ce5d49aadf0f14f13e7726ac79fda698e8312242ed70add4420ea2a69df",
+      "mmdetection/configs/_base_/schedules/schedule_1x.py": "29c25800f6a955f137dcd301f559deff3dc37363ae31cbdfedd1df7665f6f23e",
+      "mmdetection/configs/rtmdet/rtmdet_l_8xb32-300e_coco.py": "71ba745a1d08f734d94797a98e5ee2be0bcf30dc98b3b2a89aa1ce211174d274",
+      "mmdetection/configs/rtmdet/rtmdet_m_8xb32-300e_coco.py": "c04a67ac0fbb48df14ada534f16186e1e4eb6cd5bb5ad0c32b1c64835f4e39e4",
+      "mmdetection/configs/rtmdet/rtmdet_tta.py": "48444851ab0224cd732ded92da61a781315b5c12538f6e57aa9b842623002927",
+      "mmpose/configs/_base_/datasets/coco_wholebody.py": "8c73971296517eadef6b7df6de92eb8943119cb467b3f4d488a6e062470cf179",
+      "mmpose/configs/_base_/datasets/coco_wholebody_hand.py": "558d450f859058d23172fe82efb720c3311044cd11b335728ab7f2dc0a95d030",
+      "mmpose/configs/_base_/default_runtime.py": "bb7df18270b1ca337192faae7a416b2dea23b45e798e832caab5781f41189d06",
+      "mmpose/configs/hand_2d_keypoint/rtmpose/hand5/rtmpose-m_8xb256-210e_hand5-256x256.py": "bda61adbc430825b176a5d5a45e3ee620105cc8c3096d7e2a06a847c3d9d2366",
+      "mmpose/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody/rtmpose-m_8xb64-270e_coco-wholebody-256x192.py": "eb90c8d0816330b27f42740249d5c8210885d4b3086649828529036434377aa7"
+    },
+    "registry_sha256": "36b1eca4ddac85dfff6738024024769e379b1eecf464b492e4dffcaa687098f7",
+    "verified_assets": 14
+  },
+  "network_connect_attempts": 0,
+  "offline_second_cwd": {
+    "identical_outcomes": true,
+    "network_connect_attempts": 0,
+    "new_artifacts": 0,
+    "verified_artifacts": 315
+  },
+  "original_source_hashes_unchanged": {
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_1st/Frontal/1st_Frontal.mp4": "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_1st/Lateral/1st_Lateral.mp4": "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_2nd/Frontal/2nd_Frontal.mp4": "c6ffa9499cd5547f16e08d84ef727d7b5c2a980d63ea593e540a3df6f12111fd",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_2nd/Lateral/2nd_Lateral.mp4": "45ad4df965461c0b87299e653f26167cfe87f3c19d76d0d19cc93bd195d707c7",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_3rd/Frontal/3rd_Frontal.mp4": "3dcc9a0ae987d484f11999f589a9ace6644bfce5fa38166adbffb4fa0c7cc932",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_3rd/Lateral/3rd_Lateral.mp4": "f926c639603729a724bacc9ba06f741d618f305046244906f15f4f7cec2907b9",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_4th/Frontal/4th_Frontal.mp4": "dbbf5e3243130a255a7365f341f2e3c411f8da2384400500a0a17ac70544285a",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_4th/Lateral/4th_Lateral.mp4": "1f460ee78e113f5a1a4fcc5a098f44615ef378b32731e6d076ce86a7b124ff26",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_5th/Frontal/5th_Frontal.mp4": "a34f759ffe2be51cccdb31f66f11bfff9a1918f47b7ac0efcd0fd900dd2b8729",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_5th/Lateral/5th_Lateral.mp4": "f561e2955f664d5fdb139e4b515bced20731c8e9fd57611f6d5b9f3f16766970",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_6th/Frontal/6th_Frontal.mp4": "a75bd1d922545d9287567dac0ac4ec294a9cb5436a1551c77d5e8ccacfc44816",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_6th/Lateral/6th_Lateral.mp4": "a19228a948d2bddf8ba5d1d421c2bb5e975765eab81a285329e07efdfa5af505",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_7th/Frontal/7th_Frontal.mp4": "0adde34223f2991ab493cb2cd6bfa7f2944877e83df9a1078ee6e461938a9d7b",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_7th/Lateral/7th_Lateral.mp4": "dcc1a205b57d3c0ad41ee20fcaf931f54592ea04c64c1672fa40425ffd93cfb1",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_8th/Frontal/8th_Frontal.mp4": "3765be05c7aa531b165f0a64b460df6c8858d768c7a234c6e608f2899ee92005",
+    "/home/sergio/.local/share/tkd-poomsae/datasets/mendeley/bjy7vr4xkt/v1/Data/video/Taegeuk_8th/Lateral/8th_Lateral.mp4": "1c81a0ee6a4e33d91cfeeaad0454a18b8b29e23b2e53f36bbba10efb2368763f"
+  },
+  "real": {
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1": {
+      "alignment_manifest_sha256": "3c848e882719b59399d0f8f76ddf7b1f2b62e93a82f9a7e91150efe91cc5996e",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "f0e2bc81908a56a60908990f23764d13874da030a05d15fac829ed36251404aa",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 48,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 25.566666666666666,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6673047902278821,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+          "source_interval": {
+            "end": 25.566666666666666,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": -20.16666666666659,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 5.400000000000077,
+            "start": -20.16666666666659
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6673047902278821,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+          "source_interval": {
+            "end": 25.566666666666666,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "5378877c0fb55c70020d07b23e3605bb0c2054b3c36b56e8c9fc6d1a357aa4dc",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-2": {
+      "alignment_manifest_sha256": "5168eb056df2cbccd5366dd8a289debc1d7db965dd3ee027090ee0f4d9780075",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "6e0acc26ac13e449342fe60122cda697ca8e57bbc16210e86c691504d00e0270",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 29.466666666666665,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.5876020072387927,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:45ad4df965461c0b87299e653f26167cfe87f3c19d76d0d19cc93bd195d707c7",
+          "source_interval": {
+            "end": 29.466666666666665,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": 0.06666666666708565,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 29.50000000000042,
+            "start": 0.06666666666708565
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.5876020072387927,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:c6ffa9499cd5547f16e08d84ef727d7b5c2a980d63ea593e540a3df6f12111fd",
+          "source_interval": {
+            "end": 29.433333333333334,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "5a6f5011aaba9cb2ee26a8b6bbeb61898387050a950a6759b3adea3a8b3f468b",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-3": {
+      "alignment_manifest_sha256": "9ae91aeae6378cb648dd9e2c8b43f2ce3fb5b782e601ffe29bb116210b565f0e",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "64f73e82c752b7c9e9b82b900dd1c93e9f015e587dbf01a6dcefa97a92135950",
+        "reasons": [
+          "automatic synchronization unavailable: manual timeline needs two attributed views"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": true,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": null,
+          "exclusion_reason": null,
+          "global_interval": null,
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": null,
+            "source_ids": [],
+            "state": "unknown",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:3dcc9a0ae987d484f11999f589a9ace6644bfce5fa38166adbffb4fa0c7cc932",
+          "source_interval": null,
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": null,
+          "exclusion_reason": "manual timeline needs two attributed views",
+          "global_interval": null,
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": null,
+            "source_ids": [],
+            "state": "unknown",
+            "uncertainty": null
+          },
+          "retained": false,
+          "source_id": "source:f926c639603729a724bacc9ba06f741d618f305046244906f15f4f7cec2907b9",
+          "source_interval": null,
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "59bc605a18349bbe32643499bbd986658649c9af701087fcdf00e6070cc4e94c",
+      "synchronization_reason": "manual timeline needs two attributed views",
+      "synchronization_status": "unavailable"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-4": {
+      "alignment_manifest_sha256": "6afbd2f424e265ba699d1c10551bdaafc2f5c9a4056ae392d6009e8837bf11b1",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "e1600879645a30b46cb451f88df7d39ce776a8738f44da37345a618e5d74b036",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 34.56666666666667,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6162559822242412,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:1f460ee78e113f5a1a4fcc5a098f44615ef378b32731e6d076ce86a7b124ff26",
+          "source_interval": {
+            "end": 34.56666666666667,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": 0.16666666666716168,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 34.60000000000049,
+            "start": 0.16666666666716168
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6162559822242412,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:dbbf5e3243130a255a7365f341f2e3c411f8da2384400500a0a17ac70544285a",
+          "source_interval": {
+            "end": 34.43333333333333,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "d30516df3d86c107e8ba439ddec0f712aa2ee31ec6760c2bf0f89d979f1591be",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-5": {
+      "alignment_manifest_sha256": "c27089e9542af633a0476a07b3adb846ea69225c7d7de939fa0cc91e37817ecd",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "b6542faf9adf557b6a74ea5789d2b4f6cbd96a3b31d2b35a408d1a73b82aba2d",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 35.06666666666667,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.5665529416469515,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:a34f759ffe2be51cccdb31f66f11bfff9a1918f47b7ac0efcd0fd900dd2b8729",
+          "source_interval": {
+            "end": 35.06666666666667,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": -0.0666666666661726,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 35.0000000000005,
+            "start": -0.0666666666661726
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.5665529416469515,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:f561e2955f664d5fdb139e4b515bced20731c8e9fd57611f6d5b9f3f16766970",
+          "source_interval": {
+            "end": 35.06666666666667,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "300a235551e4b5191549d0d25f627a51ba497056a975673379358831951c81fc",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-6": {
+      "alignment_manifest_sha256": "34ea19939156f0af342604df0e43effa49afa23e9f803d469dd2eaf0cb54fd45",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "02c328b1145a770d1f7441ab04b0fe21de8665269a420e91d05cbbb974634c94",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 39.833333333333336,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6722458368823556,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:a19228a948d2bddf8ba5d1d421c2bb5e975765eab81a285329e07efdfa5af505",
+          "source_interval": {
+            "end": 39.833333333333336,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": 0.1333333333339013,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 39.90000000000057,
+            "start": 0.1333333333339013
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6722458368823556,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:a75bd1d922545d9287567dac0ac4ec294a9cb5436a1551c77d5e8ccacfc44816",
+          "source_interval": {
+            "end": 39.766666666666666,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "3eceb08447b7740939fde2b83f65c4b695e70b6d01f93148da6ff902cd4dd86e",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-7": {
+      "alignment_manifest_sha256": "6e5ed837c989d2d12229caab85126c0e6e522738ff6868a4d94a9eca96427924",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "eb6d99b11f0f49af8e0f52d9a9d39aad212995cca087e11c4fcb06e2be02c445",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 40.06666666666667,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6505434737701724,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:0adde34223f2991ab493cb2cd6bfa7f2944877e83df9a1078ee6e461938a9d7b",
+          "source_interval": {
+            "end": 40.06666666666667,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": -0.06666666666609444,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 40.10000000000057,
+            "start": -0.06666666666609444
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.6505434737701724,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:dcc1a205b57d3c0ad41ee20fcaf931f54592ea04c64c1672fa40425ffd93cfb1",
+          "source_interval": {
+            "end": 40.166666666666664,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "836b57c0f18fd07dce69ee72dee709f6aff73726c81c2996432e084bd75ddab8",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    },
+    "mendeley-bjy7vr4xkt-v1-taegeuk-8": {
+      "alignment_manifest_sha256": "74cd875348f570ce13fc85db6d000439f0abdd43c552a07e21c9c19aa39d6bdb",
+      "alignment_query_count": 32,
+      "calibration": {
+        "candidate_sha256": "abe3c8444eb65e0ab90f22a711eeb10fabd847429399e1a149ee6c28f7762e39",
+        "reasons": [
+          "insufficient matched texture"
+        ],
+        "status": "unavailable"
+      },
+      "native_reference_only": false,
+      "native_windows": 4,
+      "offsets": [
+        {
+          "automatic_seconds": 0.0,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 48.833333333333336,
+            "start": 0.0
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.617449769364561,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:1c81a0ee6a4e33d91cfeeaad0454a18b8b29e23b2e53f36bbba10efb2368763f",
+          "source_interval": {
+            "end": 48.833333333333336,
+            "start": 0.0
+          },
+          "timing_reference": true
+        },
+        {
+          "automatic_seconds": 0.1333333333340292,
+          "exclusion_reason": null,
+          "global_interval": {
+            "end": 48.900000000000695,
+            "start": 0.1333333333340292
+          },
+          "manual_author": null,
+          "manual_correction_seconds": null,
+          "manual_reason": null,
+          "manual_seconds": null,
+          "manual_source": null,
+          "quality": {
+            "score": 0.617449769364561,
+            "source_ids": [],
+            "state": "observed",
+            "uncertainty": null
+          },
+          "retained": true,
+          "source_id": "source:3765be05c7aa531b165f0a64b460df6c8858d768c7a234c6e608f2899ee92005",
+          "source_interval": {
+            "end": 48.766666666666666,
+            "start": 0.0
+          },
+          "timing_reference": false
+        }
+      ],
+      "stages": {
+        "attachment": {
+          "diagnostics": [
+            "required stage unavailable: sync, observations"
+          ],
+          "status": "unavailable"
+        },
+        "calibration": {
+          "diagnostics": [
+            "required stage unavailable: ingest, sync"
+          ],
+          "status": "unavailable"
+        },
+        "ground": {
+          "diagnostics": [
+            "required stage unavailable: reconstruction"
+          ],
+          "status": "unavailable"
+        },
+        "ingest": {
+          "diagnostics": [
+            "ingest producer is not installed; configure an offline producer and provision its resources before analysis"
+          ],
+          "status": "unavailable"
+        },
+        "observations": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        },
+        "parsing": {
+          "diagnostics": [
+            "required stage unavailable: ground"
+          ],
+          "status": "unavailable"
+        },
+        "reconstruction": {
+          "diagnostics": [
+            "required stage unavailable: calibration, attachment"
+          ],
+          "status": "unavailable"
+        },
+        "sync": {
+          "diagnostics": [
+            "required stage unavailable: ingest"
+          ],
+          "status": "unavailable"
+        }
+      },
+      "sync_manifest_sha256": "b134d406902a3f174588018dd1079bcc77a67ddbf07891e53e02e99f85f99cac",
+      "synchronization_reason": null,
+      "synchronization_status": "automatic-estimate"
+    }
+  },
+  "synthetic": {
+    "actions": 0,
+    "ground_samples": 141,
+    "input": "projected compound motion with supplied synthetic metric cameras",
+    "model_inference": false,
+    "parser_config_changed_physical_hashes_unchanged": true,
+    "product_configs": {
+      "calibration": {
+        "algorithm_revision": "functional-synthetic-v1",
+        "calibration_revision": null,
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "inputs": {
+          "fixture": "91165b25d6a2784392ed4424556ad42fecc9ce78abb5982e41f2a313af7016bf"
+        },
+        "layer": "calibration",
+        "model_revision": null,
+        "schema_version": "1.0.0",
+        "sync_revision": null
+      },
+      "ground": {
+        "algorithm_revision": "ground-view-v2",
+        "calibration_revision": null,
+        "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+        "inputs": {
+          "calibration": "d3bf41abc87d4f0b3022b64b753ac93bd4dd1f5ee6b38036c95286862d45723e",
+          "motion": "9e874aa89992c70d00d1dcb477154ff014e8ed67105a5a37351011dca6c6db98",
+          "pivots": "98de7c151297c8021a42cc26fd81e236bac3c71e60a24e30d81f1431241c83ad"
+        },
+        "layer": "ground",
+        "model_revision": null,
+        "schema_version": "1.0.0",
+        "sync_revision": null
+      },
+      "reconstruction": {
+        "algorithm_revision": "temporal-motion-v1",
+        "calibration_revision": null,
+        "config_digest": "28d66a36397390f422eac7ded01f958e8b2f902194263a389e8d6d76ada47bf7",
+        "inputs": {
+          "fit": "22a1416aabdb7c1901a71e3ae42a3dd05dd68ceef8612046a2911e65a638f754",
+          "morphology": "396d902273d30a27ec5fdc690ef9c72e5e971febe769ce0f113554348a022076",
+          "raw": "d39f0fee343e300264e28afc2158f5bb3b9256d0b32c2acb7bdc59ec412a4d92"
+        },
+        "layer": "reconstruction",
+        "model_revision": null,
+        "schema_version": "1.0.0",
+        "sync_revision": null
+      },
+      "semantics": {
+        "algorithm_revision": "semantic-assembly-v2",
+        "calibration_revision": null,
+        "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+        "inputs": {
+          "arms": "d64f2cc7acea1025392f0a1aac04e0d046efa80b5f1ec7efed62ecbd27ac91e1",
+          "features": "27eff283b9acf728cdafd45d6643e389ec366cccbd5c0901c62cb372c37eed76",
+          "lower_body": "c4a11e5054ddf7be644c24718e4d0a5c09f072279e51740a44229e59a901fa5f",
+          "segmentation": "abccc8895a56673971ace9870abb7b554c02e89db7cd063025fec811b2acaeae"
+        },
+        "layer": "semantics",
+        "model_revision": null,
+        "schema_version": "1.0.0",
+        "sync_revision": null
+      },
+      "sync": {
+        "algorithm_revision": "functional-synthetic-v1",
+        "calibration_revision": null,
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "inputs": {
+          "fixture": "b34ae6a808559238527608ef9f80ba9880b6770818c643bd55488994a18af116"
+        },
+        "layer": "synchronization",
+        "model_revision": null,
+        "schema_version": "1.0.0",
+        "sync_revision": null
+      }
+    },
+    "products": {
+      "calibration": "d3bf41abc87d4f0b3022b64b753ac93bd4dd1f5ee6b38036c95286862d45723e",
+      "ground": "64cf5f640cfbb679b6f67765976de8d7ddc08c5bf18ccd26119b63b001d0f445",
+      "reconstruction": "9e874aa89992c70d00d1dcb477154ff014e8ed67105a5a37351011dca6c6db98",
+      "semantics": "0044681f66f97be9492cdd523eedfd1fd82dd96d4e39d5d5253a57a4ae21ea19",
+      "sync": "28cb657fe82a8d074ac4dbd57bd8c0857535590b0301ffb89be4597ac43ec8ff"
+    },
+    "project": "issue-50-synthetic",
+    "raw_samples": 141,
+    "steps": 0,
+    "triangulation_config": {
+      "image_speed_px_s": 1000.0,
+      "max_condition": 1000000.0,
+      "max_reprojection_px": 8.0,
+      "min_ray_angle_degrees": 1.0,
+      "min_source_score": 0.05,
+      "pixel_sigma": 0.1,
+      "unknown_calibration_sigma_px": 4.0,
+      "unknown_sync_sigma_seconds": 0.02
+    }
+  },
+  "version": 1
+}

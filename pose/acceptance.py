@@ -15,12 +15,18 @@ from typing import Any
 from pose.observation_run import load_window_records, run_selection, verify_receipt
 from pose.providers.mmpose.adapter import _OpenMMLab
 from storage import ArtifactKey, ArtifactStore, hash_config, hash_file
+from tkd_poomsae.selections import catalog
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("selection", choices=["smoke-short", "demo-full"])
+    parser.add_argument("selection", choices=sorted(catalog()))
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--interrupt",
+        action="store_true",
+        help="Cancel before the second view, then resume retained windows",
+    )
     args = parser.parse_args()
     calls: Counter[str] = Counter()
 
@@ -50,7 +56,35 @@ def main() -> None:
     _OpenMMLab.detect = detect  # type: ignore[method-assign]
     _OpenMMLab.pose = pose  # type: ignore[method-assign]
     started = time.monotonic()
+    interruption = None
+    if args.interrupt:
+        checks = 0
+
+        def cancelled() -> bool:
+            nonlocal checks
+            checks += 1
+            return checks == 2
+
+        try:
+            run_selection(args.selection, cancelled=cancelled)
+        except RuntimeError as exc:
+            if "cancelled" not in str(exc):
+                raise
+            retained = {
+                str(path): hash_file(path)
+                for path in ArtifactStore()
+                .root.namespace("derived")
+                .glob("observation/*/manifest.json")
+            }
+            interruption = {"reason": str(exc), "retained_windows": len(retained)}
+        else:
+            raise AssertionError(
+                "selection was already complete; interruption untested"
+            )
     run = run_selection(args.selection)
+    if interruption is not None:
+        assert all(hash_file(Path(path)) == digest for path, digest in retained.items())
+        interruption["retained_window_hashes_unchanged"] = True
     elapsed = time.monotonic() - started
     path = Path(run["receipt_path"])
     store = ArtifactStore()
@@ -100,6 +134,7 @@ def main() -> None:
         "first_run_calls": before,
         "elapsed_seconds": round(elapsed, 3),
         "offline_reload": True,
+        "interruption_resume": interruption,
         "repeat_from_another_cwd": {
             "cached": True,
             "inference_calls": 0,
