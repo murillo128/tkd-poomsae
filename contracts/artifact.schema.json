@@ -2391,6 +2391,84 @@
       "title": "SegmentFrame",
       "type": "object"
     },
+    "Segmentation": {
+      "additionalProperties": false,
+      "description": "Automatic coarse proposals, including explicitly indeterminate output.",
+      "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ground_id": {
+          "title": "Ground Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "segmentation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "motion_features_id": {
+          "title": "Motion Features Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "reconstruction_id": {
+          "title": "Reconstruction Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SequenceStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "schema_version",
+        "provenance",
+        "kind",
+        "reconstruction_id",
+        "ground_id",
+        "motion_features_id",
+        "execution",
+        "steps",
+        "quality",
+        "arrays"
+      ],
+      "title": "Segmentation",
+      "type": "object"
+    },
     "Semantics": {
       "additionalProperties": false,
       "properties": {
@@ -3390,6 +3468,7 @@
       "observation": "#/$defs/Observation",
       "project": "#/$defs/Project",
       "reconstruction": "#/$defs/Reconstruction",
+      "segmentation": "#/$defs/Segmentation",
       "semantics": "#/$defs/Semantics",
       "source": "#/$defs/Source",
       "synchronization": "#/$defs/Synchronization"
@@ -3426,6 +3505,9 @@
     },
     {
       "$ref": "#/$defs/MotionFeatures"
+    },
+    {
+      "$ref": "#/$defs/Segmentation"
     },
     {
       "$ref": "#/$defs/Semantics"
