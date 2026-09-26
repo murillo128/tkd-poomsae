@@ -26,7 +26,7 @@ public final class BootstrapActivity extends Activity {
         scroll.addView(root);
 
         TextView title = new TextView(this);
-        title.setText("TKD MultiCam bootstrap v0.8");
+        title.setText("TKD MultiCam bootstrap v0.9");
         title.setTextSize(24);
         title.setGravity(Gravity.CENTER);
         root.addView(title, new LinearLayout.LayoutParams(
