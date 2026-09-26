@@ -1,13 +1,19 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
-import type { Action, Semantics } from '../../contracts/types'
+import type { Action, Interval, Semantics } from '../../contracts/types'
 const fixtureRoot = 'http://127.0.0.1:5197'
-async function open(page: Page, id = 'demo') {
+async function open(page: Page, id = 'demo', pagingBounds?: Interval) {
   // Only redirect transport; every semantic read/write uses the real service,
   // immutable ArtifactStore, SemanticEditor and optimistic SQLite session.
   await page.route('http://127.0.0.1:8000/**', async route => {
     const url = new URL(route.request().url())
     const response = await route.fetch({ url: `${fixtureRoot}${url.pathname}${url.search}` })
-    await route.fulfill({ response })
+    if (pagingBounds && url.pathname === `/api/projects/${id}/inspection`) {
+      // A synthetic long extent isolates paging from parser fixture duration.
+      // All window reads still run against the unchanged real service validator.
+      const metadata = await response.json()
+      metadata.products.semantics.time_bounds = pagingBounds
+      await route.fulfill({ response, json: metadata })
+    } else await route.fulfill({ response })
   })
   await page.goto('/')
   await page.getByRole('combobox', { name: 'Project', exact: true }).selectOption(id)
@@ -176,4 +182,43 @@ test('unavailable parsing leaves raw track selection and time navigation usable'
   await expect(page.locator('.inspector')).toContainText('left_arm')
   await panel(page).getByLabel('Timeline time', { exact: true }).fill('24.1')
   await expect(page.locator('.seek input')).toHaveValue('24.100')
+})
+
+test('fractional long bounds page gap-free within the real API limit', async ({ page, request }) => {
+  // Keep the API's strict cap: this nominal 30s span actually subtracts to
+  // 30.000000000000004. The client must avoid it rather than relaxing validation.
+  const invalid = await request.get(`${fixtureRoot}/api/projects/demo/inspection/semantics/window?collection=steps&start=2.2&end=32.2`)
+  expect(invalid.status()).toBe(422)
+  const windows: { collection: string; start: number; end: number; status: number }[] = []
+  page.on('response', response => {
+    const url = new URL(response.url())
+    if (url.pathname.includes('/demo/inspection/semantics/window')) {
+      windows.push({ collection: url.searchParams.get('collection')!, start: Number(url.searchParams.get('start')), end: Number(url.searchParams.get('end')), status: response.status() })
+    }
+  })
+  await open(page, 'demo', { start: 2.2, end: 65 })
+  await expect.poll(() => windows.length).toBeGreaterThanOrEqual(5)
+  await expect(panel(page)).toContainText('Original automatic output')
+  await expect(panel(page).getByRole('alert')).toHaveCount(0)
+  for (const collection of ['steps', 'actions', 'phases', 'keyframes', 'stances']) {
+    const pages = windows.filter(window => window.collection === collection).sort((a, b) => a.start - b.start)
+    expect(pages.length).toBeGreaterThan(2)
+    expect(pages[0].start).toBe(2.2)
+    expect(pages.at(-1)!.end).toBe(65)
+    pages.forEach((window, i) => {
+      expect(window.status).toBe(200)
+      expect(window.end - window.start).toBeLessThanOrEqual(30)
+      if (i) expect(window.start).toBe(pages[i - 1].end)
+    })
+  }
+  // Existing canonical entities must still load and remain inspectable.
+  const steps = panel(page).getByLabel('SequenceSteps').locator('[data-entity-id]')
+  await expect(steps).toHaveCount(1)
+  const { demo } = await originals(request)
+  await expect(steps).toHaveAttribute('data-start', String(demo.steps[0].interval.start))
+  await expect(steps).toHaveAttribute('data-end', String(demo.steps[0].interval.end))
+  await steps.click()
+  await expect(page.locator('.seek input')).toHaveValue(demo.steps[0].interval.start.toFixed(3))
+  await expect(panel(page).getByRole('button', { name: 'Draft timing edit' })).toBeEnabled()
+  expect((await originals(request)).unchanged).toBe(true)
 })

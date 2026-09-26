@@ -39,3 +39,10 @@ suite also verifies six tracks, independent overlapping bounds, shared selection
 keyboard/pointer controls, zoom/pan, explicit drafts, retained stale/invalid edits,
 and raw track/time access without parsing. The timeline screenshot remains under
 the configured browser evidence directory outside Git.
+
+A fractional long-extent regression supplies synthetic metadata bounds of
+2.2–65 seconds while sending every semantic window read to the unchanged real
+service. It checks successful loads, gap-free adjacent windows for all five
+collections, selectable canonical entities, and rejection of the old nominal
+30-second request (whose actual floating-point duration exceeds 30 seconds).
+The client uses 29-second windows to leave rounding headroom under the API cap.

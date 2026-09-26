@@ -16,11 +16,15 @@ export interface EditBase { expected_revision: number; automatic_revision: strin
 const path = (id: string) => `/api/projects/${encodeURIComponent(id)}/inspection`
 async function collection<T extends { id: string }>(id: string, name: string, bounds: Interval, revision: string, signal: AbortSignal): Promise<T[]> {
   const rows = new Map<string, T>()
-  for (let start = bounds.start; start <= bounds.end; start += 30) {
+  // Leave headroom below the strict 30s API cap: fractional timestamps can
+  // make a nominal 30s difference slightly larger. Shared endpoints keep
+  // consecutive closed windows gap-free despite floating-point rounding.
+  const windowSeconds = 29
+  for (let start = bounds.start; start <= bounds.end; start += windowSeconds) {
     let cursor: number | null = 0
     do {
       signal.throwIfAborted()
-      const query = new URLSearchParams({ collection: name, start: String(start), end: String(Math.min(start + 30, bounds.end)), limit: '256', cursor: String(cursor), expected_revision: revision })
+      const query = new URLSearchParams({ collection: name, start: String(start), end: String(Math.min(start + windowSeconds, bounds.end)), limit: '256', cursor: String(cursor), expected_revision: revision })
       const page: Page<T> = await readJson(`${path(id)}/semantics/window?${query}`, signal)
       if (page.revision !== revision || !page.available) throw new Error(page.reason || 'Timeline revision changed')
       if (page.next_cursor !== null && page.next_cursor <= cursor!) throw new Error('Timeline pagination did not advance')
