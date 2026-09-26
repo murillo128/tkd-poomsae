@@ -76,6 +76,7 @@ public final class MainActivity extends Activity
     private boolean localReady;
     private boolean localRecording;
     private String currentSessionId;
+    private boolean landscapeUi;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,27 +154,32 @@ public final class MainActivity extends Activity
     }
 
     private void buildUi() {
-        boolean landscape =
+        landscapeUi =
                 getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
+        rootRoleChooser = null;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(14), dp(18), dp(18));
-        scroll.addView(root);
+        root.setBackgroundColor(BG);
+        root.setPadding(
+                dp(landscapeUi ? 10 : 18),
+                dp(landscapeUi ? 6 : 14),
+                dp(landscapeUi ? 10 : 18),
+                dp(landscapeUi ? 8 : 18));
 
-        root.addView(buildHeader(landscape), matchWrap(0, dp(10)));
+        root.addView(buildHeader(landscapeUi), matchWrap(0, dp(landscapeUi ? 6 : 10)));
 
-        if (landscape) {
+        if (landscapeUi) {
             buildLandscape(root);
+            setContentView(root);
         } else {
             buildPortrait(root);
+            ScrollView scroll = new ScrollView(this);
+            scroll.setFillViewport(true);
+            scroll.setBackgroundColor(BG);
+            scroll.addView(root);
+            setContentView(scroll);
         }
-
-        setContentView(scroll);
     }
 
     private View buildHeader(boolean landscape) {
@@ -186,7 +192,7 @@ public final class MainActivity extends Activity
         icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable iconBg = rounded(PANEL_ALT, dp(14), BORDER, dp(1));
         icon.setBackground(iconBg);
-        header.addView(icon, new LinearLayout.LayoutParams(dp(landscape ? 52 : 48), dp(landscape ? 52 : 48)));
+        header.addView(icon, new LinearLayout.LayoutParams(dp(landscape ? 36 : 48), dp(landscape ? 36 : 48)));
 
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
@@ -195,14 +201,14 @@ public final class MainActivity extends Activity
         TextView title = new TextView(this);
         title.setText("TKD MultiCam 120");
         title.setTextColor(TEXT);
-        title.setTextSize(landscape ? 24 : 23);
+        title.setTextSize(landscape ? 18 : 23);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         titleBox.addView(title);
 
         TextView subtitle = new TextView(this);
         subtitle.setText("SYNCHRONIZED POOMSAE RECORDING");
         subtitle.setTextColor(CYAN);
-        subtitle.setTextSize(10);
+        subtitle.setTextSize(landscape ? 8 : 10);
         subtitle.setLetterSpacing(0.16f);
         titleBox.addView(subtitle);
 
@@ -213,11 +219,11 @@ public final class MainActivity extends Activity
 
         controllerButton = roleButton("CONTROLLER");
         controllerButton.setOnClickListener(v -> chooseController());
-        roleChooser.addView(controllerButton, new LinearLayout.LayoutParams(landscape ? dp(150) : 0, dp(48), landscape ? 0f : 1f));
+        roleChooser.addView(controllerButton, new LinearLayout.LayoutParams(landscape ? dp(112) : 0, dp(landscape ? 36 : 48), landscape ? 0f : 1f));
 
         cameraButton = roleButton("CAMERA");
         cameraButton.setOnClickListener(v -> chooseCamera());
-        LinearLayout.LayoutParams cameraLp = new LinearLayout.LayoutParams(landscape ? dp(120) : 0, dp(48), landscape ? 0f : 1f);
+        LinearLayout.LayoutParams cameraLp = new LinearLayout.LayoutParams(landscape ? dp(96) : 0, dp(landscape ? 36 : 48), landscape ? 0f : 1f);
         cameraLp.setMargins(dp(8), 0, 0, 0);
         roleChooser.addView(cameraButton, cameraLp);
 
@@ -266,37 +272,47 @@ public final class MainActivity extends Activity
     }
 
     private void buildLandscape(LinearLayout root) {
-        LinearLayout mainRow = new LinearLayout(this);
-        mainRow.setOrientation(LinearLayout.HORIZONTAL);
-        mainRow.setGravity(Gravity.TOP);
-
-        LinearLayout left = new LinearLayout(this);
-        left.setOrientation(LinearLayout.VERTICAL);
-        left.addView(buildPreview(dp(320)), matchWrap(0, dp(10)));
-
+        // Landscape is a dedicated dashboard, not the portrait layout stretched sideways.
+        // Status stays in one compact strip; preview and controls then share the remaining
+        // height so everything important fits on one phone screen without scrolling.
         LinearLayout statusRow = new LinearLayout(this);
         statusRow.setOrientation(LinearLayout.HORIZONTAL);
         roleText = statusCard(statusRow, "ROLE", "Choose role");
         networkText = statusCard(statusRow, "NETWORK", "Not started");
         cameraText = statusCard(statusRow, "CAMERA", "Idle");
         sessionText = statusCard(statusRow, "SESSION", "No active session");
-        left.addView(statusRow);
+        root.addView(statusRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)));
 
-        mainRow.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.55f));
+        LinearLayout mainRow = new LinearLayout(this);
+        mainRow.setOrientation(LinearLayout.HORIZONTAL);
+        mainRow.setGravity(Gravity.TOP);
+
+        FrameLayout preview = (FrameLayout) buildPreview(-1);
+        mainRow.addView(preview, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1.62f));
 
         LinearLayout right = new LinearLayout(this);
         right.setOrientation(LinearLayout.VERTICAL);
-        right.setPadding(dp(14), 0, 0, 0);
+        right.setPadding(dp(8), 0, 0, 0);
 
         buildControllerPanel();
-        right.addView(controllerPanel, matchWrap(0, dp(10)));
+        right.addView(controllerPanel, matchWrap(0, dp(5)));
 
         buildCameraPanel();
-        right.addView(cameraPanel, matchWrap(0, 0));
+        right.addView(cameraPanel, matchWrap(0, dp(5)));
 
-        mainRow.addView(right, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        root.addView(mainRow, matchWrap(0, dp(12)));
-        root.addView(buildPeersPanel(), matchWrap(0, 0));
+        View peers = buildPeersPanel();
+        right.addView(peers, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        mainRow.addView(right, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+
+        LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+        bodyLp.setMargins(0, dp(6), 0, 0);
+        root.addView(mainRow, bodyLp);
     }
 
     private View buildPreview(int height) {
@@ -304,8 +320,9 @@ public final class MainActivity extends Activity
         frame.setBackground(rounded(Color.rgb(3, 12, 22), dp(18), CYAN_SOFT, dp(1)));
 
         textureView = new TextureView(this);
+        int previewHeight = height > 0 ? height : FrameLayout.LayoutParams.MATCH_PARENT;
         FrameLayout.LayoutParams previewLp =
-                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, height);
+                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, previewHeight);
         previewLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         frame.addView(textureView, previewLp);
 
@@ -329,15 +346,15 @@ public final class MainActivity extends Activity
     private void buildControllerPanel() {
         controllerPanel = new LinearLayout(this);
         controllerPanel.setOrientation(LinearLayout.VERTICAL);
-        controllerPanel.setPadding(dp(14), dp(14), dp(14), dp(14));
+        controllerPanel.setPadding(dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 7 : 14), dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 7 : 14));
         controllerPanel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
 
         recordLocal = new Switch(this);
         recordLocal.setText("  Record on this controller too");
         recordLocal.setTextColor(TEXT);
-        recordLocal.setTextSize(15);
+        recordLocal.setTextSize(landscapeUi ? 11 : 15);
         recordLocal.setChecked(true);
-        controllerPanel.addView(recordLocal, matchWrap(0, dp(12)));
+        controllerPanel.addView(recordLocal, matchWrap(0, dp(landscapeUi ? 5 : 12)));
 
         LinearLayout row1 = new LinearLayout(this);
         row1.setOrientation(LinearLayout.HORIZONTAL);
@@ -355,7 +372,7 @@ public final class MainActivity extends Activity
         LinearLayout.LayoutParams armLp = weightedButton();
         armLp.setMargins(dp(8), 0, 0, 0);
         row1.addView(armButton, armLp);
-        controllerPanel.addView(row1, matchWrap(0, dp(8)));
+        controllerPanel.addView(row1, matchWrap(0, dp(landscapeUi ? 5 : 8)));
 
         LinearLayout row2 = new LinearLayout(this);
         row2.setOrientation(LinearLayout.HORIZONTAL);
@@ -376,7 +393,7 @@ public final class MainActivity extends Activity
     private void buildCameraPanel() {
         cameraPanel = new LinearLayout(this);
         cameraPanel.setOrientation(LinearLayout.VERTICAL);
-        cameraPanel.setPadding(dp(16), dp(16), dp(16), dp(16));
+        cameraPanel.setPadding(dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16));
         cameraPanel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
 
         TextView cameraTitle = new TextView(this);
@@ -390,8 +407,8 @@ public final class MainActivity extends Activity
         cameraHelp.setText(
                 "Waiting for controller on the same Wi‑Fi. Keep the phone mounted and this preview visible.");
         cameraHelp.setTextColor(MUTED);
-        cameraHelp.setTextSize(14);
-        cameraHelp.setPadding(0, dp(6), 0, dp(14));
+        cameraHelp.setTextSize(landscapeUi ? 11 : 14);
+        cameraHelp.setPadding(0, dp(landscapeUi ? 3 : 6), 0, dp(landscapeUi ? 6 : 14));
         cameraPanel.addView(cameraHelp);
 
         Button cameraStop = actionButton("■  LOCAL EMERGENCY STOP", RED);
@@ -406,22 +423,23 @@ public final class MainActivity extends Activity
     private View buildPeersPanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(14), dp(12), dp(14), dp(14));
+        panel.setPadding(dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 6 : 12), dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 6 : 14));
         panel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
 
         peerTitle = new TextView(this);
         peerTitle.setText("DISCOVERED CAMERAS");
         peerTitle.setTextColor(CYAN);
-        peerTitle.setTextSize(14);
+        peerTitle.setTextSize(landscapeUi ? 11 : 14);
         peerTitle.setTypeface(Typeface.DEFAULT_BOLD);
         panel.addView(peerTitle);
 
         peersText = new TextView(this);
         peersText.setTextColor(MUTED);
-        peersText.setTextSize(13);
-        peersText.setPadding(0, dp(8), 0, 0);
+        peersText.setTextSize(landscapeUi ? 10 : 13);
+        peersText.setPadding(0, dp(landscapeUi ? 3 : 8), 0, 0);
         peersText.setText("No cameras yet. Put other phones in CAMERA mode on this Wi‑Fi.");
         peersText.setTextIsSelectable(true);
+        if (landscapeUi) peersText.setMaxLines(4);
         panel.addView(peersText);
 
         return panel;
@@ -430,21 +448,21 @@ public final class MainActivity extends Activity
     private TextView statusCard(LinearLayout parent, String label, String initial) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(10), dp(9), dp(10), dp(9));
+        card.setPadding(dp(landscapeUi ? 6 : 10), dp(landscapeUi ? 4 : 9), dp(landscapeUi ? 6 : 10), dp(landscapeUi ? 4 : 9));
         card.setBackground(rounded(PANEL_ALT, dp(14), BORDER, dp(1)));
 
         TextView l = new TextView(this);
         l.setText(label);
         l.setTextColor(CYAN);
-        l.setTextSize(10);
+        l.setTextSize(landscapeUi ? 8 : 10);
         l.setTypeface(Typeface.DEFAULT_BOLD);
         card.addView(l);
 
         TextView value = new TextView(this);
         value.setText(initial);
         value.setTextColor(TEXT);
-        value.setTextSize(12);
-        value.setMaxLines(3);
+        value.setTextSize(landscapeUi ? 9 : 12);
+        value.setMaxLines(landscapeUi ? 2 : 3);
         card.addView(value);
 
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -469,7 +487,7 @@ public final class MainActivity extends Activity
         Button b = new Button(this);
         b.setText(text);
         b.setTextColor(TEXT);
-        b.setTextSize(12);
+        b.setTextSize(landscapeUi ? 10 : 12);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         b.setAllCaps(false);
         b.setBackground(rounded(PANEL_ALT, dp(14), BORDER, dp(1)));
@@ -480,10 +498,10 @@ public final class MainActivity extends Activity
         Button b = new Button(this);
         b.setText(text);
         b.setTextColor(TEXT);
-        b.setTextSize(13);
+        b.setTextSize(landscapeUi ? 10 : 13);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         b.setAllCaps(false);
-        b.setMinHeight(dp(54));
+        b.setMinHeight(dp(landscapeUi ? 38 : 54));
         b.setBackground(rounded(PANEL_ALT, dp(14), accent, dp(1)));
         return b;
     }
@@ -497,7 +515,7 @@ public final class MainActivity extends Activity
     }
 
     private LinearLayout.LayoutParams weightedButton() {
-        return new LinearLayout.LayoutParams(0, dp(58), 1f);
+        return new LinearLayout.LayoutParams(0, dp(landscapeUi ? 40 : 58), 1f);
     }
 
     private LinearLayout.LayoutParams matchWrap(int top, int bottom) {
@@ -741,7 +759,13 @@ public final class MainActivity extends Activity
         localReady = false;
         localRecording = false;
         runOnUiThread(() -> {
-            cameraText.setText("STOPPED · saved to Gallery");
+            double fps = cameraEngine == null ? 0.0 : cameraEngine.getLastEncodedFps();
+            if (fps > 0.0) {
+                cameraText.setText(String.format(Locale.US,
+                        "SAVED · MP4 %.1f fps", fps));
+            } else {
+                cameraText.setText("SAVED · fps unavailable");
+            }
             sessionText.setText(
                     (currentSessionId == null ? "No session" : currentSessionId) + " · SAVED");
         });
