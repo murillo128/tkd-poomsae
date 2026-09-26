@@ -120,3 +120,6 @@ heel/forefoot/partial geometry, occlusion, uncertainty, noise, rate equivalence,
 gaps, repeated native evidence, scale invariance, explicit unavailability and
 immutable publication. No dataset downloads, contact-accuracy validation or
 MMPose score comparisons are required or performed.
+
+The downstream [physical footprint stage](../footprints/README.md) consumes this
+immutable contact/support artifact to derive placements and geometric relations.
