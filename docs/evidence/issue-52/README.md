@@ -1,14 +1,24 @@
 # MVP requirement traceability and acceptance decision
 
-**Full-system acceptance: NOT MET.** The integrated implementation has positive
-component and inspection tests, but no demonstrated real-input calibrated 3D
-execution with automatic overlapping semantics. Issue #52 must return to design
-authority; passing regression tests cannot change this decision.
+**Issue #52 compositional acceptance: MET.** Real Mendeley observations,
+synchronization attempts, persistence/reuse and inspection are verified separately
+from controlled positive reconstruction, ground and automatic overlapping
+semantics. Positive calibration and detailed motion capabilities are also covered
+by deterministic component tests. This establishes software integration, not
+real-video reconstruction or recognition accuracy.
+
+The [accepted design decision](https://github.com/murillo128/tkd-poomsae/issues/52#issuecomment-5848375908)
+and updated #52 contract explicitly select these separate evidence tracks.
+Real capture-suitable geometry validation is deferred to [#107](https://github.com/murillo128/tkd-poomsae/issues/107),
+and canonical one-command producer wiring to [#108](https://github.com/murillo128/tkd-poomsae/issues/108).
+The normative product behavior remains the target; this report does not claim
+that Mendeley demonstrates the full real-camera completion scenario. The initial
+unmet-gate report remains preserved in Git at `13e34427b183c1e5e9b6c061846e0aa7f7f6d666`.
 
 Authority is the nine normative files indexed by [spec/README.md](../../../spec/README.md)
 and [issue #52](https://github.com/murillo128/tkd-poomsae/issues/52).
 The inspected and executed integration revision is
-`110a41287a1f1598b5bf9a7b442431cd8501d09c`. This report adds evidence only;
+`9a74ac2d7fe58b446696a33f43dd80781c1fcb7b`. This report adds evidence only;
 it changes no specification, algorithm, threshold, model or dataset policy.
 
 ## Evidence interpretation
@@ -22,14 +32,26 @@ it changes no specification, algorithm, threshold, model or dataset policy.
 - **B**: real Chromium execution of the actual client/service. Portable tests
   use generated media, supplied geometry and handcrafted semantic entities;
   shared-project tests separately inspect real MMPose observations and synthetic
-  geometry. Browser navigation does not prove automatic semantic generation.
+  geometry. Those legacy timeline fixtures prove inspection; the new C browser
+  case below uses production-generated automatic semantics instead.
 - **P**: provisioning, integrity, persistence and offline reuse receipts.
 
-The matrix identifies implementation and regression evidence, **not individual
-full-system passes**. “Gap” means positive integrated acceptance is missing even
-when the corresponding component tests pass. Unknown regions and unresolved
-scale are supported outcomes; absent cameras/ground and all-missing real 3D
-cannot stand in for the required positive path.
+**C** is the new controlled positive track from [issue-106](../issue-106/README.md):
+analytic projected observations and supplied metric cameras/ground/clocks feed
+production alignment, triangulation, morphology/articulated/temporal motion,
+ground and all five parser publishers. Its videos display projected dots;
+observations are not detector outputs from those dots. Default parser settings
+are unchanged; its 0.001 px numerical precision floor is explicitly restricted
+to these exact analytic coordinates. No manual labels or semantic entities are
+supplied. It uses 20 major body/foot landmarks; detailed hands/head, dynamic root,
+pivots and richer semantic classes are positively covered by separate S cases.
+
+The matrix identifies the concrete S/R/B/C/P evidence for every capability and
+its boundary. It does not imply that one fixture or Mendeley alone demonstrates
+every requirement. Unknown regions and unresolved scale remain supported;
+positive C output prevents all-missing reconstruction or manual-only semantics
+from being treated as implementation success. Real geometry absence is retained
+as the explicitly accepted dataset limitation.
 
 IDs below combine spec prefix and baseline line number. Every line containing
 uppercase MUST/MUST NOT is mapped; required outputs and acceptance paragraphs
@@ -45,15 +67,15 @@ No dataset, model or runtime bootstrap was needed in this new issue worktree.
 
 | Check | Observed result |
 | --- | --- |
-| Default `pytest -q` | 584 passed; six opt-in cases deselected and exercised separately below |
-| Local/full-data selections, alignment and sync checks | Four passed across two explicit invocations; no skips |
+| Default `pytest -q` | 585 passed; six opt-in cases deselected and exercised separately below |
+| Local/full-data selections, alignment and sync checks | Four passed in one explicit opt-in invocation; no skips |
 | Existing MMPose model smoke tests | Two passed on the shared CPU runtime, including native-source hand pixels; no skips/downloads |
-| Ruff, strict mypy, CLI help | Passed; mypy checked 152 source files |
+| Ruff, strict mypy, CLI help | Passed; mypy checked 154 source files |
 | Web/contract/local-browser TypeScript, web unit tests and build | Passed; 24 unit tests; existing bundle-size advisory retained |
-| Portable real Chromium suites | 23 integrated and 15 component cases passed, no skips/retries |
+| Portable real Chromium suites | 24 integrated (including C navigation) and 15 component cases passed, no skips/retries |
 | Shared-project Chromium suite | Nine real/synthetic inspection/reopen cases passed, no skips/retries; nine screenshot hashes retained |
 | Functional publisher replay | Identical to committed issue-50 report; 315 manifests verified, zero new immutable artifacts/network attempts; 32 original files and 14 assets verified |
-| Positive functional geometry/semantics | Supplied-camera synthetic path: 141 raw/ground samples, zero automatic steps/actions; every real calibration unavailable |
+| Positive controlled geometry/semantics | 101 samples, one step, 3 arm/1 kick/11 unknown transition actions and 58 keyframes; production arm/kick overlap; no manual labels |
 | SkillForge offline `unittest discover` with `REQUIRE_TMUX_TEST=1` | 126 passed, including real tmux and temporary Git worktrees |
 
 The model checks reused the developer environment's pytest by appending its
@@ -68,7 +90,10 @@ inference/network calls. This new worktree reused the same immutable receipts
 as the earlier component worktrees; no dataset/model was copied into it.
 The functional publisher replay and shared-project browser outcomes are recorded
 in [validation.json](validation.json), separately from the synthetic/browser
-fixtures above. Original acquisition/inference and repeat bootstrap receipts
+fixtures above. The controlled fixture also repeated with identical reports,
+zero new immutable artifacts/network calls and all 447 protected payload hashes unchanged. Its
+production parser-only rerun forbids upstream publishers and preserves physical
+bytes. Original acquisition/inference and repeat bootstrap receipts
 remain bound through [issue-50](../issue-50/README.md),
 [issue-51](../issue-51/reproduction.json) and the shared receipt identities.
 
@@ -103,24 +128,25 @@ compact hashes/results are committed here.
 The routing CI workflow is path-filtered to workflow/runner files and is not
 triggered by this documentation-only delta; its broader native offline suite
 was nevertheless run because #52 explicitly requires existing SkillForge checks.
-Application PR checks apply to the epic base. Neither local nor remote regression
-success is a substitute for the failed full-system acceptance gate.
+Application PR checks apply to the epic base. Regression success contributes to
+the adopted compositional gate; it does not prove the real-camera completion
+scenario deferred to #107.
 
 ## General ([spec](../../../spec/general.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | G26: variable cameras, at least two usable synchronized views | `media/reader.py`, `sync/solver.py`, `sync/alignment.py`; S `test_sync_integration.py`, `test_alignment.py`; B `cameras.spec.ts` exercises 2/3/4 views; R seven paired sync estimates | Taegeuk 3 has no paired automatic timeline; estimates are not timing accuracy measurements |
-| G28: geometry/time, local duration/velocity/acceleration, trajectories and ordering | `reconstruction/temporal`, `features`; S `test_temporal_motion.py` checks quadratic derivatives, rapid extensions/pivots and morphology; `test_parser_scenarios.py` checks absolute timing | Gap: no real reconstructed kinematics |
-| G30, G58: physical evidence separate from semantics, replaceable stages and parser-only reruns | `contracts/models.py`, `storage/store.py`, `pipeline/runner.py`, `reconstruction/semantics`; S persisted parser scenario counts zero upstream calls and preserves bytes; P functional parser configuration rerun preserves physical hashes | Default runner slots are not a wired complete pipeline |
+| G28: geometry/time, local duration/velocity/acceleration, trajectories and ordering | `reconstruction/temporal`, `features`; S `test_temporal_motion.py` checks quadratic derivatives, rapid extensions/pivots and morphology; `test_parser_scenarios.py` checks absolute timing | S temporal/dynamics plus C motion; real kinematics deferred to #107 |
+| G30, G58: physical evidence separate from semantics, replaceable stages and parser-only reruns | `contracts/models.py`, `storage/store.py`, `pipeline/runner.py`, `reconstruction/semantics`; S persisted parser scenario counts zero upstream calls and preserves bytes; P functional parser configuration rerun preserves physical hashes | Harness/runbook route supported; default wiring deferred to #108 |
 | G32: no scores, deductions, correctness or coaching | Physical/semantic contracts and client inspectors; S contract/parser schemas; B uncertainty/provenance inspection; [runbook](../../local-runbook.md) and demo describe observation only | Optional reference overlay deferred; no correctness inference accepted |
-| G76: retain participant proportions | `reconstruction/articulated`, `temporal`; S `test_articulated.py`, `test_temporal_motion.py::test_morphology_lengths_and_vertical_root_survive` | Gap: no real participant fit |
+| G76: retain participant proportions | `reconstruction/articulated`, `temporal`; S `test_articulated.py`, `test_temporal_motion.py::test_morphology_lengths_and_vertical_root_survive` | C persisted morphology/fit and S proportion tests; real fit deferred to #107 |
 | G84: uncertainty/provenance through reconstruction/derivation | Contracts and all publishers; S `test_triangulation.py`, `test_detailed_geometry.py`, ground/parser unknown cases; B `provenance.spec.ts`, `integrated.spec.ts` | Real unknown geometry is exposed, not recovered |
-| Pipeline/core principles/completion: continuous body/hands/feet/head/root, ground, semantics and synchronized inspection from untrimmed multiview input | R complete Taegeuk 1 native pair; S positive components; B shared clock and entity navigation | **Gap: no single positive full-system execution**; supplied-camera synthetic functional path has 141 samples but zero steps/actions |
+| Pipeline/core principles/completion: continuous body/hands/feet/head/root, ground, semantics and synchronized inspection from untrimmed multiview input | R complete Taegeuk 1 native pair; S positive components; C production composition; B generated-action clock/navigation | C adds 101 samples, one step and overlapping arm/kick actions through production; older 141-sample fixture remains empty; evidence is compositional |
 
 ## Motion representation ([spec](../../../spec/motion-representation.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | MR5: shared semantic ownership | `contracts/models.py`, generated JSON schema and `contracts/types.ts`; S `test_contracts.py`; TypeScript contract check | Shared contracts do not demonstrate all producers working together |
 | MR21: global seconds, native camera/frame/PTS, variable rates | `FrameTime`, `ObservationJoin`, media index; S `test_media_reader.py`, `test_alignment.py`, `test_sync_integration.py`; B native stepping across rates | Native identity available on real observations |
@@ -129,11 +155,11 @@ success is a substitute for the failed full-system acceptance gate.
 | MR73, MR75: separate morphology and original pose, derived normalization | Articulated morphology artifact and pose lineage; S `test_articulated.py`, temporal morphology tests, `test_ground_view.py` unresolved scale/normalization | Real morphology unavailable |
 | MR132, MR134: unknown differs from false; no confident promotion downstream | `Quality`, tri-state ground and semantic evidence; S unknown triangulation/detail/contact/parser cases; B explicit uncertainty | Required positive capabilities still missing |
 | MR144: schema/version/config/model provenance, incompatible revisions | `ArtifactKey`, immutable manifests, native model identities; S `test_contracts.py`, `test_storage.py`, revision/cache tests, `test_semantic_edits.py` stale parser revision; P receipt/model hashes | Versioned receipts establish reproducibility, not accuracy |
-| Observation/reconstruction/ground/semantic layers, six tracks, relations, dense trajectory links | Typed artifact contracts and separate publishers; S `test_contracts.py`, `test_semantic_assembly.py`, `test_parser_scenarios.py`; B inspector links | Real semantic and reconstructed layers unavailable |
+| Observation/reconstruction/ground/semantic layers, six tracks, relations, dense trajectory links | Typed artifact contracts and separate publishers; S `test_contracts.py`, `test_semantic_assembly.py`, `test_parser_scenarios.py`; B inspector links | C layers linked and navigable; real reconstructed/semantic layers unavailable |
 
 ## Ingest and synchronization ([spec](../../../spec/ingest-sync.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | IS11: no same-start/frame/rate/resolution/codec/fixed-count assumption | `media/reader.py`, cue extraction and offset solver; S generated-media cases in `test_media_reader.py`, `test_sync_integration.py`; B variable-view/rate/offset tests | No pretrim/copy required for full real pair |
 | IS29: automatic synchronization attempt | `sync/cues.py`, `sync/solver.py`, `Pipeline.solve_sync`; S `test_sync_cues.py`, `test_sync_solver.py`; R functional attempts for eight forms | Seven estimates, one explicit failure; no accuracy oracle |
@@ -144,9 +170,9 @@ success is a substitute for the failed full-system acceptance gate.
 
 ## Camera calibration ([spec](../../../spec/camera-calibration.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
-| CC28: automatic placement; no manual camera position/orientation entry | `calibration/target.py`, `natural.py`; S `test_calibration.py::test_manifest_to_immutable_artifact_from_rendered_frames`, `test_calibration_natural.py::test_nonplanar_variable_camera_scene` | **Gap: every real calibration attempt unavailable**; synthetic functional cameras are supplied, not estimated |
+| CC28: automatic placement; no manual camera position/orientation entry | `calibration/target.py`, `natural.py`; S `test_calibration.py::test_manifest_to_immutable_artifact_from_rendered_frames`, `test_calibration_natural.py::test_nonplanar_variable_camera_scene` | S rendered-board/static-scene estimators are positive; C cameras supplied; every real calibration unavailable (#107) |
 | CC36: explicit plane/quality; no downstream invented floor | `calibration/ground.py`, quality publication gate; S floor/wall/vertical tests, `test_ground_view.py`; B unavailable ground | Real ground/world unresolved |
 | CC40, CC42: reliable metric scale or unresolved; no fabricated centimetres | Ground scale evidence and unit contracts; S `test_calibration_ground.py`, `test_calibration_quality.py`, `test_ground_view.py`; B unknown units | Unknown real scale is legitimate; it does not supply missing geometry |
 | CC50: reject inconsistent cameras while preserving usable minimum | `calibration/quality.py`; S `test_bad_view_is_excluded_only_with_coherent_retained_pair`, disconnected/omitted/mismatched-sync tests | No accepted real retained set |
@@ -154,7 +180,7 @@ success is a substitute for the failed full-system acceptance gate.
 
 ## Pose observation ([spec](../../../spec/pose-observation.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | PO15: raw confidence/visibility with coordinates | Wholebody adapter/mapping and observation contracts; S `test_pose_mmpose.py`; R 133-landmark native records/raw scores; B real observation inspector | Scores are model output, not accuracy |
 | PO21: high-resolution hand path localized from wholebody/original pixels | `pose/providers/mmpose/hand.py`, adapter; S `test_pose_hand.py` ROI transforms/crop/quality; R retained hand refinement calls/ROI provenance | Difficult/ambiguous hands remain missing/low evidence |
@@ -165,41 +191,41 @@ success is a substitute for the failed full-system acceptance gate.
 
 ## 4D reconstruction ([spec](../../../spec/4d-reconstruction.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
-| RC17: all useful N-view observations, per-region subsets/provenance | `reconstruction/triangulation`; S `test_known_geometry_uses_every_view` (variable N), noisy extra views/outliers/distinct subsets | Gap: no calibrated real reconstruction |
+| RC17: all useful N-view observations, per-region subsets/provenance | `reconstruction/triangulation`; S `test_known_geometry_uses_every_view` (variable N), noisy extra views/outliers/distinct subsets | S N-view tests and C positive reconstruction; real geometry deferred (#107) |
 | RC39: refined hands/feet survive coarse fit | `articulated`, `detailed`, `temporal`; S `test_articulated.py`, detailed digit/foot and temporal publication tests | Detailed synthetic tests cannot prove real visibility |
 | RC47: explicit spatial relations and forearm depth order | `reconstruction/detailed/core.py`; S crossing depth/intersection/uncertainty tests; parser crossing scenarios | Ambiguous ordering stays unknown |
-| Temporal coherence, participant shape/pose separation, head/neck, root translation/rotation/height, reprojection/query and uncertain regions | Raw/articulated/detailed/temporal publishers; S `test_temporal_motion.py`, `test_articulated.py`, `test_detailed_geometry.py`; B 3D layers/source evidence; functional 141-sample supplied-camera path | **Gap: real replay of stable full-body/detail/root unavailable** |
+| Temporal coherence, participant shape/pose separation, head/neck, root translation/rotation/height, reprojection/query and uncertain regions | Raw/articulated/detailed/temporal publishers; S `test_temporal_motion.py`, `test_articulated.py`, `test_detailed_geometry.py`; B 3D layers/source evidence; functional 141-sample supplied-camera path | C body/root replay; S detailed hands/head/dynamic-root tests; real full-body replay deferred (#107) |
 
 ## Footwork and ground ([spec](../../../spec/footwork-ground.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | FG47: jitter cannot multiply footprints | `reconstruction/footprints`; S `test_footprints.py` jitter, sliding and gaps | No real calibrated placements |
 | Contact/support tri-state and regions; stable L/R footprints/time/orientation/geometry/confidence | `ground`, `footprints`; S `test_ground_contact.py`, `test_footprints.py`; B dynamic/summary ground | Synthetic evidence only for positive ground |
 | Step distances/separations/alignment/orientation, metric gating and derived normalization | `footprints`, `ground_view`; S footprint/ground-view tests; B metric/unresolved-scale cases | Real metric and nonmetric calibrated ground unavailable |
 | Supported pivot interval/region/rotation/heel/forefoot/center trajectories | `pivots`; S `test_pivots.py`, `test_parser_scenarios.py::test_supported_pivot_uses_detected_ground_event`; B arcs | Must not infer a pivot from unknown support |
-| Root planar/vertical paths, deterministic dynamic and summary product, no correctness inference | `ground_view`; S `test_ground_view.py` XY/Z/root quality/cache/parser-independence; B `ground.spec.ts` | Gap: no real accepted ground frame or products |
+| Root planar/vertical paths, deterministic dynamic and summary product, no correctness inference | `ground_view`; S `test_ground_view.py` XY/Z/root quality/cache/parser-independence; B `ground.spec.ts` | S and C positive ground; no real accepted frame (#107) |
 | Reference compatibility | Shared representation and frame/unit metadata | Optional overlay implementation deferred |
 
 ## Motion parsing ([spec](../../../spec/motion-parsing.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
-| MP27: SequenceStep not literal footstep | `segmentation`, `semantics`; S stationary arms and kick/recovery compound tests | Positive constructed motion only |
-| MP35: independent arm/leg boundaries, overlapping multi-track actions | `arms`, `lower_body`, `semantics`; S compound/special and assembly tests; B visible overlapping fixture actions | Browser semantic fixtures are handcrafted |
+| MP27: SequenceStep not literal footstep | `segmentation`, `semantics`; S stationary arms and kick/recovery compound tests | S constructed scenarios plus C automatically generated step |
+| MP35: independent arm/leg boundaries, overlapping multi-track actions | `arms`, `lower_body`, `semantics`; S compound/special and assembly tests; B visible overlapping fixture actions | Legacy browser entities handcrafted; new C browser test navigates production-generated actions |
 | MP107: retain relation-sensitive configuration/front forearm | Detailed relations/features/semantic links; S parser crossing/ambiguous crossing and transition tests | No real crossing interpretation established |
 | MP118: absolute local timing/durations/dynamics not normalized away | Features and interval/dense-link contracts; S scenario shared invariants and feature derivatives | Real motion unavailable |
-| Execution interval within preroll/postroll; hierarchy/dense links; automatic steps/phases/event keyframes | `features`, `segmentation`, `semantics`; S 12 parser scenarios and segmentation pre/post-roll tests | **Gap: synthetic geometric functional path returns zero automatic steps/actions** |
-| Broad lower-body kick/placement/recovery/stance/pivot/support distinctions | `lower_body`; S `test_lower_body.py`, compound/pivot/unsupported scenarios | No positive semantics on real input |
+| Execution interval within preroll/postroll; hierarchy/dense links; automatic steps/phases/event keyframes | `features`, `segmentation`, `semantics`; S 12 parser scenarios/segmentation pre/post-roll tests; C `test_controlled_acceptance.py` and `controlled.spec.ts` | C supplies positive motion → parser → inspector evidence: 1 step, 15 actions, 58 keyframes; older synthetic case remains empty |
+| Broad lower-body kick/placement/recovery/stance/pivot/support distinctions | `lower_body`; S `test_lower_body.py`, compound/pivot/unsupported scenarios | C arm/kick semantics positive; no real semantic accuracy or output claimed |
 | Arm roles and first-class coordinated SpecialAction, retained transitions | `arms`, `semantics`; S stationary/special/crossing and transition cases | Unknown roles preserved; exact technique naming deferred |
 | Manual edits attributed/revisioned/reversible and distinct from automatic bytes | `src/tkd_poomsae/semantic_edits`; S apply/reload/undo/concurrent/stale-base tests and persisted parser rerun; B integrated edits/reload/undo | Manual labels cannot repair missing automatic acceptance |
-| Parser-only rerun without vision/reconstruction/network | S `test_persisted_full_rerun_edits_and_zero_upstream_or_network_calls`; P functional assembly-config rerun physical hashes unchanged | Harness tests direct publishers; default CLI parser not installed |
+| Parser-only rerun without vision/reconstruction/network | S `test_persisted_full_rerun_edits_and_zero_upstream_or_network_calls`; P functional assembly-config rerun physical hashes unchanged | C reruns all 5 parser stages with upstream forbidden; harness route supported, default CLI wiring deferred (#108) |
 
 ## Visualization ([spec](../../../spec/visualization.md))
 
-| Requirement | Implementation and concrete evidence | Integrated limit |
+| Requirement | Implementation and concrete evidence | Evidence boundary |
 | --- | --- | --- |
 | V7: render persisted results; no invented physical/semantic/evaluation outputs | FastAPI inspection and client APIs; S `test_inspection_api.py`; B unavailable products/errors/identity checks | Empty/unavailable output remains visible |
 | V32: frame stepping on shared global clock | `playback.ts`, `CameraPanel.tsx`, exact-frame service; S playback/media API tests; B stepping/rate/offset/off-grid cases | Playback metadata absent: overlays suppressed, paused exact stepping remains |
@@ -207,10 +233,10 @@ success is a substitute for the failed full-system acceptance gate.
 | V108: no automatic correct/incorrect overlay labels | Descriptive inspectors and contracts | Optional reference overlay deferred |
 | Local web/service, heavy ML outside browser, variable cameras/2D overlays/time/confidence/exclusions | `api.py`, `CameraPanel.tsx`, model runtime delegation; B 2/3/4 camera cases and eight real projects | Local native observations work without browser inference |
 | Free 3D inspection/layers: joints/hands/feet/floor/root/selected trajectories/frusta/confidence | `ThreePanel.tsx`, `sceneGeometry.ts`, `GeometryInspector.tsx`; B `three.spec.ts` and integrated source selection | Positive geometry synthetic; real frusta/body unavailable |
-| Timeline tracks/steps/overlapping actions/phases/keyframes, selection highlights/seek | `Timeline.tsx`, playback state; B `timeline.spec.ts`, integrated action/event selection | Handcrafted semantic navigation does not establish parser success |
+| Timeline tracks/steps/overlapping actions/phases/keyframes, selection highlights/seek | `Timeline.tsx`, playback state; B `timeline.spec.ts`, integrated action/event selection | C browser navigation uses production-generated semantics; legacy handcrafted entities test other navigation cases |
 | Dynamic/summary top-down feet/root/footprints/axes/distances/contact/pivot/parser overlays and bidirectional placement selection | `GroundView.tsx`; B `ground.spec.ts`, integrated selection/shared time | Synthetic physical products; no real ground path |
 | Structured joint/landmark/footprint/action/phase/keyframe confidence and contributing evidence | Inspector APIs/components; S `test_inspection_api.py`; B `provenance.spec.ts`, integrated evidence links | Real native 2D provenance available; missing geometry not invented |
-| Acceptance: all views inspect one physical instant with semantic/footprint navigation and uncertainty | B generated integrated/browser tests; shared-project native 2D plus separate synthetic geometry | **Gap: no positive real project containing every required view/product** |
+| Acceptance: all views inspect one physical instant with semantic/footprint navigation and uncertainty | B generated integrated/browser tests including C automatic arm/kick navigation; shared-project native 2D plus separate synthetic geometry | C project synchronizes videos/3D/ground/automatic timeline; Mendeley separately supplies native MMPose inspection; real all-product validation deferred (#107) |
 
 ## Selected SHOULDs and optional scope
 
@@ -226,30 +252,34 @@ success is a substitute for the failed full-system acceptance gate.
 | IS55: optional geometric sync refinement | Deferred; constant-offset cue consensus remains the supported synchronization model |
 | Optional body mesh, toe detail, detailed face, exact technique names | Deferred; articulated landmarks and broad classes remain mandatory |
 
-## Remaining capability gaps and required return
+## Closure boundary and follow-up
 
-1. **Real camera/world/ground evidence.** Seven real pairs fail static calibration
-   for insufficient matched texture; the eighth lacks paired synchronization.
-   No target captures or measured intrinsic profiles accompany the current demo.
-   Design authority must identify a supported capture/input and evidence route
-   that permits automatic placement and a persisted ground/world. Unresolved
-   metric scale can remain explicit; absent geometry cannot.
-2. **Positive continuous reconstruction and automatic semantic composition.**
-   Use that accepted input to demonstrate morphology-preserving body, detailed
-   hands/feet/head/root and ground products with automatic overlapping steps,
-   actions, phases/keyframes. Investigate the empty result from the existing
-   supplied-camera functional fixture without substituting manual labels or
-   tuning against Mendeley CSVs. Positive constructed parser tests currently
-   begin at reconstructed-motion inputs and do not close this integration gap.
-3. **Executable supported delivery route.** The runbook documents that generic
-   ingest/synchronization/observation/ground/parser producers are not installed
-   by default. Direct acceptance publishers prove bounded composition, not a
-   complete operator CLI path. The repaired design must identify and validate
-   the configured entry point, artifact binding and reproducible supported demo.
+The real track verifies complete untrimmed original input, native model output,
+automatic constant-offset attempts, inspection/provenance and offline reuse.
+Seven forms have automatic paired estimates; Taegeuk 3 explicitly fails and its
+separate frontal native-clock fallback is not paired synchronization. Every real
+calibration remains unavailable. No camera/world/ground/3D was invented.
 
-No spec relaxation, invented calibration, accuracy metric, dataset validation
-split, hidden download, manual-only segmentation or 2D fallback is authorized.
-The existing [runbook](../../local-runbook.md) honestly reproduces limited
-inspection/offline reuse; it does not reproduce the full supported positive MVP.
-This report is a draft evidence delivery and design return, not a `review-ready`
-handoff or a merge recommendation.
+The controlled positive track closes the previous software integration gap:
+production reconstruction and ground feed non-empty automatic semantics, with
+physical sample links, independent overlapping arm/kick intervals and synchronized
+browser navigation. Generated observations/cameras are explicitly supplied;
+positive automatic calibration estimation is established separately by S target
+and static-scene tests. Detailed hand/head/root dynamics, SpecialAction,
+transitions, supported pivots and relations also have positive S coverage.
+The fixture itself does not demonstrate all those capabilities or real accuracy.
+
+The [runbook](../../local-runbook.md) now reproduces both supported tracks and
+pins the controlled demo through [inspection.json](../../demo/inspection.json).
+Generic CLI producer wiring remains visibly unavailable and is deferred to #108.
+Capture-suitable real geometry/reconstruction validation remains deferred to #107.
+These follow-ups are explicitly outside epic #53 under the accepted #52 decision.
+The old 141-sample synthetic fixture still has empty semantics; it is retained
+as bounded geometric/failure evidence rather than relabelled as positive parsing.
+
+No product requirements or quality gates were weakened. No accuracy metric,
+validation split, CSV tuning, hidden downloads, fabricated geometry, manual
+semantic labels or scoring/coaching layer was introduced. Acceptance here is
+under #52's adopted compositional evidence contract; real-camera fulfillment of
+the full product completion scenario remains unproven. Final independent audit
+and merge authority remain owned by the repository workflow.

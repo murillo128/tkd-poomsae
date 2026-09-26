@@ -1,46 +1,40 @@
 {
-  "acceptance": "not_met",
+  "acceptance": "met_compositional",
   "checks": [
     {
       "command": ".venv/bin/python -m pytest -q",
       "conclusion": "success",
-      "log_sha256": "3bef9237d68f7560fa431d2d1d7b1c502be9e022551d11a5f25853eb6af853d0",
-      "result": "584 passed; 6 opt-in cases deselected"
+      "log_sha256": "81e05d1bf25fbafcd859c3299ab1d1a4715d6dc729dc90780ad888eef06ddd80",
+      "result": "585 passed; 6 opt-in cases deselected"
     },
     {
-      "command": ".venv/bin/python -m pytest -q -m 'local_data or full_data' tests/test_dataset_import.py tests/test_selections.py",
+      "command": ".venv/bin/python -m pytest -q -m 'local_data or full_data' tests/test_dataset_import.py tests/test_selections.py tests/test_alignment.py tests/test_sync_integration.py",
       "conclusion": "success",
-      "log_sha256": "e044b831969c0dfadf93c8ea90a2ab755f05565ce82f5ec69a78dc02c7e62100",
-      "result": "2 passed; 17 deselected"
-    },
-    {
-      "command": ".venv/bin/python -m pytest -q -m local_data tests/test_alignment.py tests/test_sync_integration.py --sync-results=/tmp/issue52-sync-results.json",
-      "conclusion": "success",
-      "log_sha256": "610c47e04a642700089ec1c840d89cdf4bce6d7b4b39ccd3db06c03a7733941c",
-      "result": "2 passed; 26 deselected"
+      "log_sha256": "b6a3ab6afb86cf01649d125cba10e553fc3ca07ac1082d27de74958a0c921fa8",
+      "result": "4 passed; 43 deselected"
     },
     {
       "command": "Shared CPU vision interpreter + developer pytest: tests/test_pose_mmpose_model.py -m model_required; exact invocation in README",
       "conclusion": "success",
-      "log_sha256": "e91d7fce68a8a688bdf4997225b1275270a2af1415b8d30a191213f9d32ed1bc",
+      "log_sha256": "c60ab35e88c3392f720e87f0d4b40a875325bbdf5c21c45ec94009717b9af967",
       "result": "2 passed; no skips"
     },
     {
       "command": "TKD_BROWSER_WEB_PORT=5252 TKD_BROWSER_SERVICE_PORT=18552 npm run test:browser",
       "conclusion": "success",
-      "log_sha256": "dd7be43569df10894d88c5763a17320d302e30a87bbc62bbb205e525c1e2ca62",
-      "result": "23 integrated + 15 component Chromium cases passed; no skips/retries"
+      "log_sha256": "93d83ee0a286980c2d47d27da2a3eb11cacde12b81d03a3f052d9ab42d354061",
+      "result": "24 integrated + 15 component Chromium cases passed; no skips/retries"
     },
     {
       "command": "REQUIRE_TMUX_TEST=1 .venv/bin/python -m unittest discover -s .github/scripts -p 'test_*.py' -v",
       "conclusion": "success",
-      "log_sha256": "1058cb1e33a56d40f7777a50b5fc9a6b69757dde2d57aff248c900d7275a0266",
+      "log_sha256": "e98f2c86431af64a1fbe894c02d0085be30fa8c2cf519b848ee5a1151ae2b21d",
       "result": "126 passed; real tmux exercised"
     },
     {
       "command": "./node_modules/.bin/playwright test --config=playwright.local.config.ts --reporter=list,json",
       "conclusion": "success",
-      "log_sha256": "cd201f97af7d6a8a5435e1fe588620227acf023effdd0324c36aa5d82d4249c0",
+      "log_sha256": "1535f734805f27840e8d6e37744ebfeb652977dd7a4f26d494abb71b8b21a75b",
       "result": "9 shared-project Chromium cases passed; no skips/retries"
     },
     {
@@ -51,7 +45,7 @@
     {
       "command": ".venv/bin/mypy",
       "conclusion": "success",
-      "result": "152 source files checked"
+      "result": "154 source files checked"
     },
     {
       "command": ".venv/bin/tkd-poomsae --help",
@@ -79,6 +73,507 @@
       "result": "locked developer packages reused, no dataset/model bootstrap"
     }
   ],
+  "closure_basis": "Updated issue #52 contract and accepted design decision: separate real-data and controlled-positive evidence; no real-video accuracy claim",
+  "controlled_browser": {
+    "log_sha256": "137b386004d71a24c7bc1967cf3a189a4cda270c6ecef3da4b89cb56b0eee172",
+    "result": "passed; real viewer/API arm/kick/keyframe navigation and linked physical/camera evidence",
+    "screenshot_sha256": {
+      "controlled-automatic.png": "ccb204960155f3a6efca679fd3996cf9bbbf9afcc214766fed3a2a16c7f9d6f0"
+    }
+  },
+  "controlled_positive": {
+    "action_categories": {
+      "arm": 3,
+      "kick": 1,
+      "transition": 11
+    },
+    "bundle_sha256": "d79270acf748c764bf77905fb38004336cdc4435d8cfbd6082728829a6679059",
+    "claim": "Controlled software integration; not real-video or parser accuracy",
+    "execution": {
+      "end": 3.2,
+      "start": 0.8
+    },
+    "fixture_revision": "controlled-motion-v1",
+    "keyframes": 58,
+    "manual_labels": false,
+    "model_inference": false,
+    "motion_samples": 101,
+    "parser_rerun": {
+      "changed_stage_count": 5,
+      "conclusion": "passed as part of the 585-case suite",
+      "physical_payload_bytes_unchanged": true,
+      "test": "tests/test_controlled_acceptance.py::test_controlled_reconstruction_semantics_inspection_and_parser_rerun",
+      "upstream_publishers_forbidden": true
+    },
+    "product_keys": {
+      "alignment": {
+        "algorithm_revision": "native-time-alignment-v1",
+        "config_digest": "9b30e3c2f0da989e8cd7c6667d2cc010ccb5a74ac8729aea0e117ac8221d8c05",
+        "inputs": {
+          "window_0": "0144033ad55510c821cd7b90c87e72eeb270e6fe5985aec2fa81c0943c9a8732",
+          "window_1": "01730a92ed43b1686d84005b37c2c13bd543db855d1994c140f047e6681a240c",
+          "window_10": "0c55eb621a5314094c806f83d436059478f2b36a5397930bee76a651d4ba0793",
+          "window_100": "8cf30c1ab828ea40c15aaafbda690531f61c574eac17337d63944cc852dee752",
+          "window_101": "8d4f6ace7af9abbfa44e234b22b1032e233256cf314d890d486e547e67b9ed97",
+          "window_102": "8e1ac6a42892f9d363c1d1781ac97a05553f8b10e30328f09c849e3ec99f6784",
+          "window_103": "8ef11e1b8aa0c63dc2f3a514dde974b72c0b706b5a0aca82778b2dfabd0fc65c",
+          "window_104": "9202f1735b7bf57b09e839257428c69de4fd9ce7a9273d9b24234184315b4037",
+          "window_105": "923012e3f6358c4acd703a2964bb28cfde7e94302b799720f6cd4e35ca93165b",
+          "window_106": "96ce46da6869ead262449e788758c4e8fcd20ae75841051272c51c1b3089c2f6",
+          "window_107": "98df40458840201e265df341462cd30b66f1ac0f21442f3ee03b8d5907f449da",
+          "window_108": "992a9989bccacb282bba1a5027741f9d2cde9c8e356aa80c9a5fff0463e87f89",
+          "window_109": "9a237d4423c9ae38fdd8f957d59956dd0e9177143b2ba01f944b3da0585833ea",
+          "window_11": "0fd1036a13443c490d5d11ed041288f8b86d410a9150c2b795286631f10f0f35",
+          "window_110": "9a3d860f316bfb6aea58717120737f9882677b93488969e59479e5e0ae2bc752",
+          "window_111": "9baec8e9b19f46fae0bd3d1dcd7f68963e60627c055817d8ab449d749a0af9d2",
+          "window_112": "9d680ddd4bed5e662187d6b49c236d8df601da7400821317df7323406469fdbb",
+          "window_113": "9e36fe5c9468a319436c9c1a6ee7feefd203c573387f90f43a9b852df897bbdc",
+          "window_114": "9e988de34ae207d77d2ab565631fa05c6e9f22d71ea421c60083997210d92744",
+          "window_115": "a1032db753608e81a9bc650db3872f41379a52588610025a60ddc965d363845e",
+          "window_116": "a16fd26e6d0e1415aa74fc89708f8d783779ef6aef8386e6e5b0dcb814ea1dd5",
+          "window_117": "a1963550a58b7f3a038311c1d0ea7b7b0b0e668038442d011edc06b4eed40f5d",
+          "window_118": "a3bc2afebb2ab304c5c3686e8734d717b39976f9210dba7647eca5fee3361b03",
+          "window_119": "a3c9aca74ccc3312e1d4c52527b820dfd2fdacb2668befbff13c50aa479a8d6f",
+          "window_12": "103610cc68897a708fdd98c847093259a70ced6b0a850a6f8484579aab50b0e1",
+          "window_120": "a4a010484453f16c750bc953f60f4ada0665685b10ed5fb38afc45261b5af44c",
+          "window_121": "a530f8b6d3ccda5ce2591f4eb6cf31a107c4eabae4f1175cfffe67bdef4f6090",
+          "window_122": "a5f039655d253465535e23b1e8c83d2ed56967e0f2db29c582c8a506e1cd7f8e",
+          "window_123": "a611a757484583320e079b5db71831f841739f03b0b43edcd5c7ca9dabed83c4",
+          "window_124": "a677a57bebd487a99192b296e108ef96be3b8a0f5a119169d8661ba2ffb46626",
+          "window_125": "a83128f1282619176737feeb8aa0942e1024bb5be5d41d9ff0d8fc7bf79e7b6f",
+          "window_126": "a94950961a46a9545d4297b6e404d0b9b18d09a4a09e24067637b64079a9c6e9",
+          "window_127": "ad00bc375527a9fa555e7f1c97180abf2dec19a6daa332a82eb57497a8a02e20",
+          "window_128": "ad6d57e9e9364855757051f28011fa48bf961917f91b37057cfa9b2863928e97",
+          "window_129": "b248247fe425ce18560751647ba40bf4c4a933ddf2327a762739fdba7cd7678b",
+          "window_13": "1137486bea8f6c452109703e0039ee32dd577d3eb098016bf54ba8f972691504",
+          "window_130": "b380decd2c743be7b239399fe5f055eb345aabc893ae95d02af339c04cd07de0",
+          "window_131": "b4eca679a5edaf49d453af8d25e9f3eeb338cceed729442d2eb91759eb8ce904",
+          "window_132": "b647c88740633df3190fbc5772a34760d41e89861bca7fe26372bd96058a13d9",
+          "window_133": "b6a830e9021727c3b0438c4a0bf47bddf2258d89ccbc8864c680df9ef4dbb3e8",
+          "window_134": "b79bb6224a04882b490c1565571bb8763d4428f47f252dede9183268190b3891",
+          "window_135": "b8c4ffc9e15be833afe041daecddc7e777347747c40c2244c63d797c0c579e4b",
+          "window_136": "b98f154ad4de435d38e851d3823146dd67c59876e1f9200b4e0b12a9cb24180e",
+          "window_137": "bccc32bea9243936ca47e9a5a15ef3c7f845975c3f85ee437109b171a7d4d23b",
+          "window_138": "bd5ec22cccd2793a7ee8483c1147ad28678275bc4124ad8e99dcf7369e359981",
+          "window_139": "c0495efd0a205b244f13a19e0833424c48f204bf3db956913c0f6f435e61bf4a",
+          "window_14": "114b391b8a3ecd973dbc94777dcc70f3c47e8f8f59c373fb3dd15035b75857a7",
+          "window_140": "c159ea197468e6ed23558474dcb882cb4c586a21a762d2c459418ef4fc21a316",
+          "window_141": "c1aae888213111ec69a05c6f6a8c03c0226f52519e10cb695b3593980f9292ee",
+          "window_142": "c1d5526b4b4a83ac83b38fc2b640ed7af190160afb7b494fc55e9a89280ededc",
+          "window_143": "c4859b8bf263a9163d37ea545fbc49ad31680d738f42c77c9e98587faa6f79c6",
+          "window_144": "c510ebdf6dd3b57ff386504716385cb247e5b215e6da94bda3e099c737091029",
+          "window_145": "c5316bc091abbc474dfeca96ad170e81f165041f94aea8b04b8b70516a98860e",
+          "window_146": "c57f05ebd124cdc475fedd8dfbe95fa5cc29da2e81cd3a80cec65e023a90dca4",
+          "window_147": "c6e5fe1093a9f01a2243ec81ab53a940f3fcc607d9d33c5057cd6b3276c2824e",
+          "window_148": "c75dd2e8aa371646ed86a27a28b8dd2adb876a6188b665d3f06c7f419a7e5851",
+          "window_149": "c82e516955affe214026f0e8d776d10f477da930993cd1b4fafeefd1df3950b6",
+          "window_15": "11a4453f630e2890db6a8835b19d7105f989db3acc28f0f55c69d78cbd494aea",
+          "window_150": "c86b7132e2622ae1b067f1ee9865b76ea3ba62c6e081847a8c42f8c5006f0346",
+          "window_151": "c8fa8932d4cf98bcc527080e2cccad5709a8fa5fab63fa64611502a3e7068a06",
+          "window_152": "c90ebd0073ef8ca54b39f44b5362cd15bc2ac15ef4dcc97ccff393759b9d73fa",
+          "window_153": "ca0e665d9dfc9879781c7f1af3e78c13b92b872473d05e1fe4a435f1e4cc138f",
+          "window_154": "cac9db46cbb768947ad28e71df55631bc525eb94f125d271d5e7cad5423376f5",
+          "window_155": "cc409a2d95074a5cad054f50bbce35759dfb585fc03158e59dec85f9cd686f8d",
+          "window_156": "cca5160cddeeaf7a46b330ffec0d97827f016ea4404a7b8aa3904156bf1ffac5",
+          "window_157": "ce32382dc79af59b9bbf7c8890cb2e452709e0fe0f3746d7fbc25d44553168db",
+          "window_158": "ce35e80f6820f419e65e346a9f9a9bde7bd64257a1a17b3ad268a0d256acc3fb",
+          "window_159": "d2936bf6029ab631e13789658762380da48d83826e4696d3a2db3572f99641d0",
+          "window_16": "1390820e9f706bf09e9a21d619d21bed57326fb957bafffb0cd34beadc3350a8",
+          "window_160": "d772b20027a3240a6116c168968cc0ce2307a1391b88d3743b6a20e9fba58f29",
+          "window_161": "d7af6d1d716c0491746439b16f36776f195ea31d83a1e7aa4df561482fcf9f1d",
+          "window_162": "d957f20df303eee3641caf0edbd0b746e684405d2248ac8f74c8c1f464ea3725",
+          "window_163": "d9a7413f0ac06c9ce9856b9823ad40389a75aadd1bf8778326b2d12d919f25f3",
+          "window_164": "d9b6014aad2589019dcdc9c44c87783ec211d484f83cc92704d5f42dee3cf3aa",
+          "window_165": "dabc109bfc7db50643600e0fa8c39e5b331f8a0c6928b2d8e25cb8a3d6509da1",
+          "window_166": "dc74fbcc1b678a181a297e26cbb1ebe51061c1eb67dfd5fd32e933c6b6eb9562",
+          "window_167": "dcaf7653168db35280e546493378a54a7a61d8823067d31146bfa4f9d2223d3c",
+          "window_168": "dcbd84fe9293b6f7cfbfd2b600f7b32b0f37f96ba75e295909afbf3887ad4e0c",
+          "window_169": "dcf248826b5a20e3d5de4d626481a08f38839bdcd9bbce25b2f1066c94aa60a6",
+          "window_17": "1410cca546f3c63e036ed4199d9fbe7abf343280f90d338b8b6b4b6e9ca6f9af",
+          "window_170": "e11d87f1a83a1ab2b0c36ba32d2ff48c7e0f37ea91d85bd44da2bb0119483987",
+          "window_171": "e1a368d2b9fe0e5d6fc80c968a6a94fa966ab7e0ca80c0cf772c1a777265f938",
+          "window_172": "e1b571e0b973e1a3e94755a947603e6b46d824b7373f4789a5c2eed4b984e548",
+          "window_173": "e1f74a9cccd5af62eb1989f25e0ae755f936929efef6d3998ec329e96cffd671",
+          "window_174": "e227d77d53bcfd7372ddb9c5e79a5fed088c70cf29f542e89a6d824e75d958a8",
+          "window_175": "e2966e11dbd35dea26eed717a78c3874f2a947f7ffe31b89beae63f3df56f427",
+          "window_176": "e3672a7861948d2c9b7042bef70cd7ff266f2475fbddad8d772b6fd92490b4d5",
+          "window_177": "e427c01104e72a73c40418165077bba06b9f94b30b0a72b4a7fa3824179d6b0c",
+          "window_178": "e488991a725ede00a3e75e450270a817d4220ce519173a19515646586be46348",
+          "window_179": "e5771ed036e8ef0066ab3bba4e43ca895bd11a4ace48e97afb33bbc7b2592b52",
+          "window_18": "1473f40a01644440516f5c6f45fd0a09de95d34681278336e9f1514513485878",
+          "window_180": "e5fb2bbc1d965f48bfbdf65b42cde263143761e374e37f20fde96a2e648bf771",
+          "window_181": "e6ab39160203190c27ffd09328da1fc855d07658e4825ac969fd620224ac7f06",
+          "window_182": "e7143b0cee287a46cff637b66ad65d07e6f40a43790a4a6d650657f9febd0dd0",
+          "window_183": "e771648e2e304fe3149eb9cc120d60d754e030618bf2ba41ec1cab97ce3ebe45",
+          "window_184": "e89396dcf682c4125cadf1eec7834daf7e04f54fbce180091c7bb5e595b178f7",
+          "window_185": "eb6b3b33076b47152e619cdf77bcc1119325181af3fb85a213e61fe2c7fb7075",
+          "window_186": "eb936ad97d172eb2dbd2a88d0158fed3f971705e398ca13dd4d3c2893d23029e",
+          "window_187": "ec7aab44bf7d953a3c5e599ad5624dc9b53558f52420f96055d9c46edc01fc69",
+          "window_188": "ee1eedf3c248cec04c90f2e86e9f49748f226c8d6ade3929eba77b8ad0606a45",
+          "window_189": "ef0fab007b6dda2f8515abd7d43f254c64046a8d299d1f0f62df1e41b41dfd37",
+          "window_19": "17b7e1ba1694949577bccba758ed08bb2f7271975415e41d61918b636e881931",
+          "window_190": "efdfd13c52485328674910f6d8eafdd6a26bb9d243afd6deeed1d147f65b0b4b",
+          "window_191": "f29bfddf00543c7174b944917361f7fee71369b6a2e6333bac6fc84705af34b2",
+          "window_192": "f3046fa169ca3080c31005cd6b086b3fa3ca8ae3cf44caedbc211c2fefd71123",
+          "window_193": "f4d7017e31ad9f012134b2042c1c3d8db7f422d0e94c2fa6bd3c0ae6a33841af",
+          "window_194": "f750e93852659419b6cbc6ff71a41f40cade9b5746c4a58480d73ab51598568d",
+          "window_195": "f7f393b18755be211c62686311440b484e0a0912d3fca827b788008b530aa442",
+          "window_196": "f846be04828dbee0a0be1b038e8be8b1e6550473fd56da927a01dfeeba6ab00f",
+          "window_197": "f95046a513eec8931d4a776b7943806c5f69e9033712730ce704095a17baf8c0",
+          "window_198": "fb4f5607c1ee34cf6b5af438a804f0723077192ec370fbe0574388ccfc4f8516",
+          "window_199": "fd57ae172696c839a5b7bc388e9bfd51c0a0216e80d44243efa656568a7d0f00",
+          "window_2": "02363433cb608079203e503ff497dd5de6df9381409ba0cbd37e12776236b403",
+          "window_20": "18be786198f7c8099bbda5aa82a7af66d61c8de1d5709c6c0d0df5ccfcd42862",
+          "window_200": "fdf685e6ad5bd04f723c48a6beb7f96f2c849d368ef97167edd8f10f1735b6aa",
+          "window_201": "ff045d7ce493430da4a8843a8dbb52a87b16f87d9c588392cabde820ec400748",
+          "window_21": "1912a87f57781afbd004ecfd69088bbc58ddec0ac7d98547986f9fb2b0072a10",
+          "window_22": "1bd999fcc573cf071335c7a86df806df48156a19f688921a07050db7940018dd",
+          "window_23": "1e3ed6f307d1b1907a16afe04cc7074639c73f703292ada5f6d45126ab394f1b",
+          "window_24": "1f636d40cf0512fa9e85f3f82d76026516dbdc94e5e433b9919407a21bcb5cea",
+          "window_25": "2146d403fcc176c96b25874c141fc64963496fabc0f1cc70e3ad7b46a8a1648d",
+          "window_26": "22d19f79d19551f8e35491e8bd77892b2bce4a75c2bf5085fda4cc94061eaa6c",
+          "window_27": "248216e6ec46d287a8f5c0a0ccc74331cc7619e2a428b4d96d041ec1e3815537",
+          "window_28": "28e151f64fc5d99dae5e57147003f26283cab417726c9f5c37b48fcb3889c17a",
+          "window_29": "293319768beb87a094a32533a6ca11f0badda2f2ab81b48654f6c0659a4a9eff",
+          "window_3": "025cd21727388399f704ade78ab84ee58cac9f7fd202c4cc3f3b04b5f2407f62",
+          "window_30": "2b528b87cde5d4f84cfaa61dbd14dc6ed9f5c2f83823654db70a83ba111771c1",
+          "window_31": "2ba6293561dae970d15a197f2eccb88b49593a66e7d4a2303e5ac2b6003f3ff7",
+          "window_32": "2c13065ceaf189673d36c32b33851b75881f2b3576506639632ef7d943189957",
+          "window_33": "2d7c9ebb076fd07d6e3e9cfe0d023ed4a748f388dc3141bc6178b172bb4819e2",
+          "window_34": "2ea14279645001e99c70368e5469e3a5af73aa961ffcae5c253620cac7e18c7e",
+          "window_35": "30ee7ba7795a4ab484b1b13a0242970adfc5a08615e8da182a647fd2148c36b5",
+          "window_36": "3381d3d8a01c58894ec30125a028ed925dc263f12803e0bda5d9e9edefa5d018",
+          "window_37": "34cb84dc35609fa03a33573046725c6cfd6a2622837840253b85acfda185d28f",
+          "window_38": "356ace27aeb0ff95fb951eeb315f5590ff11cfbe76033d89cc6638c27340671e",
+          "window_39": "36fc0d264d85cdf4c6d6901e1f796a9e6e4876c307fc3bc9b03dd16549cd7a89",
+          "window_4": "038d22f6f4211f8f6345494873e8afec601e0e0312bf2ca76dfdd216b9cd9999",
+          "window_40": "3765f5fc331306c32ad2b52eb68ccb0932eb12128992fba3f207956974992c10",
+          "window_41": "38b848cab10d4a56467f6467ce8c23311b4f0f8af98135daee7adf8d2ee6c359",
+          "window_42": "39c00fc532ad374654f378959ccf2c1fe90a32aea09c6f0a82f71942d3c01d00",
+          "window_43": "39c6d7941c120c6a83e27074c20b7b09a933fba70a49b3f44ae506fa75a0d0cf",
+          "window_44": "3ab340e98487c5d47ab6097d62b8f5b31c47b47fd4b1c69dc9190225db9a986d",
+          "window_45": "3bbe48cf38aba5c373ee339a6f18b3eb5fca77d04a9fac6469d828fbe6b2c0f9",
+          "window_46": "3c4517783151fb7f057cfd6113a67dfe5df320b7d4cf0fd2b442365eab3feb58",
+          "window_47": "3cebe7b29e7ba6ff9e6c0892e4308d9defcf5a5a1ffd028134c22ba002a620cd",
+          "window_48": "40605cdff0f090bed82edea3cef6918eac5d9a02b938d93698ef71ca8bafd030",
+          "window_49": "41c8a605cb6e6056c727595ff03a36db6c421abd55cbf3dabeaf81736d3b6379",
+          "window_5": "03dd0caffc2fbf9be21160ac444be2dc0016a3e95de46a728bc5f966241170fd",
+          "window_50": "42019f67e284426445fafd2162073f0df3d451f2ee6c913224e681541d6ec418",
+          "window_51": "42608460195a086e77cfb08349e1f1dcf6bd8e97fca2a30e4ca5cab3e74b3534",
+          "window_52": "490ce8ce8ea8c4519d0e896de8ed86bce23bb77f95cae8b3a0cffb78041899c5",
+          "window_53": "4aed485a0ef5880f55a26888eaae1aad364bbc025c17be448cf5bfd100079e92",
+          "window_54": "4b10207a25c130f3c501ed1f2cf8d836abaeb59697121d71d09177826187ddbc",
+          "window_55": "4b2038b539aae5d145d176ad2579aa6d0f54d49c5659ae431e0c76997dbd2a5e",
+          "window_56": "4bbf123a2858f78e332e16b1912d6a57d0deb2ddfc6a17f6da9d062b1dc36ae4",
+          "window_57": "4d2f7a88e41541ebbfcfc3369af059636b9b1b1cdac417d039911c9c8e2dc2b6",
+          "window_58": "4f65630781be98d2e13c3ff3e7803e10a75bb51ab0f095e0e916d8635cb52684",
+          "window_59": "4fedc3f89a7a119b9664b3d43b5e2669f815122c9db0b1c90013713c633d756a",
+          "window_6": "0750514f822e3bc57108746c839e81d6956c6698ec1352115444314bf6236710",
+          "window_60": "506cbe42b6fab34f61fdc2edb2d13b55660da5a6e593e61e6a93ff3f02cfcb05",
+          "window_61": "5180cf1b0ccb9f559f72408dd2107032d4b9cd2661c8c898230a56f4452f88dd",
+          "window_62": "53edf69bcd9c85c38a9cdfa5a2f4e186928b2da163d3f079c521105f2955644e",
+          "window_63": "5426a1d49aac90ab8f51f7e3e57162845f8c36e8866ba952719373aa9f29311b",
+          "window_64": "553096204cdd1677e813ab20f17c95cf1e91490a9fb043b539b1ddbd96a09a7c",
+          "window_65": "557859a0eccbc014af624e270e20cb2074da26cf3aa2ed6535b3e08a95d04884",
+          "window_66": "5709b8d030f1157d64dd73906745df81f93dfb8812660265450acdf32813dd3e",
+          "window_67": "59299519de7235736bd46741531971b651959e87625583a14b59153a4c501b8f",
+          "window_68": "597ddc8d94783a1a257ef5e183772ce677c20f7f5acf2e741b8a5c46d20449b2",
+          "window_69": "5bd25c56c3c033f9bcec04c4fbbb49afc897dd9c8509dd3739ed5c4b64fd4da4",
+          "window_7": "0791e1287a602cebaf75e65e1da9975773bf71dcf8fd09a60f7c75911a4a857c",
+          "window_70": "5c2b8dbcdaf7179528298d46166c36ca2e77893104f4a07358b8765a1e421509",
+          "window_71": "5d11672b3b7a540eb800ad0541dc767651e8b0bb71b663e394839d60a29927f8",
+          "window_72": "5d77f544377042c68f83ae4d48f623f55706703824d4cb475b62dcfa4ad48b83",
+          "window_73": "5decf0037225deef24effaac88236055e6c129937a18c95884640d79734380c0",
+          "window_74": "5e5edfbf8580f143cb218a68e124e2f460759feeaeee79bd684ff1a88d3a45ae",
+          "window_75": "5ea3eb4fdaeb897bb6e351145ad134131f4177e2b5b986fd737a89b4c0d4197d",
+          "window_76": "5ed4a105453ca608a7f2ee8ed4c7eab645799471766020d9ee2b1af113b1a9d6",
+          "window_77": "5f9a2d1c28f841eacd462e3262bc46d4e159929baa1d8c59c4076d8d99268df6",
+          "window_78": "616b2a816fb3ed6b97b1f3596598feb7f285d55de95b63f9cc3a2f21c6a341c1",
+          "window_79": "64a245e48051a5006092d93e1d7fe898aef48a3cd18e5e876858e35983bd0a1e",
+          "window_8": "086d5ca9a4b43f915fbfdd701c64de0abe8f3d75547ca3a1457b0c72f25ce861",
+          "window_80": "6553ff76237acac6102066280b278788ad25cb157cd559a26077023924b7ff76",
+          "window_81": "68a73fdd08811747f4a34b3fbb336a29c0877da248a2c5fec75df46691178c91",
+          "window_82": "69f22a321097a38ff877d082a0f6310de4a3fa31c35cc7ec91b38453f1923aae",
+          "window_83": "6f518034e21ae2c2274c578e66fc198b80a90ece226e7db105cb419bb647d6a3",
+          "window_84": "70aeea18677c1f49bb49ee9fd2996ca33caf8ccd09fa176a74d1c4c57198a370",
+          "window_85": "73be2e9b62af61a923c924c3f5a01bb1f4205188e1ea725cd5fb599533a14562",
+          "window_86": "7551ee3569a36039b6545195bd450bfa1435600914994d5d7053022f7457c391",
+          "window_87": "781383c0eeedf2e1f47ae6ce299a8765584dcc890f6127c62cb225cfe2ecc778",
+          "window_88": "7ba496520929b976deb17e4d51f4fcb27d37f6324d29da83bd5a28b0a49eb35c",
+          "window_89": "7bcd722cded2b899595ac75300f35a62d3396b50d116379eb2de8c8db984a5c5",
+          "window_9": "09c21dca26e14d6489a565e08ee8831a2c298cbed23b0c6975af5e1550275cee",
+          "window_90": "7d28e54ccf1a20648aa50e8100013608a60882f02e86163df88e7bbe20e420a4",
+          "window_91": "7e096b32ce07699cac577a52da89043014e04deeb4e16cec2f9455d1ce12d890",
+          "window_92": "7f2721a5775c91d648dc72ec24bc06671060b89bc3b28ab9061940d48db07528",
+          "window_93": "7f78964c43e09f1e2687ef50d3b851cbdd87598f5845defa15b6fdd65ea31f56",
+          "window_94": "7f81d4fd147486de2ba0160bd5768dd621fb1d6af120efe3c2aaab78e62cc33e",
+          "window_95": "8244e9d0d7f962df1dfc088bc4045672fee20e406b692d18169fe9fa80440a05",
+          "window_96": "89912409b056a3a6d1b965cd7aa06f35c2c0926b6b0d8e75943ba732b46c191b",
+          "window_97": "8b2f4257cfaa0abf99c1f6abc05190833c19575a57695b2312a4b50ab8bf2677",
+          "window_98": "8bf50528a715e943b3d26b45a288d9d04130f804abe37746a0cb52129994c28d",
+          "window_99": "8cdf91fe264e8247cca684dbd9b13edb70819c759bf8edf8457bcd056e5eddf9"
+        },
+        "layer": "alignment",
+        "schema_version": "1.0.0"
+      },
+      "arms": {
+        "algorithm_revision": "arm-actions-v1",
+        "config_digest": "956d5380c9040cd039aa9aa14159293752ea2969fc264066811116fbcf108565",
+        "inputs": {
+          "features": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03",
+          "motion": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46",
+          "segmentation": "4c338ae0501868fe9533d430a46c59071c844d7ab7689600c122586e0d4c22f0"
+        },
+        "layer": "arm_actions",
+        "schema_version": "1.0.0"
+      },
+      "calibration": {
+        "algorithm_revision": "functional-synthetic-v1",
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "inputs": {
+          "fixture": "1697ea76b43111cff457164e424bdb0eb9336e2f13b3e608645fb32093b0498f"
+        },
+        "layer": "calibration",
+        "schema_version": "1.0.0"
+      },
+      "contacts": {
+        "algorithm_revision": "foot-contact-v1",
+        "config_digest": "0ea4b45ddcdc57204f79b78789ca62da0ac0b00fb929a661d09ad209b16ef838",
+        "inputs": {
+          "calibration": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89",
+          "motion": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46"
+        },
+        "layer": "ground",
+        "schema_version": "1.0.0"
+      },
+      "features": {
+        "algorithm_revision": "motion-features-v3",
+        "config_digest": "d1193b7899fca294e29a3f2d9967bb56ceb04109757093a76d9ad44a37f407e8",
+        "inputs": {
+          "ground": "bec53876fa3268b292dabd78f2fd1044ec40ede6872f43395e175cb86cdc206c",
+          "motion": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46"
+        },
+        "layer": "motion_features",
+        "schema_version": "1.0.0"
+      },
+      "feet": {
+        "algorithm_revision": "footprint-v1",
+        "config_digest": "8f2b3d4c9343607320d3973c704a01dddad104adaf6daa96b51973beb2c6edab",
+        "inputs": {
+          "calibration": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89",
+          "contacts": "3c262dcd76e450d95b1b5e4af59208712e98edd18addc26e03e73673b7b1e19c",
+          "motion": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46"
+        },
+        "layer": "ground",
+        "schema_version": "1.0.0"
+      },
+      "fitted": {
+        "algorithm_revision": "participant-skeleton-v1",
+        "config_digest": "540fb04be147d5bea0e55c877e6887062ab553a637908b6abca87641db649582",
+        "inputs": {
+          "morphology": "ca85b1669efe81b8cf5830bb61aea2e4be37416ac7cecaf42485af20d93aaa3d",
+          "raw_reconstruction": "dfb79af4a44ad6fca08c751e0dd5e68f97cfcde39d9d19fd437a06dd47117054"
+        },
+        "layer": "reconstruction",
+        "schema_version": "1.0.0"
+      },
+      "ground": {
+        "algorithm_revision": "ground-view-v2",
+        "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+        "inputs": {
+          "calibration": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89",
+          "motion": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46",
+          "pivots": "f9e1961daf1b3712fe0307f92248f2c892a9bffdd76a74cce0933cde0d8c5e0c"
+        },
+        "layer": "ground",
+        "schema_version": "1.0.0"
+      },
+      "legs": {
+        "algorithm_revision": "lower-body-rules-v2",
+        "config_digest": "02cb5a23b2403fe575c7352bc0b4e8a71e0269b1eef71c8cbaf1c8f594b8b951",
+        "inputs": {
+          "ground": "bec53876fa3268b292dabd78f2fd1044ec40ede6872f43395e175cb86cdc206c",
+          "motion_features": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03",
+          "segmentation": "4c338ae0501868fe9533d430a46c59071c844d7ab7689600c122586e0d4c22f0"
+        },
+        "layer": "lower_body_parsing",
+        "schema_version": "1.0.0"
+      },
+      "morphology": {
+        "algorithm_revision": "participant-skeleton-v1",
+        "config_digest": "540fb04be147d5bea0e55c877e6887062ab553a637908b6abca87641db649582",
+        "inputs": {
+          "raw_reconstruction": "dfb79af4a44ad6fca08c751e0dd5e68f97cfcde39d9d19fd437a06dd47117054"
+        },
+        "layer": "morphology",
+        "schema_version": "1.0.0"
+      },
+      "pivots": {
+        "algorithm_revision": "pivot-v1",
+        "config_digest": "61a5c29920a5e06d011b3cf5fa8d43f6d70a62f49c13b327a7c189d41c244e99",
+        "inputs": {
+          "placements": "c51a55a47cf3b8bbf0a2c69dd76f93301bd89e50a60f46c5a0f01985dba7463f"
+        },
+        "layer": "ground",
+        "schema_version": "1.0.0"
+      },
+      "raw": {
+        "algorithm_revision": "raw-nview-triangulation-v1",
+        "config_digest": "a4028bad6af72cad1700a3f8f740d1781cbdef46b4b80447afb0ee01dbd073cc",
+        "inputs": {
+          "attachment": "b3d2fd3841e056d26696d75e11fe658368b890d152e034f038abc0c0aec39cb2",
+          "calibration": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89"
+        },
+        "layer": "reconstruction",
+        "schema_version": "1.0.0"
+      },
+      "reconstruction": {
+        "algorithm_revision": "temporal-motion-v1",
+        "config_digest": "28d66a36397390f422eac7ded01f958e8b2f902194263a389e8d6d76ada47bf7",
+        "inputs": {
+          "fit": "f1d95ee47b25891b2e3e457ae4c6a03e4a54055725bf0b7f05b8a3164f66d3be",
+          "morphology": "ca85b1669efe81b8cf5830bb61aea2e4be37416ac7cecaf42485af20d93aaa3d",
+          "raw": "dfb79af4a44ad6fca08c751e0dd5e68f97cfcde39d9d19fd437a06dd47117054"
+        },
+        "layer": "reconstruction",
+        "schema_version": "1.0.0"
+      },
+      "segmentation": {
+        "algorithm_revision": "execution-segmentation-v1",
+        "config_digest": "01fe7dde5615603074552392644a9a2e44a19ef3da76b22c5014c537ff1249bd",
+        "inputs": {
+          "motion_features": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03"
+        },
+        "layer": "segmentation",
+        "schema_version": "1.0.0"
+      },
+      "semantics": {
+        "algorithm_revision": "semantic-assembly-v2",
+        "config_digest": "59794bbc2bdfdffb2986ebf5e241a0470e0b3ed83f85ddd1f4969acedaa2c411",
+        "inputs": {
+          "arms": "24872c09006c976ffbef7b3441e8a13b53db8001a2a68a4c95f57d0c8174b5d0",
+          "features": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03",
+          "lower_body": "cadd0f166b109d199355f105bf78296db7447e36bdd6d671a2b1cef1faec1c9f",
+          "segmentation": "4c338ae0501868fe9533d430a46c59071c844d7ab7689600c122586e0d4c22f0"
+        },
+        "layer": "semantics",
+        "schema_version": "1.0.0"
+      },
+      "sync": {
+        "algorithm_revision": "functional-synthetic-v1",
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "inputs": {
+          "fixture": "529a0905f6d1692e73e27a2e41e67350da049ba3f0f5d7f1e5599d5c8ea07688"
+        },
+        "layer": "synchronization",
+        "schema_version": "1.0.0"
+      }
+    },
+    "products": {
+      "alignment": {
+        "id": "alignment:08acdd45d08632e4142836a0e71042e4663cbd2c3521e023cc4cf168ebd8484b",
+        "manifest_sha256": "b3d2fd3841e056d26696d75e11fe658368b890d152e034f038abc0c0aec39cb2",
+        "producer": "sync.alignment"
+      },
+      "arms": {
+        "id": "arm-actions:46a7c64a6077abd8b2dbc9da2c562b29d89ed4fb9360b43a7912972f2d7376d2",
+        "manifest_sha256": "24872c09006c976ffbef7b3441e8a13b53db8001a2a68a4c95f57d0c8174b5d0",
+        "producer": "reconstruction.arms"
+      },
+      "calibration": {
+        "id": "controlled-motion-v1-calibration",
+        "manifest_sha256": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89",
+        "producer": "controlled-supplied-geometry"
+      },
+      "contacts": {
+        "id": "ground-contact:5e877e9c368b66511d9b40c23414ccd2bc67ef06fc0b5640f15daab23a89b10b",
+        "manifest_sha256": "3c262dcd76e450d95b1b5e4af59208712e98edd18addc26e03e73673b7b1e19c",
+        "producer": "reconstruction.ground"
+      },
+      "features": {
+        "id": "motion-features:a448994a7030e7ffb8fdb6a6f0ee1f8ae371ebcccc9dfea9378d5f0885dd7e72",
+        "manifest_sha256": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03",
+        "producer": "reconstruction.features"
+      },
+      "feet": {
+        "id": "ground-footprints:d1ec51306ce5284fe2d1441c552dd89a268697235fe5526bd443ed3bba52b7ea",
+        "manifest_sha256": "c51a55a47cf3b8bbf0a2c69dd76f93301bd89e50a60f46c5a0f01985dba7463f",
+        "producer": "reconstruction.footprints"
+      },
+      "fitted": {
+        "id": "articulated-pose:157d0fdf3bf59803b82fda47080beed7d4cdb96046a06a735962548be14d3853",
+        "manifest_sha256": "f1d95ee47b25891b2e3e457ae4c6a03e4a54055725bf0b7f05b8a3164f66d3be",
+        "producer": "reconstruction.articulated"
+      },
+      "ground": {
+        "id": "ground-view:cb7b01223d15baad6e2998d4a40327164dbeb1055d2e7c68378dea71b868b094",
+        "manifest_sha256": "bec53876fa3268b292dabd78f2fd1044ec40ede6872f43395e175cb86cdc206c",
+        "producer": "reconstruction.ground_view"
+      },
+      "legs": {
+        "id": "lower-body:7890c0b718f4a992ba74190d7c320b755f046caca36358c1d7f766ccdca90c33",
+        "manifest_sha256": "cadd0f166b109d199355f105bf78296db7447e36bdd6d671a2b1cef1faec1c9f",
+        "producer": "reconstruction.lower_body"
+      },
+      "morphology": {
+        "id": "articulated-morphology:95d5a15947e31fbb01841cc939e2c15cd9ed4cfb882a8572edeeeb22eaa20d0b",
+        "manifest_sha256": "ca85b1669efe81b8cf5830bb61aea2e4be37416ac7cecaf42485af20d93aaa3d",
+        "producer": "reconstruction.articulated"
+      },
+      "pivots": {
+        "id": "ground-pivots:8dc96eb9d24d227e48cbcbb002dfdbe41b90f71c9d892c842e4319f3b0c7a71d",
+        "manifest_sha256": "f9e1961daf1b3712fe0307f92248f2c892a9bffdd76a74cce0933cde0d8c5e0c",
+        "producer": "reconstruction.pivots"
+      },
+      "raw": {
+        "id": "raw-triangulation:2fc984c0c6defb833b0342ea46cebe85079b8b9ab7d4c6ebc926a1d67d89f7f5",
+        "manifest_sha256": "dfb79af4a44ad6fca08c751e0dd5e68f97cfcde39d9d19fd437a06dd47117054",
+        "producer": "reconstruction.triangulation"
+      },
+      "reconstruction": {
+        "id": "temporal-motion:b1b23fa760249da27615160d226b98d8840ac75551772f17bf2d37ed051c69f2",
+        "manifest_sha256": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46",
+        "producer": "reconstruction.temporal"
+      },
+      "segmentation": {
+        "id": "segmentation:85ac9b361b62d456de879fa53ef2948bd91570a0430613de490cf00704df1236",
+        "manifest_sha256": "4c338ae0501868fe9533d430a46c59071c844d7ab7689600c122586e0d4c22f0",
+        "producer": "reconstruction.segmentation"
+      },
+      "semantics": {
+        "id": "semantics:4bb94a8390f0f02c7178c6ca69b85bf86552f24624b52a2221bdaf85201f4970",
+        "manifest_sha256": "03a47d58aca2222bd4df5f46858b59f4ceb2b64dbf8832efdec18c472f16c0a6",
+        "producer": "reconstruction.semantics"
+      },
+      "sync": {
+        "id": "controlled-motion-v1-sync",
+        "manifest_sha256": "862de60ea93a431dedc9459abe90d54c9ff6cd00f50301b93b58c1c56e682d8c",
+        "producer": "controlled-supplied-geometry"
+      }
+    },
+    "project": "controlled-acceptance",
+    "repeat": {
+      "identical_report": true,
+      "network_connect_attempts": 0,
+      "new_immutable_artifacts": 0,
+      "protected_payload_count": 447,
+      "protected_payload_hashes_unchanged": true
+    },
+    "source_sha256": {
+      "camera-0.mp4": "25796a9c222c3450c421cf516eb92cd7977a6f280aa003fcd1f7ad24efe3f371",
+      "camera-1.mp4": "d2e52cec739a8e78ab79ad2e3d507da30ae2473fabf436de69d390cf926e316c"
+    },
+    "steps": 1,
+    "supplied": [
+      "metric cameras and ground",
+      "zero-offset clocks",
+      "projected 2D observations"
+    ]
+  },
+  "current_delivery_sha256": {
+    "docs/demo/inspection.json": "9fc8caf3d579dfff798b812f09d2fedd50a012725bdbbec6dc760aa998d43ba0",
+    "docs/local-runbook.md": "6266c8a84a6154017f7381bacfd3e04a758fa947733aa98d015d5f4e4681ede3"
+  },
   "date": "2026-09-26",
   "environment": {
     "browser": "Chromium; software WebGL",
@@ -448,6 +943,7 @@
       }
     }
   },
+  "integration_pin": "9a74ac2d7fe58b446696a33f43dd80781c1fcb7b",
   "locks_sha256": {
     "uv.lock": "176e349d2687827186e9e3368f0b186a00b6cf0abfced34c8ba46c74ae869490",
     "vision/media-requirements.lock": "10aec600ab19c5fc5a63bdec00f2853cf259735d8c10411975b7092c8e8618e4",
@@ -623,41 +1119,51 @@
       "window_count": 48
     }
   },
+  "post_mvp_limits": {
+    "107": "No accepted real automatic camera/world/ground or 3D demonstrated on Mendeley; capture-suitable real validation remains unproven",
+    "108": "Default CLI still requires configured producers; supported reproducible harness/runbook paths verified"
+  },
   "prior_evidence_sha256": {
-    "docs/demo/inspection.json": "662172d47fb2c8dc0fbfe24b3cb016c63b1ffaee737d3fcfca5fbcd8ecd133de",
+    "docs/evidence/issue-106/README.md": "cb1ba5207c2ad7fbcd759bbcf6271831386d6f424ee6dbb9a97167179cab0491",
+    "docs/evidence/issue-106/controlled.json": "2c26e67e0397e39c0d5f4bff2314fc5e3a60c7f6bbe6f98e6a4c6ed6ebd339cf",
     "docs/evidence/issue-50/all-forms-smoke.json": "f96cbb906e25f3b844b4631ff9f4d0eb348c12635b9a499710a0d1efc78e241a",
     "docs/evidence/issue-50/demo-full.json": "680a24a5a3343dc8b7d215c0f67666e994945e6e4bf280435264165d4ec9e5b6",
     "docs/evidence/issue-50/functional.json": "e57d6cafe4e811b51106245daf8aa2bb52f7320558c811290ca3201de7c83202",
     "docs/evidence/issue-51/reproduction.json": "7b8b9d3c2005359e52189f14dc9e6057d312ebfb8770b328e71fab1bf978600b",
     "docs/evidence/observations/demo-full.json": "10f59bee54d23b0d9df981b761d859109027cbb3e0d4ea0ae9b7db73f94ce705",
-    "docs/evidence/parser-scenarios.md": "e7ccd43370ea61c460666d2b11e22fd2697762fd244c52b5532852154aa2ffb5",
-    "docs/local-runbook.md": "6656d5355d69738119d3b7fec074a304139eede926f86af13864fce3ef46415b"
+    "docs/evidence/parser-scenarios.md": "e7ccd43370ea61c460666d2b11e22fd2697762fd244c52b5532852154aa2ffb5"
   },
-  "remaining_capability_gaps": [
-    "No accepted real automatic camera/world/ground calibration",
-    "No positive full reconstruction with automatic overlapping semantics; functional synthetic semantics empty",
-    "Default CLI requires configured producers; runbook does not reproduce a complete positive MVP"
-  ],
+  "runbook_cli": {
+    "demo_bundle_sources_sha256_verified": true,
+    "exit_code": 0
+  },
+  "runbook_service": {
+    "all_inspection_products_available": true,
+    "automatic_actions": 15,
+    "health": "ok",
+    "port": 18052,
+    "server_stopped": true
+  },
   "shared_browser_screenshot_sha256": {
     "test-results/local-smoke/shared-real-MMPose-form-1--7945c-visible-native-observations/real-form-1.png": "7aa4ce1d631efc5b65794b978364efd795e7cbc17708a54b6d770a9c45e347df",
-    "test-results/local-smoke/shared-real-MMPose-form-2--359fd-visible-native-observations/real-form-2.png": "90943a8b04ffd4f343b2c69fbe55fe8d2920ca31c4347850aff06d1e9a23d273",
+    "test-results/local-smoke/shared-real-MMPose-form-2--359fd-visible-native-observations/real-form-2.png": "7896b403684f6e5c463ceccf69ec869ccab2bdea24e190ddccf7bbf1fef578fb",
     "test-results/local-smoke/shared-real-MMPose-form-3--add39-visible-native-observations/real-form-3.png": "209567abf35bf3137f82cb4dec07c8bd2d68df559bf039a2c8c2e1a1814a60a5",
     "test-results/local-smoke/shared-real-MMPose-form-4--87451-visible-native-observations/real-form-4.png": "44d68d583e83f8dc99e5044dac286b747ded2f3941bd83e953279595372aaaa6",
     "test-results/local-smoke/shared-real-MMPose-form-5--67cb2-visible-native-observations/real-form-5.png": "7a803919d4211a5aa7d1686f81d9ff0845541373b23173dffe0f648c8481ecf8",
-    "test-results/local-smoke/shared-real-MMPose-form-6--37053-visible-native-observations/real-form-6.png": "b8de63b74e4094c350dd984a64532d58c2e96a7e0112dbf01644ebb6bbf61309",
+    "test-results/local-smoke/shared-real-MMPose-form-6--37053-visible-native-observations/real-form-6.png": "0d70bfdb9825bd8990bf0f7ad8d9a7ca899c66973a3fff5160644e8b566deeb9",
     "test-results/local-smoke/shared-real-MMPose-form-7--9166f-visible-native-observations/real-form-7.png": "7e64251bc42758d9c0e50999e91e008e752531d327edd29a0d1bbaa59122edfb",
-    "test-results/local-smoke/shared-real-MMPose-form-8--da5d3-visible-native-observations/real-form-8.png": "c96307a02dde1bd49db08d89790705428c1d84d78556c42dd8f39aae9b762da0",
+    "test-results/local-smoke/shared-real-MMPose-form-8--da5d3-visible-native-observations/real-form-8.png": "8aa0a62a294245b6d60bf40d4eb0fd336172db93bbb68ab556e7ab1181656ab0",
     "test-results/local-smoke/shared-synthetic-productio-c859e-arser-capability-inspection/synthetic-production.png": "e42ca0a7587ad53b754875a8d95f84984e8feba3916800e69097ad8e397d3bae"
   },
   "shared_browser_stats": {
-    "duration": 90507.999,
+    "duration": 89860.28,
     "expected": 9,
     "flaky": 0,
     "skipped": 0,
-    "startTime": "2026-09-26T17:12:36.956Z",
+    "startTime": "2026-09-26T18:13:22.920Z",
     "unexpected": 0
   },
-  "source_commit": "110a41287a1f1598b5bf9a7b442431cd8501d09c",
+  "source_commit": "9d4a792bc842393377aaecd0b696a44fec928bca",
   "source_trees": {
     ".github": "f253219437e8623f68a290a64951ed4228807e98",
     "calibration": "415247182fbf5c588275f08d98ce91c93ee057aa",
@@ -669,9 +1175,10 @@
     "src": "8cd9d6dab33badae5a78bc5779aa9d2cff9d2405",
     "storage": "179fd0c3b5eab3f341eaecf923ea362864ab89ed",
     "sync": "cd4323bbb81bfc70be9904b3b79baa4412e4d4f1",
-    "tests": "d028ea14c7bee0165083b9fd925510462accb1bd",
-    "web": "b7dd8e70bc03624de13e3f16a7f7caa16258033c"
+    "tests": "301b9bce80391f3f74a0025e5d1b2a3f667ee893",
+    "web": "ed45fd4aeeed74a1ef63af9c0b793874be78af23"
   },
+  "supersedes_report_commit": "13e34427b183c1e5e9b6c061846e0aa7f7f6d666",
   "unexercised": [
     "CUDA",
     "Firefox/WebKit",
@@ -679,5 +1186,5 @@
     "Accuracy evaluation (outside scope)",
     "New dataset/model acquisition (existing verified provisioning reused)"
   ],
-  "version": 1
+  "version": 2
 }

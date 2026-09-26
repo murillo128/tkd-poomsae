@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "purpose": "Functional inspection only; no accuracy or scoring claim",
   "dataset": {
     "id": "mendeley-bjy7vr4xkt-v1",
@@ -48,5 +48,44 @@
     },
     "available": "Supplied metric cameras, production 3D/ground publishers, empty automatic semantics; not real camera estimation"
   },
-  "evidence": "../evidence/issue-50/README.md"
+  "evidence": "../evidence/issue-52/README.md",
+  "controlled": {
+    "project": "controlled-acceptance",
+    "fixture_revision": "controlled-motion-v1",
+    "relative_root": "runs/controlled-issue-52",
+    "store_relative_path": "runs/controlled-issue-52/store",
+    "inspection_bundle": {
+      "relative_path": "runs/controlled-issue-52/bundle.json",
+      "sha256": "d79270acf748c764bf77905fb38004336cdc4435d8cfbd6082728829a6679059"
+    },
+    "sources": [
+      {
+        "relative_path": "runs/controlled-issue-52/camera-0.mp4",
+        "sha256": "25796a9c222c3450c421cf516eb92cd7977a6f280aa003fcd1f7ad24efe3f371",
+        "native_seconds": [
+          0.0,
+          4.0
+        ],
+        "rate_hz": 25
+      },
+      {
+        "relative_path": "runs/controlled-issue-52/camera-1.mp4",
+        "sha256": "d2e52cec739a8e78ab79ad2e3d507da30ae2473fabf436de69d390cf926e316c",
+        "native_seconds": [
+          0.0,
+          4.0
+        ],
+        "rate_hz": 25
+      }
+    ],
+    "available": "Production reconstruction/morphology/ground and automatic overlapping semantics; 101 samples, 1 step, 3 arm actions, 1 kick, 11 unknown transitions, 58 keyframes",
+    "supplied": [
+      "metric cameras and ground",
+      "zero-offset clocks",
+      "projected 2D observations"
+    ],
+    "model_inference": false,
+    "manual_labels": false,
+    "evidence": "../evidence/issue-52/validation.json"
+  }
 }
