@@ -10,8 +10,9 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
 
     <application
+        android:name=".CrashCatcherApp"
         android:allowBackup="false"
-        android:label="TKD MultiCam v0.5"
+        android:label="TKD MultiCam v0.6"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
