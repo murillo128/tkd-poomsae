@@ -42,7 +42,11 @@ The browser suite captures `test-results/**/rendered-panel.png`; CI retains it
 as the `web-browser-evidence` artifact. Compact recorded evidence is in
 [docs/evidence/issue-45](../docs/evidence/issue-45/README.md).
 
-The browser projects run both the ground and 3D suites, each owning a Vite server
+Normal browser validation runs the generated-camera suite first, then the ground
+and 3D projects. Camera acceptance uses the Python development environment and
+local service described in [camera inspection](../docs/camera-inspection.md); its
+ports use `TKD_BROWSER_WEB_PORT` and `TKD_BROWSER_SERVICE_PORT`.
+The ground and 3D projects each own a Vite server
 with a strict port. If another worktree uses 5173 or 5186, run
 `TKD_BROWSER_PORT=5185 GROUND_PORT=5286 npm run test:browser` (or choose other free
 ports); an unrelated server is never reused as evidence. Ground evidence and
