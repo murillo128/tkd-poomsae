@@ -59,8 +59,8 @@ public final class MainActivity extends Activity
         installCrashRecorder();
         buildUi();
 
-        cameraEngine = new CameraEngine(this, textureView, this);
-        network = new NetworkCoordinator(this, this);
+        cameraEngine = null;
+        network = null;
 
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(
@@ -267,9 +267,19 @@ public final class MainActivity extends Activity
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    private void ensureCoreObjects() {
+        if (cameraEngine == null) {
+            cameraEngine = new CameraEngine(this, textureView, this);
+        }
+        if (network == null) {
+            network = new NetworkCoordinator(this, this);
+        }
+    }
+
     private void chooseController() {
         try {
             role = NetworkCoordinator.Role.CONTROLLER;
+            ensureCoreObjects();
         roleText.setText("Role: CONTROLLER");
         controllerPanel.setVisibility(View.VISIBLE);
         cameraPanel.setVisibility(View.GONE);
@@ -290,6 +300,7 @@ public final class MainActivity extends Activity
     private void chooseCamera() {
         try {
             role = NetworkCoordinator.Role.CAMERA;
+            ensureCoreObjects();
         roleText.setText("Role: CAMERA");
         controllerPanel.setVisibility(View.GONE);
         cameraPanel.setVisibility(View.VISIBLE);
