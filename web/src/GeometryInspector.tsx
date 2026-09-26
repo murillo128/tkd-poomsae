@@ -60,7 +60,7 @@ export function GeometryInspector({ project, data, selection, cursorSeconds, rev
   const entityId = selection?.kind === 'entity'
     ? landmark ? landmarkAvailable ? `${sample!.id}/${landmark}` : null : selection.id
     : null
-  const requestKey = project && entityId ? JSON.stringify([project, revision, data?.revision, entityId, attempt]) : null
+  const requestKey = project && entityId ? JSON.stringify([project, revision, landmark ? data?.revision : null, entityId, attempt]) : null
   useEffect(() => {
     setResult(null)
     if (!project || !entityId || !requestKey) return
