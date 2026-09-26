@@ -23,7 +23,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Space;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -40,56 +39,55 @@ public final class MainActivity extends Activity
 
     private static final int CAMERA_PERMISSION_REQUEST = 2001;
 
-    private static final int BG = Color.rgb(7, 17, 30);
-    private static final int PANEL = Color.rgb(13, 31, 49);
-    private static final int PANEL_ALT = Color.rgb(17, 39, 60);
-    private static final int CYAN = Color.rgb(28, 220, 240);
-    private static final int CYAN_SOFT = Color.rgb(37, 160, 184);
-    private static final int GREEN = Color.rgb(26, 222, 154);
-    private static final int RED = Color.rgb(255, 73, 83);
-    private static final int TEXT = Color.rgb(244, 248, 252);
-    private static final int MUTED = Color.rgb(157, 179, 202);
-    private static final int BORDER = Color.rgb(31, 82, 110);
+    private static final int BG = Color.rgb(5, 15, 27);
+    private static final int PANEL = Color.rgb(10, 29, 46);
+    private static final int PANEL_ALT = Color.rgb(13, 38, 58);
+    private static final int CYAN = Color.rgb(22, 218, 239);
+    private static final int CYAN_SOFT = Color.rgb(37, 151, 180);
+    private static final int GREEN = Color.rgb(29, 225, 154);
+    private static final int RED = Color.rgb(255, 72, 86);
+    private static final int TEXT = Color.rgb(246, 249, 252);
+    private static final int MUTED = Color.rgb(156, 178, 201);
+    private static final int BORDER = Color.rgb(31, 83, 112);
+
+    private boolean landscapeUi;
 
     private TextureView textureView;
     private TextView roleText;
     private TextView networkText;
     private TextView cameraText;
-    private TextView peersText;
     private TextView sessionText;
     private TextView peerTitle;
+    private TextView previewTelemetry;
+    private LinearLayout peersContainer;
 
     private LinearLayout controllerPanel;
     private LinearLayout cameraPanel;
+    private LinearLayout rootRoleChooser;
     private Switch recordLocal;
     private Button controllerButton;
     private Button cameraButton;
-    private Button armButton;
-    private Button startButton;
-    private Button stopButton;
-    private Button discoverButton;
 
     private CameraEngine cameraEngine;
     private NetworkCoordinator network;
 
     private NetworkCoordinator.Role role;
     private boolean localReady;
-    private boolean localRecording;
     private String currentSessionId;
-    private boolean landscapeUi;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         configureWindow();
         installCrashRecorder();
         buildUi();
 
-        cameraEngine = null;
-        network = null;
-
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(
                     new String[]{Manifest.permission.CAMERA},
                     CAMERA_PERMISSION_REQUEST);
@@ -103,10 +101,11 @@ public final class MainActivity extends Activity
         showPreviousCrashIfAny();
 
         if (savedInstanceState != null) {
-            String restoredRole = savedInstanceState.getString("role");
-            if ("CONTROLLER".equals(restoredRole)) {
+            String restored =
+                    savedInstanceState.getString("role");
+            if ("CONTROLLER".equals(restored)) {
                 chooseController();
-            } else if ("CAMERA".equals(restoredRole)) {
+            } else if ("CAMERA".equals(restored)) {
                 chooseCamera();
             }
         }
@@ -116,7 +115,7 @@ public final class MainActivity extends Activity
         Window window = getWindow();
         window.setStatusBarColor(BG);
         window.setNavigationBarColor(BG);
-        if (android.os.Build.VERSION.SDK_INT >= 23) {
+        if (BuildCompat.atLeast23()) {
             window.getDecorView().setSystemUiVisibility(0);
         }
     }
@@ -143,47 +142,81 @@ public final class MainActivity extends Activity
     }
 
     private void showPreviousCrashIfAny() {
-        SharedPreferences prefs = getSharedPreferences("crash", MODE_PRIVATE);
-        String crash = prefs.getString("last_crash", null);
-        if (crash == null || crash.isEmpty()) {
-            return;
-        }
+        SharedPreferences prefs =
+                getSharedPreferences("crash", MODE_PRIVATE);
+
+        String crash =
+                prefs.getString("last_crash", null);
+
+        if (crash == null || crash.isEmpty()) return;
 
         prefs.edit().remove("last_crash").apply();
         networkText.setText("Previous crash captured");
 
-        Button copyCrash = actionButton("COPY CRASH", CYAN_SOFT);
+        Button copyCrash =
+                actionButton("COPY CRASH", CYAN_SOFT);
+
         copyCrash.setOnClickListener(v -> {
             ClipboardManager cm =
-                    (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            cm.setPrimaryClip(ClipData.newPlainText("TKD MultiCam crash", crash));
-            Toast.makeText(this, "Crash copied", Toast.LENGTH_SHORT).show();
+                    (ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+
+            cm.setPrimaryClip(
+                    ClipData.newPlainText(
+                            "TKD MultiCam crash",
+                            crash));
+
+            Toast.makeText(
+                    this,
+                    "Crash copied",
+                    Toast.LENGTH_SHORT).show();
         });
-        controllerPanel.addView(copyCrash, matchWrap(0, dp(8)));
+
+        controllerPanel.addView(
+                copyCrash,
+                matchWrap(0, dp(6)));
     }
 
     private void buildUi() {
         landscapeUi =
-                getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+                getResources()
+                        .getConfiguration()
+                        .orientation
+                        == Configuration.ORIENTATION_LANDSCAPE;
+
         rootRoleChooser = null;
 
-        LinearLayout root = new LinearLayout(this);
+        LinearLayout root =
+                new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
+
+        int topInset =
+                systemDimen("status_bar_height");
+
+        int navRightInset =
+                landscapeUi
+                        ? systemDimen("navigation_bar_width")
+                        : 0;
+
         root.setPadding(
                 dp(landscapeUi ? 10 : 18),
-                dp(landscapeUi ? 6 : 14),
-                dp(landscapeUi ? 10 : 18),
+                topInset + dp(landscapeUi ? 4 : 8),
+                navRightInset + dp(landscapeUi ? 12 : 18),
                 dp(landscapeUi ? 8 : 18));
 
-        root.addView(buildHeader(landscapeUi), matchWrap(0, dp(landscapeUi ? 6 : 10)));
+        root.addView(
+                buildHeader(landscapeUi),
+                matchWrap(0, dp(landscapeUi ? 5 : 10)));
 
         if (landscapeUi) {
             buildLandscape(root);
             setContentView(root);
         } else {
             buildPortrait(root);
-            ScrollView scroll = new ScrollView(this);
+
+            ScrollView scroll =
+                    new ScrollView(this);
             scroll.setFillViewport(true);
             scroll.setBackgroundColor(BG);
             scroll.addView(root);
@@ -192,303 +225,740 @@ public final class MainActivity extends Activity
     }
 
     private View buildHeader(boolean landscape) {
-        LinearLayout header = new LinearLayout(this);
+        LinearLayout header =
+                new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
-        ImageView icon = new ImageView(this);
-        icon.setImageResource(R.drawable.tkd_multicam_icon);
-        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        GradientDrawable iconBg = rounded(PANEL_ALT, dp(14), BORDER, dp(1));
-        icon.setBackground(iconBg);
-        header.addView(icon, new LinearLayout.LayoutParams(dp(landscape ? 36 : 48), dp(landscape ? 36 : 48)));
+        ImageView icon =
+                new ImageView(this);
+        icon.setImageResource(
+                R.drawable.tkd_multicam_icon);
+        icon.setScaleType(
+                ImageView.ScaleType.CENTER_CROP);
+        icon.setBackground(
+                rounded(
+                        PANEL_ALT,
+                        dp(12),
+                        BORDER,
+                        dp(1)));
 
-        LinearLayout titleBox = new LinearLayout(this);
-        titleBox.setOrientation(LinearLayout.VERTICAL);
-        titleBox.setPadding(dp(12), 0, 0, 0);
+        int iconSize =
+                dp(landscape ? 34 : 48);
 
-        TextView title = new TextView(this);
+        header.addView(
+                icon,
+                new LinearLayout.LayoutParams(
+                        iconSize,
+                        iconSize));
+
+        LinearLayout titleBox =
+                new LinearLayout(this);
+        titleBox.setOrientation(
+                LinearLayout.VERTICAL);
+        titleBox.setPadding(
+                dp(landscape ? 8 : 12),
+                0,
+                0,
+                0);
+
+        TextView title =
+                new TextView(this);
         title.setText("TKD MultiCam 120");
         title.setTextColor(TEXT);
-        title.setTextSize(landscape ? 18 : 23);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextSize(landscape ? 17 : 23);
+        title.setTypeface(
+                Typeface.DEFAULT_BOLD);
         titleBox.addView(title);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("SYNCHRONIZED POOMSAE RECORDING");
+        TextView subtitle =
+                new TextView(this);
+        subtitle.setText(
+                "SYNCHRONIZED POOMSAE RECORDING");
         subtitle.setTextColor(CYAN);
-        subtitle.setTextSize(landscape ? 8 : 10);
-        subtitle.setLetterSpacing(0.16f);
+        subtitle.setTextSize(landscape ? 7 : 10);
+        subtitle.setLetterSpacing(0.14f);
         titleBox.addView(subtitle);
 
-        header.addView(titleBox, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(
+                titleBox,
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f));
 
-        LinearLayout roleChooser = new LinearLayout(this);
-        roleChooser.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout chooser =
+                new LinearLayout(this);
+        chooser.setOrientation(
+                LinearLayout.HORIZONTAL);
 
-        controllerButton = roleButton("CONTROLLER");
-        controllerButton.setOnClickListener(v -> chooseController());
-        roleChooser.addView(controllerButton, new LinearLayout.LayoutParams(landscape ? dp(112) : 0, dp(landscape ? 36 : 48), landscape ? 0f : 1f));
+        controllerButton =
+                roleButton("CONTROLLER");
+        controllerButton.setOnClickListener(
+                v -> chooseController());
 
-        cameraButton = roleButton("CAMERA");
-        cameraButton.setOnClickListener(v -> chooseCamera());
-        LinearLayout.LayoutParams cameraLp = new LinearLayout.LayoutParams(landscape ? dp(96) : 0, dp(landscape ? 36 : 48), landscape ? 0f : 1f);
-        cameraLp.setMargins(dp(8), 0, 0, 0);
-        roleChooser.addView(cameraButton, cameraLp);
+        chooser.addView(
+                controllerButton,
+                new LinearLayout.LayoutParams(
+                        landscape ? dp(108) : 0,
+                        dp(landscape ? 34 : 48),
+                        landscape ? 0f : 1f));
+
+        cameraButton =
+                roleButton("CAMERA");
+        cameraButton.setOnClickListener(
+                v -> chooseCamera());
+
+        LinearLayout.LayoutParams cameraLp =
+                new LinearLayout.LayoutParams(
+                        landscape ? dp(88) : 0,
+                        dp(landscape ? 34 : 48),
+                        landscape ? 0f : 1f);
+
+        cameraLp.setMargins(dp(6), 0, 0, 0);
+        chooser.addView(cameraButton, cameraLp);
 
         if (landscape) {
-            header.addView(roleChooser);
+            header.addView(chooser);
         } else {
-            rootRoleChooser = roleChooser;
+            rootRoleChooser = chooser;
         }
 
         return header;
     }
 
-    private LinearLayout rootRoleChooser;
-
     private void buildPortrait(LinearLayout root) {
         if (rootRoleChooser != null) {
-            root.addView(rootRoleChooser, matchWrap(0, dp(10)));
+            root.addView(
+                    rootRoleChooser,
+                    matchWrap(0, dp(10)));
         }
 
-        root.addView(buildPreview(dp(260)), matchWrap(0, dp(10)));
+        root.addView(
+                buildPreview(portraitPreviewHeight()),
+                matchWrap(0, dp(10)));
 
-        LinearLayout statusGrid = new LinearLayout(this);
-        statusGrid.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout statusGrid =
+                new LinearLayout(this);
+        statusGrid.setOrientation(
+                LinearLayout.VERTICAL);
 
-        LinearLayout statusRow1 = new LinearLayout(this);
-        statusRow1.setOrientation(LinearLayout.HORIZONTAL);
-        roleText = statusCard(statusRow1, "ROLE", "Choose role");
-        networkText = statusCard(statusRow1, "NETWORK", "Not started");
-        statusGrid.addView(statusRow1, matchWrap(0, dp(6)));
+        LinearLayout row1 =
+                new LinearLayout(this);
+        row1.setOrientation(
+                LinearLayout.HORIZONTAL);
 
-        LinearLayout statusRow2 = new LinearLayout(this);
-        statusRow2.setOrientation(LinearLayout.HORIZONTAL);
-        cameraText = statusCard(statusRow2, "CAMERA", "Idle");
-        sessionText = statusCard(statusRow2, "SESSION", "No active session");
-        statusGrid.addView(statusRow2);
+        roleText =
+                statusCard(
+                        row1,
+                        "ROLE",
+                        "Choose role");
 
-        root.addView(statusGrid, matchWrap(0, dp(10)));
+        networkText =
+                statusCard(
+                        row1,
+                        "NETWORK",
+                        "Not started");
+
+        statusGrid.addView(
+                row1,
+                matchWrap(0, dp(6)));
+
+        LinearLayout row2 =
+                new LinearLayout(this);
+        row2.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        cameraText =
+                statusCard(
+                        row2,
+                        "CAMERA",
+                        "Idle");
+
+        sessionText =
+                statusCard(
+                        row2,
+                        "SESSION",
+                        "No active session");
+
+        statusGrid.addView(row2);
+
+        root.addView(
+                statusGrid,
+                matchWrap(0, dp(10)));
 
         buildControllerPanel();
-        root.addView(controllerPanel, matchWrap(0, dp(10)));
+        root.addView(
+                controllerPanel,
+                matchWrap(0, dp(10)));
 
         buildCameraPanel();
-        root.addView(cameraPanel, matchWrap(0, dp(10)));
+        root.addView(
+                cameraPanel,
+                matchWrap(0, dp(10)));
 
-        root.addView(buildPeersPanel(), matchWrap(0, 0));
+        root.addView(
+                buildPeersPanel(),
+                matchWrap(0, 0));
     }
 
     private void buildLandscape(LinearLayout root) {
-        // Landscape is a dedicated dashboard, not the portrait layout stretched sideways.
-        // Status stays in one compact strip; preview and controls then share the remaining
-        // height so everything important fits on one phone screen without scrolling.
-        LinearLayout statusRow = new LinearLayout(this);
-        statusRow.setOrientation(LinearLayout.HORIZONTAL);
-        roleText = statusCard(statusRow, "ROLE", "Choose role");
-        networkText = statusCard(statusRow, "NETWORK", "Not started");
-        cameraText = statusCard(statusRow, "CAMERA", "Idle");
-        sessionText = statusCard(statusRow, "SESSION", "No active session");
-        root.addView(statusRow, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)));
+        LinearLayout statusRow =
+                new LinearLayout(this);
+        statusRow.setOrientation(
+                LinearLayout.HORIZONTAL);
 
-        LinearLayout mainRow = new LinearLayout(this);
-        mainRow.setOrientation(LinearLayout.HORIZONTAL);
-        mainRow.setGravity(Gravity.TOP);
+        roleText =
+                statusCard(
+                        statusRow,
+                        "ROLE",
+                        "Choose role");
 
-        FrameLayout preview = (FrameLayout) buildPreview(-1);
-        mainRow.addView(preview, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 1.62f));
+        networkText =
+                statusCard(
+                        statusRow,
+                        "NETWORK",
+                        "Not started");
 
-        LinearLayout right = new LinearLayout(this);
-        right.setOrientation(LinearLayout.VERTICAL);
-        right.setPadding(dp(8), 0, 0, 0);
+        cameraText =
+                statusCard(
+                        statusRow,
+                        "CAMERA",
+                        "Idle");
+
+        sessionText =
+                statusCard(
+                        statusRow,
+                        "SESSION",
+                        "No active session");
+
+        root.addView(
+                statusRow,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(44)));
+
+        LinearLayout body =
+                new LinearLayout(this);
+        body.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        FrameLayout preview =
+                (FrameLayout)
+                        buildPreview(-1);
+
+        body.addView(
+                preview,
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        1.62f));
+
+        LinearLayout commandColumn =
+                new LinearLayout(this);
+        commandColumn.setOrientation(
+                LinearLayout.VERTICAL);
+        commandColumn.setPadding(
+                dp(8),
+                0,
+                0,
+                0);
 
         buildControllerPanel();
-        right.addView(controllerPanel, matchWrap(0, dp(5)));
+        commandColumn.addView(
+                controllerPanel,
+                matchWrap(0, dp(5)));
 
         buildCameraPanel();
-        right.addView(cameraPanel, matchWrap(0, dp(5)));
+        commandColumn.addView(
+                cameraPanel,
+                matchWrap(0, dp(5)));
 
-        View peers = buildPeersPanel();
-        right.addView(peers, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        commandColumn.addView(
+                buildPeersPanel(),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f));
 
-        mainRow.addView(right, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+        body.addView(
+                commandColumn,
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        1f));
 
-        LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-        bodyLp.setMargins(0, dp(6), 0, 0);
-        root.addView(mainRow, bodyLp);
+        LinearLayout.LayoutParams bodyLp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f);
+
+        bodyLp.setMargins(
+                0,
+                dp(6),
+                0,
+                0);
+
+        root.addView(body, bodyLp);
     }
 
     private View buildPreview(int height) {
-        FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(rounded(Color.rgb(3, 12, 22), dp(18), CYAN_SOFT, dp(1)));
+        FrameLayout frame =
+                new FrameLayout(this);
 
-        textureView = new TextureView(this);
-        int previewHeight = height > 0 ? height : FrameLayout.LayoutParams.MATCH_PARENT;
+        frame.setBackground(
+                gradientPanel(
+                        Color.rgb(2, 10, 18),
+                        Color.rgb(4, 22, 34),
+                        dp(18),
+                        CYAN_SOFT));
+
+        textureView =
+                new TextureView(this);
+
+        int previewHeight =
+                height > 0
+                        ? height
+                        : FrameLayout.LayoutParams.MATCH_PARENT;
+
         FrameLayout.LayoutParams previewLp =
-                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, previewHeight);
-        previewLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        frame.addView(textureView, previewLp);
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        previewHeight);
 
-        TextView live = pill("●  LIVE PREVIEW", GREEN);
+        previewLp.setMargins(
+                dp(3),
+                dp(3),
+                dp(3),
+                dp(3));
+
+        frame.addView(
+                textureView,
+                previewLp);
+
+        TextView live =
+                pill(
+                        "●  LIVE PREVIEW",
+                        GREEN);
+
         FrameLayout.LayoutParams liveLp =
-                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-        liveLp.gravity = Gravity.TOP | Gravity.START;
-        liveLp.setMargins(dp(14), dp(12), 0, 0);
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT);
+
+        liveLp.gravity =
+                Gravity.TOP | Gravity.START;
+
+        liveLp.setMargins(
+                dp(14),
+                dp(12),
+                0,
+                0);
+
         frame.addView(live, liveLp);
 
-        TextView mode = pill("FHD · 120 FPS · 1×", CYAN);
+        TextView mode =
+                pill(
+                        "FHD · 120 FPS · CAM 0 · 1×",
+                        CYAN);
+
         FrameLayout.LayoutParams modeLp =
-                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-        modeLp.gravity = Gravity.TOP | Gravity.END;
-        modeLp.setMargins(0, dp(12), dp(14), 0);
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT);
+
+        modeLp.gravity =
+                Gravity.TOP | Gravity.END;
+
+        modeLp.setMargins(
+                0,
+                dp(12),
+                dp(14),
+                0);
+
         frame.addView(mode, modeLp);
+
+        previewTelemetry =
+                pill(
+                        "IDLE · AF CONTINUOUS · 1/500",
+                        CYAN_SOFT);
+
+        previewTelemetry.setTextSize(
+                landscapeUi ? 8 : 10);
+
+        FrameLayout.LayoutParams telemetryLp =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.WRAP_CONTENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT);
+
+        telemetryLp.gravity =
+                Gravity.BOTTOM | Gravity.START;
+
+        telemetryLp.setMargins(
+                dp(14),
+                0,
+                0,
+                dp(12));
+
+        frame.addView(
+                previewTelemetry,
+                telemetryLp);
 
         return frame;
     }
 
     private void buildControllerPanel() {
-        controllerPanel = new LinearLayout(this);
-        controllerPanel.setOrientation(LinearLayout.VERTICAL);
-        controllerPanel.setPadding(dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 7 : 14), dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 7 : 14));
-        controllerPanel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
+        controllerPanel =
+                new LinearLayout(this);
 
-        recordLocal = new Switch(this);
-        recordLocal.setText("  Record on this controller too");
+        controllerPanel.setOrientation(
+                LinearLayout.VERTICAL);
+
+        controllerPanel.setPadding(
+                dp(landscapeUi ? 8 : 14),
+                dp(landscapeUi ? 7 : 14),
+                dp(landscapeUi ? 8 : 14),
+                dp(landscapeUi ? 7 : 14));
+
+        controllerPanel.setBackground(
+                gradientPanel(
+                        PANEL,
+                        Color.rgb(11, 39, 58),
+                        dp(18),
+                        BORDER));
+
+        recordLocal =
+                new Switch(this);
+
+        recordLocal.setText(
+                "  Record on this controller too");
+
         recordLocal.setTextColor(TEXT);
-        recordLocal.setTextSize(landscapeUi ? 11 : 15);
+        recordLocal.setTextSize(
+                landscapeUi ? 10 : 15);
         recordLocal.setChecked(true);
-        controllerPanel.addView(recordLocal, matchWrap(0, dp(landscapeUi ? 5 : 12)));
 
-        LinearLayout row1 = new LinearLayout(this);
-        row1.setOrientation(LinearLayout.HORIZONTAL);
-        discoverButton = actionButton("⌁  DISCOVER", CYAN_SOFT);
-        discoverButton.setOnClickListener(v -> {
+        controllerPanel.addView(
+                recordLocal,
+                matchWrap(
+                        0,
+                        dp(landscapeUi ? 5 : 12)));
+
+        LinearLayout row1 =
+                new LinearLayout(this);
+        row1.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        Button discover =
+                actionButton(
+                        "⌁  DISCOVER",
+                        CYAN_SOFT);
+
+        discover.setOnClickListener(v -> {
             if (network != null) {
                 network.discoverNow();
                 updatePeers();
             }
         });
-        row1.addView(discoverButton, weightedButton());
 
-        armButton = actionButton("◉  ARM ALL", CYAN_SOFT);
-        armButton.setOnClickListener(v -> armAll());
-        LinearLayout.LayoutParams armLp = weightedButton();
-        armLp.setMargins(dp(8), 0, 0, 0);
-        row1.addView(armButton, armLp);
-        controllerPanel.addView(row1, matchWrap(0, dp(landscapeUi ? 5 : 8)));
+        row1.addView(
+                discover,
+                weightedButton());
 
-        LinearLayout row2 = new LinearLayout(this);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        startButton = actionButton("▶  START +3S", GREEN);
-        startButton.setOnClickListener(v -> startAll());
-        row2.addView(startButton, weightedButton());
+        Button arm =
+                actionButton(
+                        "◉  ARM ALL",
+                        CYAN);
 
-        stopButton = actionButton("■  STOP ALL", RED);
-        stopButton.setOnClickListener(v -> stopAll());
-        LinearLayout.LayoutParams stopLp = weightedButton();
-        stopLp.setMargins(dp(8), 0, 0, 0);
-        row2.addView(stopButton, stopLp);
+        arm.setOnClickListener(
+                v -> armAll());
+
+        LinearLayout.LayoutParams armLp =
+                weightedButton();
+
+        armLp.setMargins(
+                dp(7),
+                0,
+                0,
+                0);
+
+        row1.addView(arm, armLp);
+
+        controllerPanel.addView(
+                row1,
+                matchWrap(
+                        0,
+                        dp(landscapeUi ? 5 : 8)));
+
+        LinearLayout row2 =
+                new LinearLayout(this);
+        row2.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        Button start =
+                actionButton(
+                        "▶  START +3S",
+                        GREEN);
+
+        start.setOnClickListener(
+                v -> startAll());
+
+        row2.addView(
+                start,
+                weightedButton());
+
+        Button stop =
+                actionButton(
+                        "■  STOP ALL",
+                        RED);
+
+        stop.setOnClickListener(
+                v -> stopAll());
+
+        LinearLayout.LayoutParams stopLp =
+                weightedButton();
+
+        stopLp.setMargins(
+                dp(7),
+                0,
+                0,
+                0);
+
+        row2.addView(
+                stop,
+                stopLp);
+
         controllerPanel.addView(row2);
-
         controllerPanel.setVisibility(View.GONE);
     }
 
     private void buildCameraPanel() {
-        cameraPanel = new LinearLayout(this);
-        cameraPanel.setOrientation(LinearLayout.VERTICAL);
-        cameraPanel.setPadding(dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16), dp(landscapeUi ? 8 : 16));
-        cameraPanel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
+        cameraPanel =
+                new LinearLayout(this);
 
-        TextView cameraTitle = new TextView(this);
-        cameraTitle.setText("CAMERA NODE");
-        cameraTitle.setTextColor(CYAN);
-        cameraTitle.setTextSize(12);
-        cameraTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        cameraPanel.addView(cameraTitle);
+        cameraPanel.setOrientation(
+                LinearLayout.VERTICAL);
 
-        TextView cameraHelp = new TextView(this);
-        cameraHelp.setText(
-                "Waiting for controller on the same Wi‑Fi. Keep the phone mounted and this preview visible.");
-        cameraHelp.setTextColor(MUTED);
-        cameraHelp.setTextSize(landscapeUi ? 11 : 14);
-        cameraHelp.setPadding(0, dp(landscapeUi ? 3 : 6), 0, dp(landscapeUi ? 6 : 14));
-        cameraPanel.addView(cameraHelp);
+        cameraPanel.setPadding(
+                dp(landscapeUi ? 8 : 16),
+                dp(landscapeUi ? 8 : 16),
+                dp(landscapeUi ? 8 : 16),
+                dp(landscapeUi ? 8 : 16));
 
-        Button cameraStop = actionButton("■  LOCAL EMERGENCY STOP", RED);
-        cameraStop.setOnClickListener(v -> {
-            if (cameraEngine != null) cameraEngine.stop();
+        cameraPanel.setBackground(
+                gradientPanel(
+                        PANEL,
+                        Color.rgb(11, 39, 58),
+                        dp(18),
+                        BORDER));
+
+        TextView title =
+                new TextView(this);
+        title.setText("CAMERA NODE");
+        title.setTextColor(CYAN);
+        title.setTextSize(
+                landscapeUi ? 10 : 12);
+        title.setTypeface(
+                Typeface.DEFAULT_BOLD);
+        cameraPanel.addView(title);
+
+        TextView help =
+                new TextView(this);
+
+        help.setText(
+                "Visible on local Wi‑Fi. Keep this phone mounted and the preview unobstructed.");
+
+        help.setTextColor(MUTED);
+        help.setTextSize(
+                landscapeUi ? 9 : 14);
+
+        help.setPadding(
+                0,
+                dp(landscapeUi ? 3 : 6),
+                0,
+                dp(landscapeUi ? 6 : 14));
+
+        cameraPanel.addView(help);
+
+        Button emergency =
+                actionButton(
+                        "■  LOCAL EMERGENCY STOP",
+                        RED);
+
+        emergency.setOnClickListener(v -> {
+            if (cameraEngine != null) {
+                cameraEngine.stop();
+            }
         });
-        cameraPanel.addView(cameraStop);
 
+        cameraPanel.addView(emergency);
         cameraPanel.setVisibility(View.GONE);
     }
 
     private View buildPeersPanel() {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 6 : 12), dp(landscapeUi ? 8 : 14), dp(landscapeUi ? 6 : 14));
-        panel.setBackground(rounded(PANEL, dp(18), BORDER, dp(1)));
+        LinearLayout panel =
+                new LinearLayout(this);
 
-        peerTitle = new TextView(this);
-        peerTitle.setText("DISCOVERED CAMERAS");
+        panel.setOrientation(
+                LinearLayout.VERTICAL);
+
+        panel.setPadding(
+                dp(landscapeUi ? 8 : 14),
+                dp(landscapeUi ? 6 : 12),
+                dp(landscapeUi ? 8 : 14),
+                dp(landscapeUi ? 6 : 14));
+
+        panel.setBackground(
+                gradientPanel(
+                        PANEL,
+                        Color.rgb(9, 35, 54),
+                        dp(18),
+                        BORDER));
+
+        peerTitle =
+                new TextView(this);
+
+        peerTitle.setText(
+                "DISCOVERED CAMERAS");
+
         peerTitle.setTextColor(CYAN);
-        peerTitle.setTextSize(landscapeUi ? 11 : 14);
-        peerTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        peerTitle.setTextSize(
+                landscapeUi ? 10 : 14);
+
+        peerTitle.setTypeface(
+                Typeface.DEFAULT_BOLD);
+
         panel.addView(peerTitle);
 
-        peersText = new TextView(this);
-        peersText.setTextColor(MUTED);
-        peersText.setTextSize(landscapeUi ? 10 : 13);
-        peersText.setPadding(0, dp(landscapeUi ? 3 : 8), 0, 0);
-        peersText.setText("No cameras yet. Put other phones in CAMERA mode on this Wi‑Fi.");
-        peersText.setTextIsSelectable(true);
-        if (landscapeUi) peersText.setMaxLines(4);
-        panel.addView(peersText);
+        peersContainer =
+                new LinearLayout(this);
+
+        peersContainer.setOrientation(
+                LinearLayout.VERTICAL);
+
+        peersContainer.setPadding(
+                0,
+                dp(landscapeUi ? 3 : 8),
+                0,
+                0);
+
+        TextView empty =
+                new TextView(this);
+
+        empty.setText(
+                "No cameras yet. Put other phones in CAMERA mode on this Wi‑Fi.");
+
+        empty.setTextColor(MUTED);
+        empty.setTextSize(
+                landscapeUi ? 9 : 13);
+
+        peersContainer.addView(empty);
+        panel.addView(peersContainer);
 
         return panel;
     }
 
-    private TextView statusCard(LinearLayout parent, String label, String initial) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(landscapeUi ? 6 : 10), dp(landscapeUi ? 4 : 9), dp(landscapeUi ? 6 : 10), dp(landscapeUi ? 4 : 9));
-        card.setBackground(rounded(PANEL_ALT, dp(14), BORDER, dp(1)));
+    private TextView statusCard(
+            LinearLayout parent,
+            String label,
+            String initial) {
 
-        TextView l = new TextView(this);
+        LinearLayout card =
+                new LinearLayout(this);
+
+        card.setOrientation(
+                LinearLayout.VERTICAL);
+
+        card.setPadding(
+                dp(landscapeUi ? 6 : 10),
+                dp(landscapeUi ? 4 : 9),
+                dp(landscapeUi ? 6 : 10),
+                dp(landscapeUi ? 4 : 9));
+
+        card.setBackground(
+                gradientPanel(
+                        PANEL_ALT,
+                        Color.rgb(12, 43, 64),
+                        dp(14),
+                        BORDER));
+
+        TextView l =
+                new TextView(this);
+
         l.setText(label);
         l.setTextColor(CYAN);
-        l.setTextSize(landscapeUi ? 8 : 10);
-        l.setTypeface(Typeface.DEFAULT_BOLD);
+        l.setTextSize(
+                landscapeUi ? 7 : 10);
+
+        l.setTypeface(
+                Typeface.DEFAULT_BOLD);
+
         card.addView(l);
 
-        TextView value = new TextView(this);
+        TextView value =
+                new TextView(this);
+
         value.setText(initial);
         value.setTextColor(TEXT);
-        value.setTextSize(landscapeUi ? 9 : 12);
-        value.setMaxLines(landscapeUi ? 2 : 3);
+        value.setTextSize(
+                landscapeUi ? 9 : 12);
+
+        value.setMaxLines(
+                landscapeUi ? 2 : 3);
+
         card.addView(value);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        if (parent.getChildCount() > 0) lp.setMargins(dp(6), 0, 0, 0);
+        LinearLayout.LayoutParams lp =
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f);
+
+        if (parent.getChildCount() > 0) {
+            lp.setMargins(
+                    dp(5),
+                    0,
+                    0,
+                    0);
+        }
+
         parent.addView(card, lp);
         return value;
     }
 
-    private TextView pill(String text, int accent) {
-        TextView tv = new TextView(this);
+    private TextView pill(
+            String text,
+            int accent) {
+
+        TextView tv =
+                new TextView(this);
+
         tv.setText(text);
         tv.setTextColor(TEXT);
-        tv.setTextSize(11);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
-        tv.setPadding(dp(10), dp(5), dp(10), dp(5));
-        tv.setBackground(rounded(Color.argb(220, 10, 23, 37), dp(20), accent, dp(1)));
+        tv.setTextSize(
+                landscapeUi ? 8 : 11);
+
+        tv.setTypeface(
+                Typeface.DEFAULT_BOLD);
+
+        tv.setPadding(
+                dp(10),
+                dp(5),
+                dp(10),
+                dp(5));
+
+        tv.setBackground(
+                rounded(
+                        Color.argb(
+                                226,
+                                7,
+                                21,
+                                34),
+                        dp(20),
+                        accent,
+                        dp(1)));
+
         return tv;
     }
 
@@ -496,137 +966,342 @@ public final class MainActivity extends Activity
         Button b = new Button(this);
         b.setText(text);
         b.setTextColor(TEXT);
-        b.setTextSize(landscapeUi ? 10 : 12);
+        b.setTextSize(landscapeUi ? 9 : 12);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         b.setAllCaps(false);
-        b.setBackground(rounded(PANEL_ALT, dp(14), BORDER, dp(1)));
+        b.setBackground(
+                gradientPanel(
+                        PANEL_ALT,
+                        Color.rgb(12, 43, 64),
+                        dp(14),
+                        BORDER));
         return b;
     }
 
-    private Button actionButton(String text, int accent) {
-        Button b = new Button(this);
+    private Button actionButton(
+            String text,
+            int accent) {
+
+        Button b =
+                new Button(this);
+
         b.setText(text);
         b.setTextColor(TEXT);
-        b.setTextSize(landscapeUi ? 10 : 13);
-        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setTextSize(
+                landscapeUi ? 9 : 13);
+
+        b.setTypeface(
+                Typeface.DEFAULT_BOLD);
+
         b.setAllCaps(false);
-        b.setMinHeight(dp(landscapeUi ? 38 : 54));
-        b.setBackground(rounded(PANEL_ALT, dp(14), accent, dp(1)));
+        b.setMinHeight(
+                dp(landscapeUi ? 36 : 54));
+
+        b.setBackground(
+                gradientPanel(
+                        PANEL_ALT,
+                        mix(
+                                PANEL_ALT,
+                                accent,
+                                0.18f),
+                        dp(14),
+                        accent));
+
         return b;
     }
 
-    private GradientDrawable rounded(int fill, int radius, int stroke, int strokeWidth) {
-        GradientDrawable g = new GradientDrawable();
+    private GradientDrawable rounded(
+            int fill,
+            int radius,
+            int stroke,
+            int strokeWidth) {
+
+        GradientDrawable g =
+                new GradientDrawable();
+
         g.setColor(fill);
         g.setCornerRadius(radius);
-        if (strokeWidth > 0) g.setStroke(strokeWidth, stroke);
+
+        if (strokeWidth > 0) {
+            g.setStroke(
+                    strokeWidth,
+                    stroke);
+        }
+
         return g;
     }
 
-    private LinearLayout.LayoutParams weightedButton() {
-        return new LinearLayout.LayoutParams(0, dp(landscapeUi ? 40 : 58), 1f);
+    private GradientDrawable gradientPanel(
+            int startColor,
+            int endColor,
+            int radius,
+            int strokeColor) {
+
+        GradientDrawable g =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[]{
+                                startColor,
+                                endColor
+                        });
+
+        g.setCornerRadius(radius);
+        g.setStroke(dp(1), strokeColor);
+
+        return g;
     }
 
-    private LinearLayout.LayoutParams matchWrap(int top, int bottom) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0, top, 0, bottom);
+    private int mix(
+            int a,
+            int b,
+            float amount) {
+
+        float t =
+                Math.max(
+                        0f,
+                        Math.min(
+                                1f,
+                                amount));
+
+        return Color.rgb(
+                Math.round(
+                        Color.red(a)
+                                + (Color.red(b) - Color.red(a)) * t),
+                Math.round(
+                        Color.green(a)
+                                + (Color.green(b) - Color.green(a)) * t),
+                Math.round(
+                        Color.blue(a)
+                                + (Color.blue(b) - Color.blue(a)) * t));
+    }
+
+    private LinearLayout.LayoutParams weightedButton() {
+        return new LinearLayout.LayoutParams(
+                0,
+                dp(landscapeUi ? 38 : 58),
+                1f);
+    }
+
+    private LinearLayout.LayoutParams matchWrap(
+            int top,
+            int bottom) {
+
+        LinearLayout.LayoutParams lp =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        lp.setMargins(
+                0,
+                top,
+                0,
+                bottom);
+
         return lp;
     }
 
+    private int portraitPreviewHeight() {
+        int width =
+                getResources()
+                        .getDisplayMetrics()
+                        .widthPixels
+                        - dp(36);
+
+        return Math.round(
+                width * 9f / 16f);
+    }
+
+    private int systemDimen(String name) {
+        int id =
+                getResources()
+                        .getIdentifier(
+                                name,
+                                "dimen",
+                                "android");
+
+        return id > 0
+                ? getResources()
+                        .getDimensionPixelSize(id)
+                : 0;
+    }
+
     private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+        return Math.round(
+                value
+                        * getResources()
+                                .getDisplayMetrics()
+                                .density);
     }
 
     private void ensureCoreObjects() {
         if (cameraEngine == null) {
-            cameraEngine = new CameraEngine(this, textureView, this);
+            cameraEngine =
+                    new CameraEngine(
+                            this,
+                            textureView,
+                            this);
         }
+
         if (network == null) {
-            network = new NetworkCoordinator(this, this);
+            network =
+                    new NetworkCoordinator(
+                            this,
+                            this);
         }
     }
 
     private void chooseController() {
         try {
-            role = NetworkCoordinator.Role.CONTROLLER;
+            role =
+                    NetworkCoordinator.Role.CONTROLLER;
+
             ensureCoreObjects();
+
             roleText.setText("CONTROLLER");
             controllerPanel.setVisibility(View.VISIBLE);
             cameraPanel.setVisibility(View.GONE);
             styleRoleButtons();
 
             localReady = false;
-            localRecording = false;
             currentSessionId = null;
 
-            network.start(NetworkCoordinator.Role.CONTROLLER);
+            network.start(
+                    NetworkCoordinator.Role.CONTROLLER);
+
             updatePeers();
         } catch (Throwable t) {
-            handleUiFailure("Controller init", t);
+            handleUiFailure(
+                    "Controller init",
+                    t);
         }
     }
 
     private void chooseCamera() {
         try {
-            role = NetworkCoordinator.Role.CAMERA;
+            role =
+                    NetworkCoordinator.Role.CAMERA;
+
             ensureCoreObjects();
+
             roleText.setText("CAMERA");
             controllerPanel.setVisibility(View.GONE);
             cameraPanel.setVisibility(View.VISIBLE);
             styleRoleButtons();
 
             localReady = false;
-            localRecording = false;
             currentSessionId = null;
 
-            network.start(NetworkCoordinator.Role.CAMERA);
-            cameraText.setText("Waiting for controller ARM");
+            network.start(
+                    NetworkCoordinator.Role.CAMERA);
+
+            cameraText.setText(
+                    "Waiting for controller ARM");
         } catch (Throwable t) {
-            handleUiFailure("Camera init", t);
+            handleUiFailure(
+                    "Camera init",
+                    t);
         }
     }
 
     private void styleRoleButtons() {
-        if (controllerButton == null || cameraButton == null) return;
-        boolean controller = role == NetworkCoordinator.Role.CONTROLLER;
-        controllerButton.setBackground(rounded(
-                controller ? Color.rgb(11, 62, 81) : PANEL_ALT,
-                dp(14), controller ? CYAN : BORDER, dp(1)));
-        cameraButton.setBackground(rounded(
-                controller ? PANEL_ALT : Color.rgb(11, 62, 81),
-                dp(14), controller ? BORDER : CYAN, dp(1)));
+        if (controllerButton == null
+                || cameraButton == null) {
+            return;
+        }
+
+        boolean controller =
+                role
+                        == NetworkCoordinator.Role.CONTROLLER;
+
+        controllerButton.setBackground(
+                gradientPanel(
+                        controller
+                                ? Color.rgb(9, 62, 80)
+                                : PANEL_ALT,
+                        controller
+                                ? Color.rgb(7, 88, 105)
+                                : Color.rgb(12, 43, 64),
+                        dp(14),
+                        controller
+                                ? CYAN
+                                : BORDER));
+
+        cameraButton.setBackground(
+                gradientPanel(
+                        controller
+                                ? PANEL_ALT
+                                : Color.rgb(9, 62, 80),
+                        controller
+                                ? Color.rgb(12, 43, 64)
+                                : Color.rgb(7, 88, 105),
+                        dp(14),
+                        controller
+                                ? BORDER
+                                : CYAN));
     }
 
-    private void handleUiFailure(String where, Throwable t) {
-        StringWriter sw = new StringWriter();
-        t.printStackTrace(new PrintWriter(sw));
-        String full = where + "\n" + sw;
-        networkText.setText("ERROR · " + t.getClass().getSimpleName());
+    private void handleUiFailure(
+            String where,
+            Throwable t) {
+
+        StringWriter sw =
+                new StringWriter();
+
+        t.printStackTrace(
+                new PrintWriter(sw));
+
+        String full =
+                where + "\n" + sw;
+
+        networkText.setText(
+                "ERROR · "
+                        + t.getClass()
+                                .getSimpleName());
 
         ClipboardManager cm =
-                (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        cm.setPrimaryClip(ClipData.newPlainText("TKD MultiCam error", full));
-        Toast.makeText(this, "Error copied to clipboard", Toast.LENGTH_LONG).show();
+                (ClipboardManager)
+                        getSystemService(
+                                CLIPBOARD_SERVICE);
+
+        cm.setPrimaryClip(
+                ClipData.newPlainText(
+                        "TKD MultiCam error",
+                        full));
+
+        Toast.makeText(
+                this,
+                "Error copied to clipboard",
+                Toast.LENGTH_LONG).show();
     }
 
     private void armAll() {
         if (!ensureCameraPermission()) return;
+
         lockCurrentOrientation();
 
-        currentSessionId = new SimpleDateFormat(
-                "yyyyMMdd-HHmmss", Locale.US).format(new Date());
-        sessionText.setText(currentSessionId + " · ARMING");
+        currentSessionId =
+                new SimpleDateFormat(
+                        "yyyyMMdd-HHmmss",
+                        Locale.US)
+                        .format(new Date());
 
-        localReady = !recordLocal.isChecked();
-        localRecording = false;
+        sessionText.setText(
+                currentSessionId + " · ARMING");
 
-        List<NetworkCoordinator.Peer> peers = network.getPeers();
-        if (peers.isEmpty() && !recordLocal.isChecked()) {
-            Toast.makeText(this,
+        localReady =
+                !recordLocal.isChecked();
+
+        List<NetworkCoordinator.Peer> peers =
+                network.getPeers();
+
+        if (peers.isEmpty()
+                && !recordLocal.isChecked()) {
+
+            Toast.makeText(
+                    this,
                     "No remote cameras discovered and local recording is disabled.",
                     Toast.LENGTH_LONG).show();
+
             return;
         }
 
@@ -635,23 +1310,31 @@ public final class MainActivity extends Activity
         if (recordLocal.isChecked()) {
             cameraEngine.arm(currentSessionId);
         } else {
-            cameraText.setText("Local recording disabled");
+            cameraText.setText(
+                    "Local recording disabled");
         }
 
         for (NetworkCoordinator.Peer peer : peers) {
             peer.ready = false;
         }
+
         updatePeers();
     }
 
     private void startAll() {
         if (currentSessionId == null) {
-            Toast.makeText(this, "ARM ALL first.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    "ARM ALL first.",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        List<NetworkCoordinator.Peer> peers = network.getPeers();
+        List<NetworkCoordinator.Peer> peers =
+                network.getPeers();
+
         boolean remotesReady = true;
+
         for (NetworkCoordinator.Peer peer : peers) {
             if (!peer.ready) {
                 remotesReady = false;
@@ -660,140 +1343,391 @@ public final class MainActivity extends Activity
         }
 
         if (!localReady || !remotesReady) {
-            Toast.makeText(this,
+            Toast.makeText(
+                    this,
                     "Not all cameras are READY yet.",
                     Toast.LENGTH_LONG).show();
+
             updatePeers();
             return;
         }
 
         final long leadMs = 3000L;
-        long targetControllerNs =
-                SystemClock.elapsedRealtimeNanos() + leadMs * 1_000_000L;
 
-        network.startAll(targetControllerNs, leadMs);
+        long targetControllerNs =
+                SystemClock.elapsedRealtimeNanos()
+                        + leadMs * 1_000_000L;
+
+        network.startAll(
+                targetControllerNs,
+                leadMs);
 
         if (recordLocal.isChecked()) {
-            cameraEngine.startAt(targetControllerNs);
+            cameraEngine.startAt(
+                    targetControllerNs);
         }
 
-        sessionText.setText(currentSessionId + " · START +3s");
+        sessionText.setText(
+                currentSessionId
+                        + " · START +3s");
     }
 
     private void stopAll() {
-        if (network != null) network.stopAll();
-        if (recordLocal != null && recordLocal.isChecked()
+        if (network != null) {
+            network.stopAll();
+        }
+
+        if (recordLocal != null
+                && recordLocal.isChecked()
                 && cameraEngine != null
-                && cameraEngine.getState() != CameraEngine.State.IDLE) {
+                && cameraEngine.getState()
+                        != CameraEngine.State.IDLE) {
+
             cameraEngine.stop();
         }
+
         sessionText.setText(
-                (currentSessionId == null ? "No session" : currentSessionId)
+                (currentSessionId == null
+                        ? "No session"
+                        : currentSessionId)
                         + " · STOPPED");
+
         unlockOrientation();
     }
 
     private boolean ensureCameraPermission() {
-        if (checkSelfPermission(Manifest.permission.CAMERA)
+        if (checkSelfPermission(
+                Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             return true;
         }
+
         requestPermissions(
                 new String[]{Manifest.permission.CAMERA},
                 CAMERA_PERMISSION_REQUEST);
+
         return false;
     }
 
     private void updatePeers() {
-        if (network == null || peersText == null) return;
+        if (network == null
+                || peersContainer == null) {
+            return;
+        }
 
         runOnUiThread(() -> {
-            List<NetworkCoordinator.Peer> peers = network.getPeers();
+            List<NetworkCoordinator.Peer> peers =
+                    network.getPeers();
+
             if (peerTitle != null) {
-                peerTitle.setText("DISCOVERED CAMERAS (" + peers.size() + ")");
+                peerTitle.setText(
+                        "DISCOVERED CAMERAS ("
+                                + peers.size()
+                                + ")");
             }
+
+            peersContainer.removeAllViews();
+
             if (peers.isEmpty()) {
-                peersText.setText("No cameras yet. Put other phones in CAMERA mode on this Wi‑Fi.");
+                TextView empty =
+                        new TextView(this);
+
+                empty.setText(
+                        "No cameras yet. Put other phones in CAMERA mode on this Wi‑Fi.");
+
+                empty.setTextColor(MUTED);
+                empty.setTextSize(
+                        landscapeUi ? 9 : 13);
+
+                peersContainer.addView(empty);
                 return;
             }
 
-            StringBuilder sb = new StringBuilder();
             for (NetworkCoordinator.Peer peer : peers) {
-                sb.append(peer.ready ? "● READY  " : "○ ");
-                sb.append(peer.name == null ? peer.id : peer.name);
-                sb.append("\n     ");
-                sb.append(peer.address == null ? "?" : peer.address.getHostAddress());
-                sb.append("  ·  ");
-                sb.append(peer.status);
-                if (peer.hasSync) {
-                    sb.append(String.format(Locale.US, "  ·  RTT %.1f ms", peer.rttMs()));
-                } else {
-                    sb.append("  ·  sync pending");
+                LinearLayout card =
+                        new LinearLayout(this);
+
+                card.setOrientation(
+                        LinearLayout.HORIZONTAL);
+
+                card.setGravity(
+                        Gravity.CENTER_VERTICAL);
+
+                card.setPadding(
+                        dp(landscapeUi ? 7 : 11),
+                        dp(landscapeUi ? 5 : 9),
+                        dp(landscapeUi ? 7 : 11),
+                        dp(landscapeUi ? 5 : 9));
+
+                card.setBackground(
+                        gradientPanel(
+                                Color.rgb(8, 27, 43),
+                                Color.rgb(10, 43, 61),
+                                dp(12),
+                                peer.ready
+                                        ? GREEN
+                                        : BORDER));
+
+                TextView indicator =
+                        new TextView(this);
+
+                indicator.setText("●");
+                indicator.setTextColor(
+                        peer.ready
+                                ? GREEN
+                                : CYAN_SOFT);
+
+                indicator.setTextSize(
+                        landscapeUi ? 11 : 15);
+
+                card.addView(indicator);
+
+                LinearLayout details =
+                        new LinearLayout(this);
+
+                details.setOrientation(
+                        LinearLayout.VERTICAL);
+
+                details.setPadding(
+                        dp(7),
+                        0,
+                        0,
+                        0);
+
+                TextView name =
+                        new TextView(this);
+
+                name.setText(
+                        peer.name == null
+                                ? peer.id
+                                : peer.name);
+
+                name.setTextColor(TEXT);
+                name.setTextSize(
+                        landscapeUi ? 9 : 13);
+
+                name.setTypeface(
+                        Typeface.DEFAULT_BOLD);
+
+                details.addView(name);
+
+                TextView meta =
+                        new TextView(this);
+
+                String address =
+                        peer.address == null
+                                ? "?"
+                                : peer.address
+                                        .getHostAddress();
+
+                String sync =
+                        peer.hasSync
+                                ? String.format(
+                                        Locale.US,
+                                        "RTT %.1f ms",
+                                        peer.rttMs())
+                                : "sync pending";
+
+                meta.setText(
+                        address
+                                + "  ·  "
+                                + sync
+                                + "  ·  "
+                                + peer.status);
+
+                meta.setTextColor(MUTED);
+                meta.setTextSize(
+                        landscapeUi ? 7 : 11);
+
+                meta.setMaxLines(1);
+                details.addView(meta);
+
+                card.addView(
+                        details,
+                        new LinearLayout.LayoutParams(
+                                0,
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                1f));
+
+                TextView state =
+                        new TextView(this);
+
+                state.setText(
+                        peer.ready
+                                ? "READY"
+                                : "CAMERA");
+
+                state.setTextColor(
+                        peer.ready
+                                ? GREEN
+                                : CYAN);
+
+                state.setTextSize(
+                        landscapeUi ? 8 : 11);
+
+                state.setTypeface(
+                        Typeface.DEFAULT_BOLD);
+
+                card.addView(state);
+
+                LinearLayout.LayoutParams lp =
+                        new LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT);
+
+                if (peersContainer.getChildCount() > 0) {
+                    lp.setMargins(
+                            0,
+                            dp(4),
+                            0,
+                            0);
                 }
-                sb.append("\n");
+
+                peersContainer.addView(
+                        card,
+                        lp);
             }
-            peersText.setText(sb.toString().trim());
-            peersText.setTextColor(TEXT);
         });
     }
 
     @Override
     public void onCameraStatus(String status) {
-        runOnUiThread(() -> cameraText.setText(status));
+        runOnUiThread(() -> {
+            cameraText.setText(status);
+
+            if (previewTelemetry != null) {
+                if (status.startsWith("RECORDING")) {
+                    previewTelemetry.setText(
+                            "● REC · FHD120 · 1/500 · AF");
+
+                    previewTelemetry.setTextColor(GREEN);
+                } else if (status.startsWith("READY")) {
+                    previewTelemetry.setText(
+                            "READY · FHD120 · AF · 1/500");
+
+                    previewTelemetry.setTextColor(TEXT);
+                }
+            }
+        });
     }
 
     @Override
     public void onCameraReady(String details) {
         localReady = true;
-        runOnUiThread(() -> cameraText.setText("READY · " + details));
 
-        if (role == NetworkCoordinator.Role.CAMERA) {
+        runOnUiThread(() -> {
+            cameraText.setText(
+                    "READY · " + details);
+
+            if (previewTelemetry != null) {
+                previewTelemetry.setText(
+                        "READY · FHD120 · AF · 1/500");
+                previewTelemetry.setTextColor(TEXT);
+            }
+        });
+
+        if (role
+                == NetworkCoordinator.Role.CAMERA) {
             network.sendReady(details);
         }
     }
 
     @Override
-    public void onCameraStarted(long localStartCallNs) {
-        localRecording = true;
+    public void onCameraStarted(
+            long localStartCallNs) {
+
         runOnUiThread(() -> {
-            cameraText.setText("RECORDING · 1080p120");
-            sessionText.setText(currentSessionId + " · RECORDING");
+            cameraText.setText(
+                    "RECORDING · FHD120");
+
+            sessionText.setText(
+                    currentSessionId
+                            + " · RECORDING");
+
+            if (previewTelemetry != null) {
+                previewTelemetry.setText(
+                        "● REC · FHD120 · 1/500 · AF");
+                previewTelemetry.setTextColor(GREEN);
+            }
         });
 
-        if (role == NetworkCoordinator.Role.CAMERA) {
-            network.sendStarted(localStartCallNs);
+        if (role
+                == NetworkCoordinator.Role.CAMERA) {
+            network.sendStarted(
+                    localStartCallNs);
         }
     }
 
     @Override
-    public void onCameraStopped(String videoPath, String metadataPath) {
+    public void onCameraStopped(
+            String videoPath,
+            String metadataPath) {
+
         localReady = false;
-        localRecording = false;
+
         runOnUiThread(() -> {
-            double fps = cameraEngine == null ? 0.0 : cameraEngine.getLastEncodedFps();
+            double fps =
+                    cameraEngine == null
+                            ? 0.0
+                            : cameraEngine
+                                    .getLastEncodedFps();
+
             if (fps > 0.0) {
-                cameraText.setText(String.format(Locale.US,
-                        "SAVED · MP4 %.1f fps", fps));
+                cameraText.setText(
+                        String.format(
+                                Locale.US,
+                                "SAVED · MP4 %.1f fps",
+                                fps));
+
+                if (previewTelemetry != null) {
+                    previewTelemetry.setText(
+                            String.format(
+                                    Locale.US,
+                                    "SAVED · %.1f FPS · GALLERY",
+                                    fps));
+
+                    previewTelemetry.setTextColor(
+                            fps >= 110.0
+                                    ? GREEN
+                                    : RED);
+                }
             } else {
-                cameraText.setText("SAVED · fps unavailable");
+                cameraText.setText(
+                        "SAVED · fps unavailable");
             }
+
             sessionText.setText(
-                    (currentSessionId == null ? "No session" : currentSessionId) + " · SAVED");
+                    (currentSessionId == null
+                            ? "No session"
+                            : currentSessionId)
+                            + " · SAVED");
         });
 
-        if (role == NetworkCoordinator.Role.CAMERA) {
+        if (role
+                == NetworkCoordinator.Role.CAMERA) {
             network.sendStopped(videoPath);
         }
+
         unlockOrientation();
     }
 
     @Override
     public void onCameraError(String error) {
         localReady = false;
-        localRecording = false;
-        runOnUiThread(() -> cameraText.setText("ERROR · " + error));
 
-        if (role == NetworkCoordinator.Role.CAMERA) {
+        runOnUiThread(() -> {
+            cameraText.setText(
+                    "ERROR · " + error);
+
+            if (previewTelemetry != null) {
+                previewTelemetry.setText(
+                        "ERROR · CHECK CAMERA");
+                previewTelemetry.setTextColor(RED);
+            }
+        });
+
+        if (role
+                == NetworkCoordinator.Role.CAMERA) {
             network.sendCameraError(error);
         }
     }
@@ -804,63 +1738,108 @@ public final class MainActivity extends Activity
     }
 
     @Override
-    public void onNetworkStatus(String status) {
-        runOnUiThread(() -> networkText.setText(status));
+    public void onNetworkStatus(
+            String status) {
+
+        runOnUiThread(
+                () -> networkText.setText(status));
     }
 
     @Override
-    public void onArmCommand(String sessionId) {
-        if (role != NetworkCoordinator.Role.CAMERA) return;
+    public void onArmCommand(
+            String sessionId) {
+
+        if (role
+                != NetworkCoordinator.Role.CAMERA) {
+            return;
+        }
 
         lockCurrentOrientation();
+
         currentSessionId = sessionId;
-        runOnUiThread(() -> sessionText.setText(sessionId + " · ARMING"));
+
+        runOnUiThread(
+                () -> sessionText.setText(
+                        sessionId + " · ARMING"));
+
         cameraEngine.arm(sessionId);
     }
 
     @Override
-    public void onStartCommand(long localTargetNs, long fallbackDelayMs) {
-        if (role != NetworkCoordinator.Role.CAMERA) return;
+    public void onStartCommand(
+            long localTargetNs,
+            long fallbackDelayMs) {
 
-        long target = localTargetNs;
-        if (target <= 0) {
-            target = SystemClock.elapsedRealtimeNanos()
-                    + fallbackDelayMs * 1_000_000L;
+        if (role
+                != NetworkCoordinator.Role.CAMERA) {
+            return;
         }
+
+        long target =
+                localTargetNs;
+
+        if (target <= 0) {
+            target =
+                    SystemClock.elapsedRealtimeNanos()
+                            + fallbackDelayMs
+                                    * 1_000_000L;
+        }
+
         cameraEngine.startAt(target);
     }
 
     @Override
     public void onStopCommand() {
-        if (role != NetworkCoordinator.Role.CAMERA) return;
+        if (role
+                != NetworkCoordinator.Role.CAMERA) {
+            return;
+        }
+
         cameraEngine.stop();
     }
 
     private void lockCurrentOrientation() {
         if (android.os.Build.VERSION.SDK_INT >= 18) {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
+            setRequestedOrientation(
+                    ActivityInfo.SCREEN_ORIENTATION_LOCKED);
         }
     }
 
     private void unlockOrientation() {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        setRequestedOrientation(
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(
+            Bundle outState) {
+
         if (role != null) {
-            outState.putString("role", role.name());
+            outState.putString(
+                    "role",
+                    role.name());
         }
+
         super.onSaveInstanceState(outState);
     }
 
     @Override
     public void onRequestPermissionsResult(
-            int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST
+            int requestCode,
+            String[] permissions,
+            int[] grantResults) {
+
+        super.onRequestPermissionsResult(
+                requestCode,
+                permissions,
+                grantResults);
+
+        if (requestCode
+                == CAMERA_PERMISSION_REQUEST
                 && (grantResults.length == 0
-                || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
+                || grantResults[0]
+                        != PackageManager.PERMISSION_GRANTED)) {
+
             Toast.makeText(
                     this,
                     "Camera permission is required to record.",
@@ -870,8 +1849,20 @@ public final class MainActivity extends Activity
 
     @Override
     protected void onDestroy() {
-        if (network != null) network.stop();
-        if (cameraEngine != null) cameraEngine.shutdown();
+        if (network != null) {
+            network.stop();
+        }
+
+        if (cameraEngine != null) {
+            cameraEngine.shutdown();
+        }
+
         super.onDestroy();
+    }
+
+    private static final class BuildCompat {
+        static boolean atLeast23() {
+            return android.os.Build.VERSION.SDK_INT >= 23;
+        }
     }
 }
