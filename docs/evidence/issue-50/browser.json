@@ -1,0 +1,106 @@
+{
+  "scope": "Actual local viewer; provisioned shared projects; Chromium software WebGL; loopback-only browser requests",
+  "stats": {
+    "startTime": "2026-09-26T16:01:05.574Z",
+    "duration": 80618.031,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "title": "real MMPose form 1 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 7368
+    },
+    {
+      "title": "real MMPose form 2 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 8193
+    },
+    {
+      "title": "real MMPose form 3 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 9285
+    },
+    {
+      "title": "real MMPose form 4 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 9138
+    },
+    {
+      "title": "real MMPose form 5 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 8719
+    },
+    {
+      "title": "real MMPose form 6 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 10054
+    },
+    {
+      "title": "real MMPose form 7 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 10319
+    },
+    {
+      "title": "real MMPose form 8 reopens with visible native observations",
+      "status": "passed",
+      "duration_ms": 12596
+    },
+    {
+      "title": "synthetic production products reopen with positive 3D, ground and parser capability inspection",
+      "status": "passed",
+      "duration_ms": 2067
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "real-form-1.png",
+      "sha256": "7aa4ce1d631efc5b65794b978364efd795e7cbc17708a54b6d770a9c45e347df",
+      "bytes": 765903
+    },
+    {
+      "name": "real-form-2.png",
+      "sha256": "7896b403684f6e5c463ceccf69ec869ccab2bdea24e190ddccf7bbf1fef578fb",
+      "bytes": 902475
+    },
+    {
+      "name": "real-form-3.png",
+      "sha256": "209567abf35bf3137f82cb4dec07c8bd2d68df559bf039a2c8c2e1a1814a60a5",
+      "bytes": 768010
+    },
+    {
+      "name": "real-form-4.png",
+      "sha256": "44d68d583e83f8dc99e5044dac286b747ded2f3941bd83e953279595372aaaa6",
+      "bytes": 898951
+    },
+    {
+      "name": "real-form-5.png",
+      "sha256": "7a803919d4211a5aa7d1686f81d9ff0845541373b23173dffe0f648c8481ecf8",
+      "bytes": 903727
+    },
+    {
+      "name": "real-form-6.png",
+      "sha256": "0d70bfdb9825bd8990bf0f7ad8d9a7ca899c66973a3fff5160644e8b566deeb9",
+      "bytes": 900092
+    },
+    {
+      "name": "real-form-7.png",
+      "sha256": "7e64251bc42758d9c0e50999e91e008e752531d327edd29a0d1bbaa59122edfb",
+      "bytes": 898369
+    },
+    {
+      "name": "real-form-8.png",
+      "sha256": "8aa0a62a294245b6d60bf40d4eb0fd336172db93bbb68ab556e7ab1181656ab0",
+      "bytes": 912696
+    },
+    {
+      "name": "synthetic-production.png",
+      "sha256": "e42ca0a7587ad53b754875a8d95f84984e8feba3916800e69097ad8e397d3bae",
+      "bytes": 623075
+    }
+  ],
+  "media_wait_bound_seconds": 30
+}

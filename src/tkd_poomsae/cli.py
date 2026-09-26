@@ -88,7 +88,7 @@ def main() -> int:
         "observations", help="Infer or reuse a local native-time selection"
     )
     observations.add_argument(
-        "selection", choices=["smoke-short", "demo-full", "all-forms"]
+        "selection", choices=sorted(catalog())
     )
     observations.add_argument("--device", default="cpu")
     observations.add_argument("--max-frames", type=int, default=32)

@@ -142,6 +142,147 @@
         }
       ]
     },
+    "all-forms-smoke": {
+      "description": "Bounded native 5\u20137 s windows from all eight registered forms",
+      "executions": [
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-2",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "c6ffa9499cd5547f16e08d84ef727d7b5c2a980d63ea593e540a3df6f12111fd",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "45ad4df965461c0b87299e653f26167cfe87f3c19d76d0d19cc93bd195d707c7",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-3",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "3dcc9a0ae987d484f11999f589a9ace6644bfce5fa38166adbffb4fa0c7cc932",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "f926c639603729a724bacc9ba06f741d618f305046244906f15f4f7cec2907b9",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-4",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "dbbf5e3243130a255a7365f341f2e3c411f8da2384400500a0a17ac70544285a",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "1f460ee78e113f5a1a4fcc5a098f44615ef378b32731e6d076ce86a7b124ff26",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-5",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "a34f759ffe2be51cccdb31f66f11bfff9a1918f47b7ac0efcd0fd900dd2b8729",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "f561e2955f664d5fdb139e4b515bced20731c8e9fd57611f6d5b9f3f16766970",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-6",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "a75bd1d922545d9287567dac0ac4ec294a9cb5436a1551c77d5e8ccacfc44816",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "a19228a948d2bddf8ba5d1d421c2bb5e975765eab81a285329e07efdfa5af505",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-7",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "0adde34223f2991ab493cb2cd6bfa7f2944877e83df9a1078ee6e461938a9d7b",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "dcc1a205b57d3c0ad41ee20fcaf931f54592ea04c64c1672fa40425ffd93cfb1",
+              "start_seconds": 5.0
+            }
+          ]
+        },
+        {
+          "execution_id": "mendeley-bjy7vr4xkt-v1-taegeuk-8",
+          "views": [
+            {
+              "camera_id": "mendeley-frontal",
+              "end_seconds": 7.0,
+              "source_sha256": "3765be05c7aa531b165f0a64b460df6c8858d768c7a234c6e608f2899ee92005",
+              "start_seconds": 5.0
+            },
+            {
+              "camera_id": "mendeley-lateral",
+              "end_seconds": 7.0,
+              "source_sha256": "1c81a0ee6a4e33d91cfeeaad0454a18b8b29e23b2e53f36bbba10efb2368763f",
+              "start_seconds": 5.0
+            }
+          ]
+        }
+      ]
+    },
     "demo-full": {
       "description": "Entire common readable Taegeuk 1 interval",
       "executions": [

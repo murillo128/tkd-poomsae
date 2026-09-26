@@ -1,0 +1,207 @@
+{
+  "device": "cpu",
+  "elapsed_seconds": 901.748,
+  "first_run_calls": {
+    "detector": 854,
+    "hand": 1945,
+    "model_loads": 14,
+    "wholebody": 854
+  },
+  "frame_count": 976,
+  "hand_states": {
+    "low_evidence": 794,
+    "refined": 1116,
+    "skipped": 34
+  },
+  "identity": {
+    "algorithm_revision": "native-observation-windows-v3-tracking-origin",
+    "model_revision": "abe9369d8d31291c61721a62209d4c3e3b3ea01defdecabc9a94d99fb25ee760",
+    "selection": "all-forms-smoke",
+    "settings": {
+      "detector_threshold": 0.3,
+      "device": "cpu",
+      "hand_roi": {
+        "clockwise": 0,
+        "coarse_threshold": 0.2,
+        "margin": 0.35,
+        "max_span_px": 512.0,
+        "min_hand_points": 3,
+        "min_source_span_px": 12.0,
+        "min_visible_fraction": 0.4,
+        "mirror_left": false,
+        "mirror_right": false,
+        "refined_threshold": 0.2
+      },
+      "max_frames": 32,
+      "max_people": 4,
+      "tracking": {
+        "ambiguity_margin": 0.2,
+        "max_gap_seconds": 0.5,
+        "max_match_cost": 1.5,
+        "min_initial_area_ratio": 1.2,
+        "min_raw_score": 0.2,
+        "min_raw_visibility": 0.5,
+        "min_roi_span_px": 12.0
+      }
+    },
+    "sources": [
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+        "mendeley-frontal",
+        "b5e9dabcee2ca88c3c7d29c81ee6b72d9577a2f19f6c4581cd1b657456b12375",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-1",
+        "mendeley-lateral",
+        "f440af7b093f1ba87ba2c8b4233b889416c54a7dc3b66b3dd3649e6e427ade3d",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-2",
+        "mendeley-frontal",
+        "c6ffa9499cd5547f16e08d84ef727d7b5c2a980d63ea593e540a3df6f12111fd",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-2",
+        "mendeley-lateral",
+        "45ad4df965461c0b87299e653f26167cfe87f3c19d76d0d19cc93bd195d707c7",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-3",
+        "mendeley-frontal",
+        "3dcc9a0ae987d484f11999f589a9ace6644bfce5fa38166adbffb4fa0c7cc932",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-3",
+        "mendeley-lateral",
+        "f926c639603729a724bacc9ba06f741d618f305046244906f15f4f7cec2907b9",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-4",
+        "mendeley-frontal",
+        "dbbf5e3243130a255a7365f341f2e3c411f8da2384400500a0a17ac70544285a",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-4",
+        "mendeley-lateral",
+        "1f460ee78e113f5a1a4fcc5a098f44615ef378b32731e6d076ce86a7b124ff26",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-5",
+        "mendeley-frontal",
+        "a34f759ffe2be51cccdb31f66f11bfff9a1918f47b7ac0efcd0fd900dd2b8729",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-5",
+        "mendeley-lateral",
+        "f561e2955f664d5fdb139e4b515bced20731c8e9fd57611f6d5b9f3f16766970",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-6",
+        "mendeley-frontal",
+        "a75bd1d922545d9287567dac0ac4ec294a9cb5436a1551c77d5e8ccacfc44816",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-6",
+        "mendeley-lateral",
+        "a19228a948d2bddf8ba5d1d421c2bb5e975765eab81a285329e07efdfa5af505",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-7",
+        "mendeley-frontal",
+        "0adde34223f2991ab493cb2cd6bfa7f2944877e83df9a1078ee6e461938a9d7b",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-7",
+        "mendeley-lateral",
+        "dcc1a205b57d3c0ad41ee20fcaf931f54592ea04c64c1672fa40425ffd93cfb1",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-8",
+        "mendeley-frontal",
+        "3765be05c7aa531b165f0a64b460df6c8858d768c7a234c6e608f2899ee92005",
+        5.0,
+        7.0
+      ],
+      [
+        "mendeley-bjy7vr4xkt-v1-taegeuk-8",
+        "mendeley-lateral",
+        "1c81a0ee6a4e33d91cfeeaad0454a18b8b29e23b2e53f36bbba10efb2368763f",
+        5.0,
+        7.0
+      ]
+    ]
+  },
+  "identity_sha256": "7ab27f4a4e77b0c053b8b1dccd1cc76ed0414aa2b38bf0ca82f61556d9e767be",
+  "interruption_resume": {
+    "reason": "observation run cancelled",
+    "retained_window_hashes_unchanged": true,
+    "retained_windows": 62
+  },
+  "offline_reload": true,
+  "persisted_raw_scores": 61236,
+  "receipt_path": "/home/sergio/.local/share/tkd-poomsae/derived/observation-runs/7ab27f4a4e77b0c053b8b1dccd1cc76ed0414aa2b38bf0ca82f61556d9e767be.json",
+  "receipt_sha256": "552588973a9142b7e836c7e04d80ba4efe4dbe801301ad4b517259da3d78616c",
+  "repeat_from_another_cwd": {
+    "cached": true,
+    "inference_calls": 0,
+    "network_calls": 0
+  },
+  "selected_frame_count": 972,
+  "selection": "all-forms-smoke",
+  "usable_by_view": {
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-frontal": 54,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-1:mendeley-lateral": 25,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-2:mendeley-frontal": 35,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-2:mendeley-lateral": 43,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-3:mendeley-frontal": 32,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-3:mendeley-lateral": 12,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-4:mendeley-frontal": 37,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-4:mendeley-lateral": 19,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-5:mendeley-frontal": 48,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-5:mendeley-lateral": 37,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-6:mendeley-frontal": 15,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-6:mendeley-lateral": 35,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-7:mendeley-frontal": 27,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-7:mendeley-lateral": 37,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-8:mendeley-frontal": 33,
+    "mendeley-bjy7vr4xkt-v1-taegeuk-8:mendeley-lateral": 23
+  },
+  "usable_region_frames": {
+    "body": 512,
+    "head": 870,
+    "left_foot": 908,
+    "left_hand": 195,
+    "right_foot": 887,
+    "right_hand": 121
+  },
+  "version": 1,
+  "window_count": 32
+}
