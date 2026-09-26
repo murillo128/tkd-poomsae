@@ -83,8 +83,8 @@ interval. All pre/post-roll samples remain available through the feature artifac
 Per-track action intervals are **not** created or synchronized by this component.
 Later assembly must consume original dense features and event intervals, and
 associate spanning actions without clipping their motion to these coarse
-proposals. These proposals do not change the existing final `Semantics` action
-containment contract. Manual corrections belong to the edit component and never
+proposals. [Semantic assembly](../semantics/README.md) assigns one onset owner and retains
+references from all overlapping steps. Manual corrections belong to the edit component and never
 replace the immutable automatic evidence here.
 
 The storage key includes the exact feature manifest hash, schema version,

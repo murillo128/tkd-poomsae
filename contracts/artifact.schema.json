@@ -23,6 +23,28 @@
         "interval": {
           "$ref": "#/$defs/Interval"
         },
+        "motion_links": {
+          "items": {
+            "$ref": "#/$defs/SemanticMotionLink"
+          },
+          "title": "Motion Links",
+          "type": "array"
+        },
+        "previous_action_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Action Id"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
         "role": {
           "default": "unknown",
           "enum": [
@@ -34,6 +56,18 @@
           ],
           "title": "Role",
           "type": "string"
+        },
+        "source_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Candidate Id"
         },
         "step_id": {
           "title": "Step Id",
@@ -1057,6 +1091,13 @@
           "title": "Id",
           "type": "string"
         },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
         "phase_id": {
           "anyOf": [
             {
@@ -1068,6 +1109,36 @@
           ],
           "default": null,
           "title": "Phase Id"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "source_event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "enum": [
+                "left_arm",
+                "right_arm",
+                "left_leg",
+                "right_leg",
+                "body_root",
+                "head"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track"
         }
       },
       "required": [
@@ -1802,9 +1873,19 @@
         "interval": {
           "$ref": "#/$defs/Interval"
         },
+        "motion_links": {
+          "items": {
+            "$ref": "#/$defs/SemanticMotionLink"
+          },
+          "title": "Motion Links",
+          "type": "array"
+        },
         "name": {
           "title": "Name",
           "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
         }
       },
       "required": [
@@ -2589,6 +2670,46 @@
       "title": "Segmentation",
       "type": "object"
     },
+    "SemanticMotionLink": {
+      "additionalProperties": false,
+      "description": "An inclusive dense source range on one physical track.",
+      "properties": {
+        "interval": {
+          "$ref": "#/$defs/Interval"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "track": {
+          "enum": [
+            "left_arm",
+            "right_arm",
+            "left_leg",
+            "right_leg",
+            "body_root",
+            "head"
+          ],
+          "title": "Track",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track",
+        "interval",
+        "motion_sample_indices",
+        "quality"
+      ],
+      "title": "SemanticMotionLink",
+      "type": "object"
+    },
     "Semantics": {
       "additionalProperties": false,
       "properties": {
@@ -2599,8 +2720,34 @@
           "title": "Actions",
           "type": "array"
         },
+        "arm_actions_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arm Actions Id"
+        },
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
         "execution": {
-          "$ref": "#/$defs/Interval"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "ground_id": {
           "title": "Ground Id",
@@ -2623,6 +2770,37 @@
           "title": "Kind",
           "type": "string"
         },
+        "lower_body_parsing_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lower Body Parsing Id"
+        },
+        "motion_features_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motion Features Id"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
         "phases": {
           "items": {
             "$ref": "#/$defs/Phase"
@@ -2632,6 +2810,9 @@
         },
         "provenance": {
           "$ref": "#/$defs/Provenance"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality"
         },
         "reconstruction_id": {
           "title": "Reconstruction Id",
@@ -2648,6 +2829,18 @@
           "const": "1.0.0",
           "title": "Schema Version",
           "type": "string"
+        },
+        "segmentation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segmentation Id"
         },
         "stances": {
           "items": {
@@ -2698,6 +2891,13 @@
         },
         "interval": {
           "$ref": "#/$defs/Interval"
+        },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
         }
       },
       "required": [
@@ -2872,12 +3072,35 @@
           "default": null,
           "title": "Front Entity"
         },
+        "front_quality": {
+          "$ref": "#/$defs/Quality"
+        },
+        "global_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Global Seconds"
+        },
         "id": {
           "title": "Id",
           "type": "string"
         },
         "interval": {
-          "$ref": "#/$defs/Interval"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "object": {
           "anyOf": [
@@ -2978,6 +3201,18 @@
         "quality": {
           "$ref": "#/$defs/Quality"
         },
+        "reference_frame": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Frame"
+        },
         "relation": {
           "enum": [
             "in_front_of",
@@ -2986,7 +3221,8 @@
             "below",
             "left_of",
             "right_of",
-            "crossed"
+            "crossed",
+            "unknown"
           ],
           "title": "Relation",
           "type": "string"
@@ -3093,7 +3329,6 @@
         "subject",
         "object",
         "relation",
-        "interval",
         "quality"
       ],
       "title": "SpatialRelation",
@@ -3114,8 +3349,27 @@
           "title": "Label",
           "type": "string"
         },
+        "motion_sample_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Motion Sample Indices",
+          "type": "array"
+        },
         "quality": {
           "$ref": "#/$defs/Quality"
+        },
+        "source_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Candidate Id"
         }
       },
       "required": [

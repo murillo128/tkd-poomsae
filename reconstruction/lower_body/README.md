@@ -44,9 +44,9 @@ interval overlap and do not trim, stretch or synchronize actions. Candidates
 outside the proposed execution remain available, including when the execution
 proposal is indeterminate. `native_times` covers the entire input and source
 artifact references retain access to the original six-track dense trajectories.
-This intermediate product is separate from the final shared `Semantics` hierarchy,
-whose current single-step action containment rule cannot express these overlap
-associations.
+This intermediate product is separate from final shared `Semantics`.
+[Semantic assembly](../semantics/README.md) gives each action one onset owner and
+references its complete interval from every overlapping coarse step.
 
 ## Persistence
 

@@ -58,16 +58,17 @@ export interface GroundSample { global_seconds: number; left: Contact; right: Co
 export interface Footprint { id: string; foot: 'left' | 'right'; interval: Interval; xy_ground: [number, number] | null; yaw_rad: number | null; quality: Quality }
 export interface Pivot { id: string; foot: 'left' | 'right'; interval: Interval; region: 'heel' | 'forefoot' | 'flat' | 'unknown'; rotation_rad: number | null; quality: Quality }
 export interface Ground extends ArtifactBase { kind: 'ground'; reconstruction_id: string; scale: 'metric' | 'arbitrary'; samples: GroundSample[]; footprints?: Footprint[]; pivots?: Pivot[]; measurements?: Measurement[]; arrays?: DenseArray[] }
-export interface SequenceStep { id: string; interval: Interval; action_ids: string[] }
+export interface SequenceStep { id: string; interval: Interval; action_ids: string[]; motion_sample_indices?: number[] }
 export interface MotionFeatures extends ArtifactBase { kind: 'motion_features'; reconstruction_id: string; ground_id: string; arrays: DenseArray[] }
 export interface Segmentation extends ArtifactBase { kind: 'segmentation'; reconstruction_id: string; ground_id: string; motion_features_id: string; execution: Interval | null; steps: SequenceStep[]; quality: Quality; arrays: DenseArray[] }
-export interface StanceState { id: string; interval: Interval; label: string; quality: Quality }
+export interface StanceState { id: string; interval: Interval; label: string; quality: Quality; source_candidate_id?: string | null; motion_sample_indices?: number[] }
 export interface LowerBodyParsing extends ArtifactBase { kind: 'lower_body_parsing'; reconstruction_id: string; ground_id: string; motion_features_id: string; segmentation_id: string; arrays: DenseArray[] }
-export interface Action { id: string; interval: Interval; step_id: string; tracks: Track[]; category: 'arm' | 'placement' | 'pivot' | 'kick' | 'stance_transition' | 'special' | 'transition'; role?: 'attack' | 'defense' | 'preparation' | 'special' | 'unknown' }
-export interface Phase { id: string; action_id: string; interval: Interval; name: string }
-export interface Keyframe { id: string; action_id: string; phase_id?: string | null; global_seconds: number; event: string }
-export interface SpatialRelation { id: string; subject: BodyEntity; object: BodyEntity; relation: 'in_front_of' | 'behind' | 'above' | 'below' | 'left_of' | 'right_of' | 'crossed'; interval: Interval; front_entity?: BodyEntity | null; quality: Quality }
-export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruction_id: string; ground_id: string; execution: Interval; steps: SequenceStep[]; stances: StanceState[]; actions: Action[]; phases: Phase[]; keyframes: Keyframe[]; relations: SpatialRelation[] }
+export interface SemanticMotionLink { track: Track; interval: Interval; motion_sample_indices: number[]; quality: Quality }
+export interface Action { id: string; interval: Interval; step_id: string; tracks: Track[]; category: 'arm' | 'placement' | 'pivot' | 'kick' | 'stance_transition' | 'special' | 'transition'; role?: 'attack' | 'defense' | 'preparation' | 'special' | 'unknown'; quality?: Quality; motion_links?: SemanticMotionLink[]; source_candidate_id?: string | null; previous_action_id?: string | null }
+export interface Phase { id: string; action_id: string; interval: Interval; name: string; quality?: Quality; motion_links?: SemanticMotionLink[] }
+export interface Keyframe { id: string; action_id: string; phase_id?: string | null; global_seconds: number; event: string; track?: Track | null; quality?: Quality; source_event_ids?: string[]; motion_sample_indices?: number[] }
+export interface SpatialRelation { id: string; subject: BodyEntity; object: BodyEntity; relation: 'in_front_of' | 'behind' | 'above' | 'below' | 'left_of' | 'right_of' | 'crossed' | 'unknown'; interval?: Interval | null; global_seconds?: number | null; front_entity?: BodyEntity | null; quality: Quality; front_quality?: Quality; reference_frame?: string | null }
+export interface Semantics extends ArtifactBase { kind: 'semantics'; reconstruction_id: string; ground_id: string; execution: Interval | null; steps: SequenceStep[]; stances: StanceState[]; actions: Action[]; phases: Phase[]; keyframes: Keyframe[]; relations: SpatialRelation[]; quality?: Quality; motion_features_id?: string | null; segmentation_id?: string | null; arm_actions_id?: string | null; lower_body_parsing_id?: string | null; arrays?: DenseArray[]; motion_sample_indices?: number[] }
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 export interface ManualEdit { id: string; target_id: string; field_path: string; replacement: JsonValue; author: string; reason?: string | null }
 export interface ManualEdits extends ArtifactBase { kind: 'manual_edits'; automatic_semantics_id: string; edits: ManualEdit[] }
