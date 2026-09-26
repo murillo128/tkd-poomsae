@@ -49,3 +49,10 @@ revisions are part of the key and saved run status. Per-project run locks and
 artifact-store locks protect concurrent writers. Cancellation is requested via
 `cancel` and checked before publication; producers doing long work should check
 for cancellation at their own safe points as they are integrated.
+
+The reconstruction slot publishes immutable raw N-view triangulation from an
+accepted `Calibration` and an `Alignment` attachment artifact. Configure an
+explicit `participant_id` and optional `triangulation` settings. The standalone
+publisher and diagnostic format are documented in
+[`reconstruction/triangulation`](../reconstruction/triangulation/README.md).
+Body fitting and temporal regularization remain separate derived artifacts.

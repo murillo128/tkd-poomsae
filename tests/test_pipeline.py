@@ -51,7 +51,14 @@ def artifact(name: str, key: ArtifactKey) -> ArtifactBase:
             }
             for side in ("left", "right")
         ]
-    elif name in {"observations", "attachment"}:
+    elif name == "attachment":
+        value.update(
+            synchronization_id="sync",
+            observation_digests=["0" * 64],
+            query_count=1,
+            arrays=[],
+        )
+    elif name == "observations":
         value.update(
             frame={
                 "source_id": "left",
