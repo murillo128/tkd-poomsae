@@ -78,6 +78,7 @@ public final class CameraEngine {
     private Surface recorderSurface;
     private MediaRecorder mediaRecorder;
     private List<CaptureRequest> highSpeedRequests;
+    private List<CaptureRequest> highSpeedPreviewRequests;
 
     private String sessionId;
     private File videoFile;
@@ -455,26 +456,33 @@ public final class CameraEngine {
 
     private void buildHighSpeedRequests() {
         try {
-            CaptureRequest.Builder builder =
+            CaptureRequest.Builder recordBuilder =
                     cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-            builder.addTarget(previewSurface);
-            builder.addTarget(recorderSurface);
-            builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
-            builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range<>(FPS, FPS));
-            builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
-            builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, actualExposureNs);
-            builder.set(CaptureRequest.SENSOR_SENSITIVITY, actualIso);
-            builder.set(CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-            builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
-            disableStabilization(builder);
+            recordBuilder.addTarget(previewSurface);
+            recordBuilder.addTarget(recorderSurface);
+            applyHighSpeedControls(recordBuilder, new Range<>(FPS, FPS));
 
             highSpeedRequests =
-                    highSpeedSession.createHighSpeedRequestList(builder.build());
+                    highSpeedSession.createHighSpeedRequestList(recordBuilder.build());
+
+            // Keep a live preview while the camera is ARMED/READY. A preview-only
+            // high-speed request is allowed to run at a lower display cadence while
+            // the encoder surface stays configured and ready for START.
+            Range<Integer> previewRange = choosePreviewHighSpeedRange();
+            CaptureRequest.Builder previewBuilder =
+                    cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewBuilder.addTarget(previewSurface);
+            applyHighSpeedControls(previewBuilder, previewRange);
+
+            highSpeedPreviewRequests =
+                    highSpeedSession.createHighSpeedRequestList(previewBuilder.build());
+
+            highSpeedSession.setRepeatingBurst(
+                    highSpeedPreviewRequests, previewCaptureCallback, cameraHandler);
 
             state = State.READY;
             String detail = String.format(Locale.US,
-                    "READY · cam0 1920x1080@120 · AF continuous · shutter ~1/%d · ISO %d",
+                    "READY · live preview · cam0 1920x1080@120 · AF continuous · shutter ~1/%d · ISO %d",
                     Math.round(1_000_000_000.0 / actualExposureNs),
                     actualIso);
             status(detail);
@@ -483,6 +491,44 @@ public final class CameraEngine {
             error("Build high-speed request failed: " + describe(e));
         }
     }
+
+    private void applyHighSpeedControls(
+            CaptureRequest.Builder builder, Range<Integer> fpsRange) {
+        builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+        builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+        builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+        builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, actualExposureNs);
+        builder.set(CaptureRequest.SENSOR_SENSITIVITY, actualIso);
+        builder.set(CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+        builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+        disableStabilization(builder);
+    }
+
+    private Range<Integer> choosePreviewHighSpeedRange() {
+        try {
+            StreamConfigurationMap map =
+                    characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (map != null) {
+                Size target = new Size(WIDTH, HEIGHT);
+                Range<Integer>[] ranges = map.getHighSpeedVideoFpsRangesFor(target);
+                Range<Integer> best = null;
+                for (Range<Integer> range : ranges) {
+                    if (range.getUpper() == FPS && range.getLower() < FPS) {
+                        if (best == null || range.getLower() < best.getLower()) {
+                            best = range;
+                        }
+                    }
+                }
+                if (best != null) return best;
+            }
+        } catch (Exception ignored) {
+        }
+        return new Range<>(FPS, FPS);
+    }
+
+    private final CameraCaptureSession.CaptureCallback previewCaptureCallback =
+            new CameraCaptureSession.CaptureCallback() {};
 
     private void disableStabilization(CaptureRequest.Builder builder) {
         int[] videoModes =
@@ -548,10 +594,10 @@ public final class CameraEngine {
             uniqueSensorFrames = 0L;
             captureFailures = 0L;
 
-            highSpeedSession.setRepeatingBurst(
-                    highSpeedRequests, recordingCaptureCallback, cameraHandler);
             mediaRecorder.start();
             recorderStarted = true;
+            highSpeedSession.setRepeatingBurst(
+                    highSpeedRequests, recordingCaptureCallback, cameraHandler);
             state = State.RECORDING;
 
             long deltaNs = scheduledStartNs > 0 ? startCallNs - scheduledStartNs : 0L;
@@ -766,6 +812,7 @@ public final class CameraEngine {
         previewSurface = null;
 
         highSpeedRequests = null;
+        highSpeedPreviewRequests = null;
     }
 
     private void status(String message) {
