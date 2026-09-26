@@ -344,10 +344,21 @@ class Pipeline:
                         )
                         if asset == "artifact" and path.is_file():
                             provisioned = ArtifactKey(**_read_json(path))
-                            handle = self.store.get(provisioned)
-                            inputs["provisioned_calibration"] = hash_file(
-                                handle.path / "manifest.json"
-                            )
+                            try:
+                                handle = self.store.get(provisioned)
+                            except MissingResource:
+                                # Missing optional geometry must not prevent
+                                # native stages, status or config replacement.
+                                inputs["provisioned_calibration"] = hash_config(
+                                    {
+                                        "missing": "calibration",
+                                        "key": provisioned.digest,
+                                    }
+                                )
+                            else:
+                                inputs["provisioned_calibration"] = hash_file(
+                                    handle.path / "manifest.json"
+                                )
             revision, model_revision = identities.get(
                 name, (stage.revision, stage.model_revision)
             )

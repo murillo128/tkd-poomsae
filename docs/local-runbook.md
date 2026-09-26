@@ -161,7 +161,11 @@ Exit zero means the requested path completed. Without provisioned model assets,
 Without calibration, a full run returns nonzero, retains native 2D observations
 and synchronization for inspection, and reports calibration/3D/ground/parsing
 unavailable. Supply independent evidence and run again; no fallback success is
-reported. `--through observations` runs only native 2D production and does not
+reported. A calibration key whose shared artifact is missing also reports
+`unavailable`; it does not prevent upstream runs or `status`. Restore/reproduce
+that artifact, or replace the saved calibration settings with `--config`.
+Corrupt published artifacts still fail hash verification.
+`--through observations` runs only native 2D production and does not
 create inspection until synchronization is available on a later invocation.
 
 Bounded offline checks are `pytest -q tests/test_offline_pipeline.py` and

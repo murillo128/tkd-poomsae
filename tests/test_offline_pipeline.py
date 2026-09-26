@@ -316,3 +316,178 @@ def test_scene_adapter_binds_runner_key_without_mutating_candidate(
         == stage_keys["calibration"].config_digest
     )
     assert cal.model_dump(mode="json") == original
+
+
+def test_missing_calibration_allows_native_work_status_and_config_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import shutil
+
+    import pose.observation_run
+    from contracts.models import FrameTime, Provenance
+    from pipeline import Pipeline
+    from storage import ArtifactStore, CorruptArtifact, StorageRoot, hash_config
+    from tests.test_ground_contact import calibration
+    from tests.test_media_reader import video
+
+    root = tmp_path / "store"
+    monkeypatch.setenv("TKD_DATA_ROOT", str(root))
+    monkeypatch.delenv("TKD_VISION_PYTHON", raising=False)
+    store = ArtifactStore(StorageRoot(root))
+    sources = {
+        "left": video(tmp_path / "left.mkv", [0, 40, 80]),
+        "right": video(tmp_path / "right.mkv", [0, 50, 100]),
+    }
+    pipe = Pipeline(store)
+    pipe.register("missing-calibration", sources)
+    cal = calibration()
+    cal.cameras = cal.cameras[:2]
+    for camera, (name, source) in zip(cal.cameras, sources.items(), strict=True):
+        camera.camera_id, camera.source_id = name, "source:" + hash_file(source)
+    provisioned = ArtifactKey(
+        layer="calibration",
+        inputs={"fixture": hash_config(cal.model_dump())},
+        schema_version="1.0.0",
+        algorithm_revision="supplied-test-calibration",
+        config_digest=cal.provenance.config_digest,
+    )
+    key_file = tmp_path / "calibration-key.json"
+    key_file.write_text(json.dumps(key_data(provisioned)))
+    config_file = tmp_path / "settings.json"
+    config_file.write_text(
+        json.dumps(
+            {
+                "calibration": {"artifact": key_file.name},
+                "sync": {
+                    "reference": "left",
+                    "manual_offsets": {
+                        name: {
+                            "offset_seconds": 0,
+                            "author": "synthetic",
+                            "source": "fixture",
+                            "reason": "inspect native observations without geometry",
+                        }
+                        for name in sources
+                    },
+                },
+            }
+        )
+    )
+
+    windows = []
+    for name, source in sources.items():
+        digest = hash_config({"camera": name})
+        observation = Observation(
+            kind="observation",
+            id="native-" + name,
+            schema_version="1.0.0",
+            provenance=Provenance(producer="synthetic", config_digest=digest),
+            frame=FrameTime(
+                source_id="source:" + hash_file(source),
+                camera_id=name,
+                pts=0,
+                time_base_num=1,
+                time_base_den=1000,
+                source_seconds=0,
+                offset_seconds=0,
+                global_seconds=0,
+            ),
+            landmarks=[],
+        )
+        array = _record_bytes(
+            [
+                {
+                    "observation": observation.model_dump(mode="json"),
+                    "model_identity": {},
+                    "inference_settings": {},
+                    "hand_observations": {},
+                    "hand_roi_to_source": {},
+                    "source_orientation": {},
+                    "tracker_state": {},
+                }
+            ]
+        )
+        observation.arrays = [
+            DenseArray(
+                id=ARRAY_ID, dtype="uint8", shape=[len(array)], axes=["json_byte"]
+            )
+        ]
+        key = ArtifactKey(
+            layer="observation",
+            inputs={"source": hash_file(source)},
+            schema_version="1.0.0",
+            algorithm_revision="supplied-test-window",
+            config_digest=digest,
+        )
+        store.get_or_create(key, lambda: (observation, {ARRAY_ID: array}))
+        windows.append(key)
+    calls = []
+
+    def supplied_windows(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        calls.append(1)
+        return {"windows": [{"key": key_data(key)} for key in windows]}
+
+    monkeypatch.setattr(pose.observation_run, "run_windows", supplied_windows)
+
+    def invoke(*args: str) -> tuple[int, dict[str, Any]]:
+        monkeypatch.setattr(
+            sys, "argv", ["tkd-poomsae", "run", "missing-calibration", *args]
+        )
+        code = main()
+        captured = capsys.readouterr()
+        assert captured.out, captured.err
+        return code, json.loads(captured.out)
+
+    code, ingested = invoke("--config", str(config_file), "--through", "ingest")
+    assert code == 0
+    assert ingested["stages"]["ingest"]["status"] == "complete"
+    code, native = invoke("--through", "observations")
+    assert code == 0
+    assert native["stages"]["observations"]["status"] == "complete"
+    code, unavailable = invoke()
+    assert code == 1
+    assert unavailable["stages"]["calibration"]["status"] == "unavailable"
+    diagnostic = " ".join(unavailable["stages"]["calibration"]["diagnostics"])
+    assert provisioned.digest in diagnostic
+    assert "python -m calibration" in diagnostic and "--key-output" in diagnostic
+    assert unavailable["stages"]["observations"]["cached"]
+    assert unavailable["inspection_registered"]
+    assert (
+        pipe.status("missing-calibration")["stages"]["calibration"]["status"]
+        == "unavailable"
+    )
+    missing_key = unavailable["stages"]["calibration"]["key"]
+    assert invoke()[1]["stages"]["calibration"]["key"] == missing_key
+
+    # Available calibration binds the verified manifest; its disappearance
+    # invalidates even a complete runner result while preserving native caches.
+    handle = store.get_or_create(provisioned, lambda: (cal, {}))
+    code, available = invoke("--through", "calibration")
+    assert code == 0
+    assert available["stages"]["calibration"]["key"] != missing_key
+    assert available["stages"]["calibration"]["status"] == "complete"
+    metadata_path = handle.path / "metadata.json"
+    original_metadata = metadata_path.read_bytes()
+    metadata_path.write_text("{}")
+    with pytest.raises(CorruptArtifact):
+        pipe.status("missing-calibration")
+    metadata_path.write_bytes(original_metadata)
+    shutil.rmtree(handle.path)
+    assert (
+        pipe.status("missing-calibration")["stages"]["calibration"]["status"] == "stale"
+    )
+    code, absent_again = invoke()
+    assert code == 1
+    assert absent_again["stages"]["calibration"]["status"] == "unavailable"
+    assert absent_again["stages"]["calibration"]["key"] == missing_key
+    assert absent_again["stages"]["observations"]["cached"]
+
+    replacement = tmp_path / "replacement.json"
+    replacement.write_text("{}")
+    code, recovered = invoke("--config", str(replacement), "--through", "ingest")
+    assert code == 0
+    assert "calibration" not in recovered["config"]
+    assert (
+        pipe.status("missing-calibration")["stages"]["ingest"]["status"] == "complete"
+    )
+    assert calls == [1]

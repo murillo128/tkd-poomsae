@@ -25,7 +25,14 @@ from pipeline.runner import (
     _write_json,
     key_data,
 )
-from storage import ArtifactHandle, ArtifactKey, ArtifactStore, hash_config, hash_file
+from storage import (
+    ArtifactHandle,
+    ArtifactKey,
+    ArtifactStore,
+    MissingResource,
+    hash_config,
+    hash_file,
+)
 
 REVISION = "offline-publishers-v1"
 
@@ -175,7 +182,17 @@ def configured_pipeline(project: str, store: ArtifactStore | None = None) -> Pip
                 raise CapabilityUnavailable(
                     f"Missing calibration key file: {path}; see calibration/README.md"
                 )
-            handle = publisher.get(ArtifactKey(**_read_json(path)))
+            provisioned = ArtifactKey(**_read_json(path))
+            try:
+                handle = publisher.get(provisioned)
+            except MissingResource as exc:
+                raise CapabilityUnavailable(
+                    f"Missing provisioned calibration {provisioned.digest} "
+                    f"under {publisher.root.path}; restore its shared artifact "
+                    "or reproduce/export it with `python -m calibration "
+                    'CAPTURES.json --data-root "$TKD_DATA_ROOT" '
+                    "--key-output KEY.json`; see docs/local-runbook.md"
+                ) from exc
             cal = handle.metadata.model_copy(deep=True)
         if not isinstance(cal, Calibration):
             raise ValueError("calibration artifact required")
