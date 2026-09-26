@@ -3,7 +3,7 @@
 `reconstruction.features` consumes existing temporal reconstruction and ground
 artifacts. It runs with complete-sequence context and does not call pose,
 calibration, reconstruction, or ground producers. It does not read the Mendeley
-CSV or train/fit thresholds. `motion-features-v2` is a transparent heuristic
+CSV or train/fit thresholds. `motion-features-v3` is a transparent heuristic
 baseline, with versioned configuration and explicit evidence links.
 
 ```python
@@ -98,7 +98,14 @@ is conservatively left without onset; dense measurements are retained.
 
 Prominent interior extension maxima/minima supply extension end/preparation and
 direction-change candidates. Increasing extension inside a motion bout supplies
-extension start. Local path extrema also supply direction changes when incoming
+extension start only when chain measurements remain known and non-interpolated
+from the bout onset through the first increase exceeding both the prominence
+threshold and an uncertainty bound. That bound is `uncertainty_multiplier` times
+the sum of baseline uncertainty and maximum uncertainty in the supporting prefix,
+all in extension-ratio units. Candidate source references include this chain
+evidence, including the elbow or knee. A chain gap before the confirmed increase
+prevents an extension-start boundary while independently supported motion events
+remain available. Local path extrema also supply direction changes when incoming
 and outgoing displacements oppose each other and exceed the excursion bound.
 Extrema use offline prominence on connected native evidence, selecting a single
 plateau representative. Subthreshold jitter and same-kind nearby candidates are
@@ -122,9 +129,11 @@ time and durations are never normalized away.
 
 The immutable artifact key includes the exact temporal-motion and ground manifest
 hashes, algorithm revision, schema version, and feature configuration digest.
-Revision `motion-features-v2` invalidates cached extraction from before the native
-frame/derivative quality correction. Historical v1 payloads remain readable with
-their original revision and evidence; publication generates v2 results.
+Revision `motion-features-v2` invalidated extraction from before the native
+frame/derivative quality correction. Revision `motion-features-v3` additionally
+regenerates extraction with qualified extension-start evidence. Historical v1/v2
+payloads remain readable with their original revision and evidence; publication
+generates v3 results.
 Identical inputs reuse extraction; changing motion, ground, or thresholds creates
 only a new feature artifact. The inspectable versioned payload is stored as a
 read-only uint8 array in the existing artifact store, preserving all dense rows

@@ -692,3 +692,75 @@ def test_independent_root_orientation_keeps_its_own_quality() -> None:
         for r in root
         if r.angular.velocity is not None
     )
+
+
+def short_arm_excursion() -> tuple[Reconstruction, Ground]:
+    source, ground = sequence(flat=True)
+    ground.samples = []
+    for sample in source.samples:
+        distance = 0.3 + 0.4 * max(0, 1 - abs(sample.global_seconds - 0.4) / 0.04)
+        for p in sample.landmarks:
+            if p.name == "left_wrist":
+                p.xyz_world = (-0.25, distance, 1.6)
+            elif p.name == "left_elbow":
+                p.xyz_world = (
+                    -0.25 - math.sqrt(0.4**2 - (distance / 2) ** 2),
+                    distance / 2,
+                    1.6,
+                )
+    return source, ground
+
+
+@pytest.mark.parametrize("evidence", ["interpolated", "unknown", "uncertain"])
+def test_extension_start_requires_chain_evidence_and_preserves_wrist_events(
+    evidence: str,
+) -> None:
+    source, ground = short_arm_excursion()
+    for sample in source.samples:
+        if 0.36 <= sample.global_seconds <= 0.44:
+            for p in sample.landmarks:
+                if p.name == "left_elbow":
+                    if evidence == "uncertain":
+                        p.quality.uncertainty = 0.04
+                    else:
+                        p.quality.state = (
+                            "interpolated" if evidence == "interpolated" else "unknown"
+                        )
+                        if evidence == "unknown":
+                            p.xyz_world = None
+                            p.quality.uncertainty = None
+    result = derive_features(source, ground)
+    kinds = {e.kind for e in result.events if e.track == "left_arm"}
+    assert {"motion_onset", "direction_change"} <= kinds
+    assert "extension_start" not in kinds
+
+
+def test_extension_start_retains_elbow_quality_references() -> None:
+    source, ground = short_arm_excursion()
+    result = derive_features(source, ground)
+    events = [
+        e
+        for e in result.events
+        if e.track == "left_arm" and e.kind == "extension_start"
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event.quality.state == "inferred"
+    assert any(ref.endswith(":left_elbow") for ref in event.quality.source_ids)
+    assert any(ref.endswith(":left_shoulder") for ref in event.quality.source_ids)
+    assert any(ref.endswith(":left_wrist") for ref in event.quality.source_ids)
+
+
+def test_extension_start_cannot_bridge_missing_chain_support_before_peak() -> None:
+    source, ground = short_arm_excursion()
+    for p in source.samples[18].landmarks:  # 0.36 s, before the observed peak
+        if p.name == "left_elbow":
+            p.xyz_world = None
+            p.quality = Quality(state="unknown")
+    result = derive_features(source, ground)
+    assert any(
+        e.track == "left_arm" and e.kind == "motion_onset" for e in result.events
+    )
+    assert not any(
+        e.track == "left_arm" and e.kind == "extension_start" for e in result.events
+    )

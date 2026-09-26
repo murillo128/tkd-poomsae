@@ -36,7 +36,7 @@ from reconstruction.temporal.core import (
     vector,
 )
 
-REVISION: Literal["motion-features-v2"] = "motion-features-v2"
+REVISION: Literal["motion-features-v3"] = "motion-features-v3"
 TRACKS: tuple[Track, ...] = (
     "left_arm",
     "right_arm",
@@ -143,7 +143,9 @@ class EventCandidate(StrictModel):
 class FeatureSeries(StrictModel):
     version: Literal[1] = 1
     artifact_role: Literal["physical_motion_features"] = "physical_motion_features"
-    algorithm_revision: Literal["motion-features-v1", "motion-features-v2"] = REVISION
+    algorithm_revision: Literal[
+        "motion-features-v1", "motion-features-v2", "motion-features-v3"
+    ] = REVISION
     reconstruction_id: str
     ground_id: str
     config: FeatureConfig
@@ -647,6 +649,37 @@ def _emit(
     )
 
 
+def _extension_increase(
+    rows: list[FeatureSample], indices: list[int], config: FeatureConfig
+) -> list[Quality] | None:
+    """Return the continuous chain evidence proving an increase from bout onset."""
+    baseline = rows[indices[0]].extension
+    if baseline.value is None:
+        return None
+    qualities: list[Quality] = []
+    maximum_uncertainty = 0.0
+    for i in indices:
+        extension = rows[i].extension
+        q = extension.quality
+        if (
+            extension.value is None
+            or q.state in ("unknown", "interpolated")
+            or q.uncertainty is None
+            or not q.source_ids
+        ):
+            return None
+        qualities.append(q)
+        maximum_uncertainty = max(maximum_uncertainty, q.uncertainty)
+        bound = config.uncertainty_multiplier * (
+            float(baseline.quality.uncertainty or 0) + maximum_uncertainty
+        )
+        if extension.value - baseline.value > max(
+            config.extension_prominence_ratio, bound
+        ):
+            return qualities
+    return None
+
+
 def _bouts(
     rows: list[FeatureSample],
     config: FeatureConfig,
@@ -745,22 +778,18 @@ def _bouts(
                             if angular
                             else "quiet-to-moving translation bout",
                         )
-                        es = [rows[j].extension.value for j in indices]
-                        if (
-                            not angular
-                            and es[0] is not None
-                            and any(
-                                e is not None
-                                and e - es[0] > config.extension_prominence_ratio
-                                for e in es
-                            )
-                        ):
+                        extension_qs = (
+                            None
+                            if angular
+                            else _extension_increase(rows, indices, config)
+                        )
+                        if extension_qs is not None:
                             _emit(
                                 rows,
                                 "extension_start",
                                 start,
                                 indices,
-                                qs,
+                                qs + extension_qs,
                                 events,
                                 "bout includes increasing chain extension",
                             )
