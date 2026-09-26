@@ -1398,6 +1398,13 @@
     "Morphology": {
       "additionalProperties": false,
       "properties": {
+        "arrays": {
+          "items": {
+            "$ref": "#/$defs/DenseArray"
+          },
+          "title": "Arrays",
+          "type": "array"
+        },
         "id": {
           "minLength": 1,
           "title": "Id",

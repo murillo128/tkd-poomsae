@@ -696,6 +696,7 @@ class Morphology(ArtifactBase):
     kind: Literal["morphology"]
     participant_id: str
     measurements: list[Measurement]
+    arrays: list[DenseArray] = Field(default_factory=list)
 
 
 class Contact(StrictModel):

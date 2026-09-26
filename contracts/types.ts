@@ -51,7 +51,7 @@ export interface SegmentFrame { segment: string; parent: 'world' | 'root' | 'tor
 export interface MotionSample { global_seconds: number; root_xyz_world: [number, number, number] | null; root_orientation: Quaternion | null; landmarks: Landmark3D[]; segments?: SegmentFrame[]; quality: Quality }
 export interface Reconstruction extends ArtifactBase { kind: 'reconstruction'; calibration_id: string; participant_id: string; scale: 'metric' | 'arbitrary'; samples: MotionSample[]; arrays?: DenseArray[] }
 export interface Measurement { name: string; value: number | null; unit: 'm' | 'arbitrary' | 'body_ratio' | 'deg' | 'rad'; quality: Quality }
-export interface Morphology extends ArtifactBase { kind: 'morphology'; participant_id: string; measurements: Measurement[] }
+export interface Morphology extends ArtifactBase { kind: 'morphology'; participant_id: string; measurements: Measurement[]; arrays?: DenseArray[] }
 export interface Contact { state: 'contact' | 'no_contact' | 'unknown'; region?: 'heel' | 'forefoot' | 'flat' | null; quality: Quality }
 export interface GroundSample { global_seconds: number; left: Contact; right: Contact; support: 'both' | 'left' | 'right' | 'neither' | 'unknown' }
 export interface Footprint { id: string; foot: 'left' | 'right'; interval: Interval; xy_ground: [number, number] | null; yaw_rad: number | null; quality: Quality }
