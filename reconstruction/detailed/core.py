@@ -105,7 +105,7 @@ class DetailedSample(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     global_seconds: float
     reconstruction_id: str
-    representation: Literal["raw", "fitted"]
+    representation: Literal["raw", "fitted", "regularized"]
     algorithm_revision: str = REVISION
     config: GeometryConfig
     body_frame: Frame
@@ -544,7 +544,7 @@ def derive_sample(
     sample: MotionSample,
     *,
     reconstruction_id: str,
-    representation: Literal["raw", "fitted"],
+    representation: Literal["raw", "fitted", "regularized"],
     config: GeometryConfig | None = None,
 ) -> DetailedSample:
     """Recompute on supplied final geometry, without mutating landmarks or frames."""
