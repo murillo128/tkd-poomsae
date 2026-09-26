@@ -12,7 +12,7 @@ const executable = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHR
 
 export default defineConfig({
   fullyParallel: false,
-  outputDir: './test-results',
+  outputDir: './test-results/components',
   projects: [
     {
       name: 'ground', testDir: './tests',
