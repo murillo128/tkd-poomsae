@@ -1,0 +1,113 @@
+{
+  "action_categories": {
+    "arm": 3,
+    "kick": 1,
+    "transition": 11
+  },
+  "claim": "Controlled software integration; not real-video or parser accuracy",
+  "execution": {
+    "end": 3.2,
+    "start": 0.8
+  },
+  "fixture_revision": "controlled-motion-v1",
+  "keyframes": 58,
+  "manual_labels": false,
+  "model_inference": false,
+  "motion_samples": 101,
+  "parser_rerun": {
+    "changed_stage_count": 5,
+    "physical_payload_bytes_unchanged": true,
+    "upstream_publishers_forbidden": true,
+    "validated_by": "tests/test_controlled_acceptance.py"
+  },
+  "products": {
+    "alignment": {
+      "id": "alignment:08acdd45d08632e4142836a0e71042e4663cbd2c3521e023cc4cf168ebd8484b",
+      "manifest_sha256": "b3d2fd3841e056d26696d75e11fe658368b890d152e034f038abc0c0aec39cb2",
+      "producer": "sync.alignment"
+    },
+    "arms": {
+      "id": "arm-actions:46a7c64a6077abd8b2dbc9da2c562b29d89ed4fb9360b43a7912972f2d7376d2",
+      "manifest_sha256": "24872c09006c976ffbef7b3441e8a13b53db8001a2a68a4c95f57d0c8174b5d0",
+      "producer": "reconstruction.arms"
+    },
+    "calibration": {
+      "id": "controlled-motion-v1-calibration",
+      "manifest_sha256": "22f878e1aff209f4456bc27a103e212cc8f1f96c39266379e22584cdd737bd89",
+      "producer": "controlled-supplied-geometry"
+    },
+    "contacts": {
+      "id": "ground-contact:5e877e9c368b66511d9b40c23414ccd2bc67ef06fc0b5640f15daab23a89b10b",
+      "manifest_sha256": "3c262dcd76e450d95b1b5e4af59208712e98edd18addc26e03e73673b7b1e19c",
+      "producer": "reconstruction.ground"
+    },
+    "features": {
+      "id": "motion-features:a448994a7030e7ffb8fdb6a6f0ee1f8ae371ebcccc9dfea9378d5f0885dd7e72",
+      "manifest_sha256": "bd16e4d5e03e255cd23a3aef50976bc59d89e286d7755e8ff39cef9079c3fc03",
+      "producer": "reconstruction.features"
+    },
+    "feet": {
+      "id": "ground-footprints:d1ec51306ce5284fe2d1441c552dd89a268697235fe5526bd443ed3bba52b7ea",
+      "manifest_sha256": "c51a55a47cf3b8bbf0a2c69dd76f93301bd89e50a60f46c5a0f01985dba7463f",
+      "producer": "reconstruction.footprints"
+    },
+    "fitted": {
+      "id": "articulated-pose:157d0fdf3bf59803b82fda47080beed7d4cdb96046a06a735962548be14d3853",
+      "manifest_sha256": "f1d95ee47b25891b2e3e457ae4c6a03e4a54055725bf0b7f05b8a3164f66d3be",
+      "producer": "reconstruction.articulated"
+    },
+    "ground": {
+      "id": "ground-view:cb7b01223d15baad6e2998d4a40327164dbeb1055d2e7c68378dea71b868b094",
+      "manifest_sha256": "bec53876fa3268b292dabd78f2fd1044ec40ede6872f43395e175cb86cdc206c",
+      "producer": "reconstruction.ground_view"
+    },
+    "legs": {
+      "id": "lower-body:7890c0b718f4a992ba74190d7c320b755f046caca36358c1d7f766ccdca90c33",
+      "manifest_sha256": "cadd0f166b109d199355f105bf78296db7447e36bdd6d671a2b1cef1faec1c9f",
+      "producer": "reconstruction.lower_body"
+    },
+    "morphology": {
+      "id": "articulated-morphology:95d5a15947e31fbb01841cc939e2c15cd9ed4cfb882a8572edeeeb22eaa20d0b",
+      "manifest_sha256": "ca85b1669efe81b8cf5830bb61aea2e4be37416ac7cecaf42485af20d93aaa3d",
+      "producer": "reconstruction.articulated"
+    },
+    "pivots": {
+      "id": "ground-pivots:8dc96eb9d24d227e48cbcbb002dfdbe41b90f71c9d892c842e4319f3b0c7a71d",
+      "manifest_sha256": "f9e1961daf1b3712fe0307f92248f2c892a9bffdd76a74cce0933cde0d8c5e0c",
+      "producer": "reconstruction.pivots"
+    },
+    "raw": {
+      "id": "raw-triangulation:2fc984c0c6defb833b0342ea46cebe85079b8b9ab7d4c6ebc926a1d67d89f7f5",
+      "manifest_sha256": "dfb79af4a44ad6fca08c751e0dd5e68f97cfcde39d9d19fd437a06dd47117054",
+      "producer": "reconstruction.triangulation"
+    },
+    "reconstruction": {
+      "id": "temporal-motion:b1b23fa760249da27615160d226b98d8840ac75551772f17bf2d37ed051c69f2",
+      "manifest_sha256": "bbd173b9390ffbbe8a5c6084beded21e90b6b243de24126861aed8970ad70d46",
+      "producer": "reconstruction.temporal"
+    },
+    "segmentation": {
+      "id": "segmentation:85ac9b361b62d456de879fa53ef2948bd91570a0430613de490cf00704df1236",
+      "manifest_sha256": "4c338ae0501868fe9533d430a46c59071c844d7ab7689600c122586e0d4c22f0",
+      "producer": "reconstruction.segmentation"
+    },
+    "semantics": {
+      "id": "semantics:4bb94a8390f0f02c7178c6ca69b85bf86552f24624b52a2221bdaf85201f4970",
+      "manifest_sha256": "03a47d58aca2222bd4df5f46858b59f4ceb2b64dbf8832efdec18c472f16c0a6",
+      "producer": "reconstruction.semantics"
+    },
+    "sync": {
+      "id": "controlled-motion-v1-sync",
+      "manifest_sha256": "862de60ea93a431dedc9459abe90d54c9ff6cd00f50301b93b58c1c56e682d8c",
+      "producer": "controlled-supplied-geometry"
+    }
+  },
+  "project": "controlled-acceptance",
+  "repeated_run_identical_report": true,
+  "steps": 1,
+  "supplied": [
+    "metric cameras and ground",
+    "zero-offset clocks",
+    "projected 2D observations"
+  ]
+}
