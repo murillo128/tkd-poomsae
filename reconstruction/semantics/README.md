@@ -58,14 +58,17 @@ velocity/acceleration and missing geometry through `motion_features_id`.
 
 Keyframes come from physical candidates and phase boundaries on absolute global
 seconds. Source event IDs, native evidence indices, track and quality remain
-attached. No uniform sampling or equal event count is imposed. Extension extrema
+attached. Multiple physical events proposing the same named phase interval on
+one track share one canonical phase and its boundary keyframes; their individual
+source-event keyframes remain distinct. No uniform sampling or equal event count
+is imposed. Extension extrema
 remain extrema, never actual impact. Source relations retain their body reference
 frame and independent crossing/front-order quality; an unknown front order never
 becomes a chosen front arm. Single-sample relations use `global_seconds`; sustained
 relations use an interval, split at native gaps exceeding `max_gap_seconds`
 (default 0.15 s). Negative/unknown geometry also remains in source evidence.
 
-`semantic-assembly-v1` uses stable content-derived IDs. Publication keys include
+`semantic-assembly-v2` uses stable content-derived IDs. Publication keys include
 all four input manifest digests, schema version, algorithm revision and effective
 config. Cache hits/reloads invoke no upstream producer. Config changes create a
 new immutable semantic artifact. The evidence array retains original proposals,
