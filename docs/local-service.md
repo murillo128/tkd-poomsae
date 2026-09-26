@@ -122,6 +122,13 @@ and local-mutation policy:
   Their `artifact_revision` identifies the owning native window's manifest.
   Indexes created before native ownership was recorded require re-registration
   for native entity lookup and return an explicit conflict until then.
+  If a source has no usable synchronization offset, native frame/PTS evidence
+  stays available, but its mapped `frame.global_seconds` and `offset_seconds`
+  are null with a `global_time_reason` also reported in `source_evidence_reason`.
+  Window, entity/evidence and time lookup share the same offset policy: current
+  or persisted manual overrides take precedence; otherwise excluded cameras
+  and missing automatic estimates are unavailable. A retained timing reference
+  with no automatic estimate has its genuine zero offset.
   Missing or truncated contributing evidence has an explicit reason. Partial
   resolution retains valid evidence and reports bounded
   `source_evidence_unavailable_ids` and `source_evidence_unavailable_count` for

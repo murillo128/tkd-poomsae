@@ -26,6 +26,7 @@ from contracts.models import (
     Reconstruction,
     Semantics,
     Synchronization,
+    SyncOffset,
 )
 from pipeline import Pipeline
 from pipeline.runner import _read_json
@@ -676,15 +677,10 @@ class Inspection:
                         for k, v in clock["sources"].items()
                         if source_id == f"source:{v}"
                     )
-                    effective = edits.get(camera, {}).get("offset_seconds")
-                    if effective is None:
-                        effective = offset.get("manual_seconds")
-                    if effective is None:
-                        if not offset["retained"]:
-                            continue
-                        effective = (offset["automatic_seconds"] or 0) + (
-                            offset.get("manual_correction_seconds") or 0
-                        )
+                    try:
+                        effective = self.effective_offset(offset, edits.get(camera))
+                    except InspectionError:
+                        continue
                     effective_offsets[source_id] = effective
                     predicates.append("(source_id=? AND start>=? AND start<=?)")
                     parameters.extend([source_id, start - effective, end - effective])
@@ -785,6 +781,26 @@ class Inspection:
                         value.model_dump(mode="json"),
                     )
 
+    @staticmethod
+    def effective_offset(
+        offset: dict[str, Any] | None, edit: dict[str, Any] | None = None
+    ) -> float:
+        if offset is None:
+            raise InspectionError(409, "source has no synchronization offset")
+        manual = (edit or {}).get("offset_seconds", offset.get("manual_seconds"))
+        if manual is not None:
+            return float(manual)
+        if not offset["retained"]:
+            raise InspectionError(409, offset["exclusion_reason"] or "camera excluded")
+        try:
+            return SyncOffset.model_validate(offset).effective_seconds
+        except ValueError:
+            raise InspectionError(
+                409,
+                offset["exclusion_reason"]
+                or "source has no usable synchronization offset",
+            ) from None
+
     def effective_frame(
         self,
         project: str,
@@ -801,8 +817,6 @@ class Inspection:
             ),
             None,
         )
-        if not offset:
-            return frame
         camera = next(
             k
             for k, v in clock["sources"].items()
@@ -813,13 +827,14 @@ class Inspection:
             .get("sync", {})
             .get("manual_offsets", {})
         )
-        effective = edits.get(camera, {}).get(
-            "offset_seconds", offset.get("manual_seconds")
-        )
-        if effective is None:
-            effective = (offset["automatic_seconds"] or 0) + (
-                offset.get("manual_correction_seconds") or 0
-            )
+        try:
+            effective = self.effective_offset(offset, edits.get(camera))
+        except InspectionError as error:
+            return frame | {
+                "offset_seconds": None,
+                "global_seconds": None,
+                "global_time_reason": str(error),
+            }
         return frame | {
             "offset_seconds": effective,
             "global_seconds": frame["source_seconds"] + effective,
@@ -918,20 +933,29 @@ class Inspection:
                     "frame": evidence[-1]["frame"],
                 }
         truncated = len(indices) > MAX_ROWS or len(source_ids) > MAX_ROWS
-        reason = (
-            f"{len(unresolved)} contributing native observation IDs unavailable"
-            if unresolved
-            else "contributing source evidence truncated"
-            if truncated
-            else None
-            if evidence
-            else "contributing native observation IDs unavailable"
+        reasons: list[str] = []
+        if unresolved or not evidence:
+            reasons.append(
+                f"{len(unresolved)} contributing native observation IDs unavailable"
+                if unresolved
+                else "contributing native observation IDs unavailable"
+            )
+        if truncated:
+            reasons.append("contributing source evidence truncated")
+        reasons.extend(
+            sorted(
+                {
+                    item["frame"]["global_time_reason"]
+                    for item in evidence
+                    if item["frame"].get("global_time_reason")
+                }
+            )
         )
         result = {
             "entity": value,
             "product": product,
             "source_evidence": evidence,
-            "source_evidence_reason": reason,
+            "source_evidence_reason": "; ".join(reasons) if reasons else None,
             "source_evidence_unavailable_count": len(unresolved),
             "source_evidence_unavailable_ids": unresolved,
             "evidence_truncated": truncated,

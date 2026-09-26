@@ -276,8 +276,6 @@ def routes(service: FastAPI, inspection: Inspection, media: MediaAccess) -> None
                     ),
                     None,
                 )
-                if offset is None:
-                    raise InspectionError(409, "source has no synchronization offset")
                 state = inspection.pipe.status(project)
                 edit = (
                     state["config"]
@@ -285,17 +283,7 @@ def routes(service: FastAPI, inspection: Inspection, media: MediaAccess) -> None
                     .get("manual_offsets", {})
                     .get(camera)
                 )
-                effective = (
-                    edit["offset_seconds"] if edit else offset.get("manual_seconds")
-                )
-                if effective is None:
-                    if not offset["retained"]:
-                        raise InspectionError(
-                            409, offset["exclusion_reason"] or "camera excluded"
-                        )
-                    effective = (offset["automatic_seconds"] or 0) + (
-                        offset.get("manual_correction_seconds") or 0
-                    )
+                effective = inspection.effective_offset(offset, edit)
                 source_seconds = seconds - effective
                 reader = MediaReader(item.recording)
                 before, after = reader.bracket(source_seconds)

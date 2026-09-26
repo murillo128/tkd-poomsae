@@ -661,6 +661,104 @@ def test_legacy_native_index_requires_owner_registration(
         )
 
 
+@pytest.mark.parametrize(
+    "mode", ["excluded", "unknown", "reference", "persisted_manual", "current_manual"]
+)
+def test_native_global_correspondence_obeys_sync_availability(
+    inspection: tuple[Inspection, dict[str, ArtifactKey]],
+    mode: str,
+) -> None:
+    index, products = inspection
+    headers, _ = index.headers("demo")
+    observation_key = ArtifactKey(
+        **next(
+            h["key"] for name, h in headers.items() if name.startswith("observations:")
+        )
+    )
+    sync = index.pipe.store.get(products["sync"]).metadata.model_copy(deep=True)
+    assert isinstance(sync, Synchronization)
+    sync.id = "sync-" + mode
+    offset = sync.offsets[0]
+    offset.automatic_seconds = None
+    offset.retained = mode in {"reference", "unknown"}
+    offset.exclusion_reason = "unreliable synchronization"
+    if mode == "reference":
+        offset.timing_reference = True
+    if mode == "persisted_manual":
+        offset.manual_seconds = 0
+        offset.manual_author = ATTRIBUTION["author"]
+        offset.manual_source = ATTRIBUTION["source"]
+        offset.manual_reason = ATTRIBUTION["reason"]
+    sync_key, sync_handle = persist(index.pipe.store, sync)
+    motion = index.pipe.store.get(products["reconstruction"]).metadata.model_copy(
+        deep=True
+    )
+    motion.id = "clock-policy-motion-" + mode
+    motion_key, _ = persist(
+        index.pipe.store,
+        motion,
+        arrays={
+            "trajectory": np.array([[1.0, 2.0, 3.0]]),
+            "missing": np.zeros((1, 3), dtype=bool),
+        },
+        inputs=dict(products["reconstruction"].inputs),
+        sync_revision=hash_file(sync_handle.path / "manifest.json"),
+    )
+    index.register(
+        "demo",
+        {"sync": sync_key, "reconstruction": motion_key},
+        observations=[observation_key],
+    )
+    with client(index) as http:
+        if mode == "current_manual":
+            assert (
+                http.post(
+                    BASE + "/sync-offset",
+                    headers=WRITE,
+                    json={
+                        "expected_revision": 0,
+                        "camera": "left",
+                        "offset_seconds": 0,
+                        **ATTRIBUTION,
+                    },
+                ).status_code
+                == 200
+            )
+        mapped = http.get(BASE + "/time/left?seconds=0.4")
+        window = http.get(
+            BASE + "/observations/window?collection=observations&start=0.3&end=0.5"
+        ).json()
+        response = http.get(BASE + "/entities?id=native-left")
+        assert response.status_code == 200
+        selected = response.json()
+        assert selected["entity"]["native_frame"]["pts"] == 400
+        assert selected["source_evidence"][0]["native_frame"]["source_seconds"] == 0.4
+        if mode in {"excluded", "unknown"}:
+            assert mapped.status_code == 409
+            assert "unreliable synchronization" in mapped.text
+            assert window["rows"] == []
+            assert selected["entity"]["frame"]["global_seconds"] is None
+            assert selected["entity"]["frame"]["offset_seconds"] is None
+            assert (
+                selected["source_evidence"][0]["frame"] == selected["entity"]["frame"]
+            )
+            assert selected["source_evidence_reason"] == "unreliable synchronization"
+            # A physical selection retains the native PTS without inventing its clock.
+            wrist = http.get(
+                BASE + f"/entities?id={motion.id}/samples/0/left_wrist"
+            ).json()
+            assert wrist["source_evidence"][0]["frame"]["global_seconds"] is None
+            assert wrist["source_evidence"][0]["native_frame"]["pts"] == 400
+            assert wrist["source_evidence_reason"] == "unreliable synchronization"
+        else:
+            assert mapped.status_code == 200
+            assert mapped.json()["effective_offset_seconds"] == 0
+            assert mapped.json()["nearest"]["pts"] == 400
+            assert selected["entity"]["frame"] == window["rows"][0]["frame"]
+            assert selected["entity"]["frame"]["global_seconds"] == 0.4
+            assert selected["source_evidence_reason"] is None
+
+
 def test_observation_entity_uses_the_same_effective_frame_as_window(
     inspection: tuple[Inspection, dict[str, ArtifactKey]],
 ) -> None:
