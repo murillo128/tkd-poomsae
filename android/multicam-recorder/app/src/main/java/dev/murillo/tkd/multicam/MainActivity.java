@@ -12,11 +12,14 @@ import android.graphics.Color;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.graphics.Typeface;
+import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.TextureView;
+import android.view.Surface;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -1025,13 +1028,27 @@ public final class MainActivity extends Activity
         b.setMinHeight(
                 dp(landscapeUi ? 36 : 54));
 
+        int start;
+        int end;
+
+        if (accent == GREEN) {
+            start = Color.rgb(0, 143, 117);
+            end = Color.rgb(0, 86, 91);
+        } else if (accent == RED) {
+            start = Color.rgb(154, 35, 55);
+            end = Color.rgb(86, 25, 43);
+        } else if (accent == CYAN) {
+            start = Color.rgb(0, 116, 145);
+            end = Color.rgb(9, 66, 91);
+        } else {
+            start = Color.rgb(14, 89, 115);
+            end = Color.rgb(11, 54, 77);
+        }
+
         b.setBackground(
                 gradientPanel(
-                        PANEL_ALT,
-                        mix(
-                                PANEL_ALT,
-                                accent,
-                                0.18f),
+                        start,
+                        end,
                         dp(14),
                         accent));
 
@@ -1132,53 +1149,81 @@ public final class MainActivity extends Activity
         TextureView preview = textureView;
         if (preview == null) return;
 
-        int width = preview.getWidth();
-        int height = preview.getHeight();
-        if (width <= 0 || height <= 0) return;
+        int viewWidth = preview.getWidth();
+        int viewHeight = preview.getHeight();
+        if (viewWidth <= 0 || viewHeight <= 0) return;
 
-        int sensorOrientation = 90;
-        try {
-            CameraManager manager =
-                    (CameraManager)
-                            getSystemService(
-                                    CAMERA_SERVICE);
+        int rotation =
+                getDisplay() == null
+                        ? Surface.ROTATION_0
+                        : getDisplay().getRotation();
 
-            CameraCharacteristics cc =
-                    manager.getCameraCharacteristics(
-                            CameraEngine.CAMERA_ID);
+        Matrix matrix = new Matrix();
+        RectF viewRect =
+                new RectF(
+                        0f,
+                        0f,
+                        viewWidth,
+                        viewHeight);
 
-            Integer value =
-                    cc.get(
-                            CameraCharacteristics
-                                    .SENSOR_ORIENTATION);
+        float centerX =
+                viewRect.centerX();
+        float centerY =
+                viewRect.centerY();
 
-            if (value != null) {
-                sensorOrientation = value;
-            }
-        } catch (Exception ignored) {
-        }
+        // Camera2Basic-style display transform. Portrait is intentionally left
+        // unrotated: that is the orientation Samsung already presents correctly.
+        // Landscape gets a display rotation plus a UNIFORM scale, so geometry is
+        // never stretched and vertical lines stay vertical.
+        if (rotation == Surface.ROTATION_90
+                || rotation == Surface.ROTATION_270) {
 
-        // Samsung's high-speed SurfaceTexture arrives in sensor coordinates.
-        // Apply the inverse sensor rotation to the display-only TextureView.
-        float correction =
-                -sensorOrientation;
+            RectF bufferRect =
+                    new RectF(
+                            0f,
+                            0f,
+                            CameraEngine.HEIGHT,
+                            CameraEngine.WIDTH);
 
-        preview.setPivotX(width / 2f);
-        preview.setPivotY(height / 2f);
-        preview.setRotation(correction);
+            bufferRect.offset(
+                    centerX - bufferRect.centerX(),
+                    centerY - bufferRect.centerY());
 
-        if ((sensorOrientation % 180) != 0) {
+            matrix.setRectToRect(
+                    viewRect,
+                    bufferRect,
+                    Matrix.ScaleToFit.FILL);
+
             float scale =
                     Math.max(
-                            (float) width / height,
-                            (float) height / width);
+                            (float) viewHeight
+                                    / CameraEngine.HEIGHT,
+                            (float) viewWidth
+                                    / CameraEngine.WIDTH);
 
-            preview.setScaleX(scale);
-            preview.setScaleY(scale);
-        } else {
-            preview.setScaleX(1f);
-            preview.setScaleY(1f);
+            matrix.postScale(
+                    scale,
+                    scale,
+                    centerX,
+                    centerY);
+
+            float degrees =
+                    rotation == Surface.ROTATION_90
+                            ? -90f
+                            : 90f;
+
+            matrix.postRotate(
+                    degrees,
+                    centerX,
+                    centerY);
+        } else if (rotation == Surface.ROTATION_180) {
+            matrix.postRotate(
+                    180f,
+                    centerX,
+                    centerY);
         }
+
+        preview.setTransform(matrix);
     }
 
     @Override
@@ -1307,10 +1352,10 @@ public final class MainActivity extends Activity
         controllerButton.setBackground(
                 gradientPanel(
                         controller
-                                ? Color.rgb(9, 62, 80)
+                                ? Color.rgb(0, 112, 137)
                                 : PANEL_ALT,
                         controller
-                                ? Color.rgb(7, 88, 105)
+                                ? Color.rgb(5, 68, 91)
                                 : Color.rgb(12, 43, 64),
                         dp(14),
                         controller
@@ -1321,10 +1366,10 @@ public final class MainActivity extends Activity
                 gradientPanel(
                         controller
                                 ? PANEL_ALT
-                                : Color.rgb(9, 62, 80),
+                                : Color.rgb(0, 112, 137),
                         controller
                                 ? Color.rgb(12, 43, 64)
-                                : Color.rgb(7, 88, 105),
+                                : Color.rgb(5, 68, 91),
                         dp(14),
                         controller
                                 ? BORDER
