@@ -49,7 +49,6 @@ import android.widget.Toast;
 import java.io.File;
 import java.net.Inet4Address;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -75,14 +74,14 @@ public final class MainActivity extends Activity
     private final Set<String> participants = new HashSet<>();
     private String sessionId, videoUri, metadataPath;
     private String networkDetail = "Discovery has not started.", cameraDetail = "Camera idle.", sessionDetail = "No active session.";
-    private long startedNs, scheduledNs, armedNs;
+    private long startedNs, scheduledNs;
     private double lastFps;
     private boolean networkError;
     private CameraPreview preview;
     private LinearLayout controllerActions, cameraActions, recordRow, peerContainer;
     private View startButton, armButton, stopButton;
     private Switch recordSwitch;
-    private TextView previewState, previewCaption, fitButton, timeLabel, peerHeading, peerSummary;
+    private TextView previewState, previewCaption, fitButton, peerHeading, peerSummary;
     private View previewPlaceholder;
     private Tile roleTile, networkTile, cameraTile, sessionTile;
     private TextView controllerTab, cameraTab;
@@ -112,11 +111,11 @@ public final class MainActivity extends Activity
         if (wide) {
             LinearLayout body = ui.row();
             body.setGravity(Gravity.TOP);
-            body.addView(viewfinder(-1), new LinearLayout.LayoutParams(0, -1, 1.48f));
+            body.addView(viewfinder(), new LinearLayout.LayoutParams(0, -1, 1.48f));
             LinearLayout right = ui.column();
             right.setPadding(ui.dp(10), 0, 0, 0);
-            right.addView(statusStrip(), margin(-1, ui.dp(60), 0, 7));
-            right.addView(recordLocalRow(), margin(-1, ui.dp(38), 0, 7));
+            right.addView(statusStrip(), margin(-1, ui.dp(54), 0, 5));
+            right.addView(recordLocalRow(), margin(-1, ui.dp(38), 0, 5));
             right.addView(actionGrid(true));
             right.addView(cameraControls(true));
             ScrollView commands = new ScrollView(this);
@@ -125,14 +124,14 @@ public final class MainActivity extends Activity
             commands.addView(right, new ScrollView.LayoutParams(-1, -2));
             body.addView(commands, new LinearLayout.LayoutParams(0, -1, 1));
             shell.addView(body, margin(-1, 0, 7, 8, 1));
-            shell.addView(peersPanel(true), new LinearLayout.LayoutParams(-1, ui.dp(90)));
+            shell.addView(peersPanel(true), new LinearLayout.LayoutParams(-1, ui.dp(80)));
         } else {
             LinearLayout content = ui.column();
             int width = getResources().getDisplayMetrics().widthPixels - ui.dp(28);
             // Bounded portrait viewfinder. FIT shows the full 9:16 capture with side bars;
             // FILL is an explicit, labelled crop, never an anisotropic resize.
             int height = Math.min(Math.round(width * 0.78f), ui.dp(310));
-            content.addView(viewfinder(height), margin(-1, height, 8, 9));
+            content.addView(viewfinder(), margin(-1, height, 8, 9));
             content.addView(statusStrip(), margin(-1, ui.dp(76), 0, 9));
             content.addView(recordLocalRow(), margin(-1, ui.dp(57), 0, 9));
             content.addView(actionGrid(false), margin(-1, -2, 0, 12));
@@ -230,13 +229,15 @@ public final class MainActivity extends Activity
         return text;
     }
 
-    private FrameLayout viewfinder(int height) {
+    private FrameLayout viewfinder() {
         FrameLayout frame = new FrameLayout(this);
         frame.setTag("preview_frame");
         frame.setBackground(ui.panel(0xff02111b, 0xff071d28, 0xff39b4c7, 13));
         frame.setClipToOutline(true);
         preview = new CameraPreview(this);
-        FrameLayout.LayoutParams camera = new FrameLayout.LayoutParams(-1, height > 0 ? height : -1);
+        // The parent owns the viewport height; don't add that height a second time
+        // inside its margins, which clipped the bottom edge of the portrait texture.
+        FrameLayout.LayoutParams camera = new FrameLayout.LayoutParams(-1, -1);
         camera.setMargins(ui.dp(2), ui.dp(2), ui.dp(2), ui.dp(2));
         frame.addView(preview, camera);
         LinearLayout placeholder = ui.column();
@@ -360,6 +361,7 @@ public final class MainActivity extends Activity
         recordSwitch.setOnCheckedChangeListener((button, checked) -> {
             localEnabled = checked;
             getPreferences(MODE_PRIVATE).edit().putBoolean("local", checked).apply();
+            render();
         });
         return recordRow;
     }
@@ -388,14 +390,14 @@ public final class MainActivity extends Activity
         TextView help = ui.text("CAMERA NODE\nThe controller starts and stops this camera over Wi-Fi.", compact ? 11 : 13, MUTED, false);
         cameraActions.addView(help, margin(-1, -2, 3, 10));
         cameraActions.addView(ui.command("action_emergency", "stop", "STOP CAMERA", "Save this device's video", RED, compact,
-                () -> { if (cameraEngine != null) { phase = Phase.STOPPING; cameraEngine.stop(); render(); } }),
+                () -> { if (cameraEngine != null && active() && phase != Phase.STOPPING) { phase = Phase.STOPPING; cameraEngine.stop(); render(); } }),
                 new LinearLayout.LayoutParams(-1, ui.dp(54)));
         return cameraActions;
     }
 
     private View peersPanel(boolean horizontal) {
         LinearLayout panel = ui.column();
-        panel.setPadding(ui.dp(horizontal ? 10 : 0), ui.dp(8), ui.dp(horizontal ? 10 : 0), ui.dp(7));
+        panel.setPadding(ui.dp(horizontal ? 10 : 0), ui.dp(horizontal ? 5 : 8), ui.dp(horizontal ? 10 : 0), ui.dp(horizontal ? 5 : 7));
         if (horizontal) panel.setBackground(ui.panel(PANEL, 0xff071925, LINE, 10));
         LinearLayout heading = ui.row();
         if (!horizontal) heading.addView(ui.icon("role", CYAN, 20));
@@ -404,7 +406,7 @@ public final class MainActivity extends Activity
         heading.addView(peerHeading, new LinearLayout.LayoutParams(0, -2, 1));
         peerSummary = ui.line("Searching", 10, MUTED, false);
         heading.addView(peerSummary);
-        panel.addView(heading, margin(-1, ui.dp(20), 0, 5));
+        panel.addView(heading, margin(-1, ui.dp(horizontal ? 16 : 20), 0, 5));
         peerContainer = horizontal ? ui.row() : ui.column();
         peerContainer.setTag("peer_list");
         if (horizontal) {
@@ -426,7 +428,7 @@ public final class MainActivity extends Activity
         peerContainer.removeAllViews();
         if (peers.isEmpty()) {
             LinearLayout empty = ui.row();
-            empty.setPadding(ui.dp(11), ui.dp(10), ui.dp(11), ui.dp(10));
+            empty.setPadding(ui.dp(11), ui.dp(wide ? 6 : 10), ui.dp(11), ui.dp(wide ? 6 : 10));
             empty.addView(ui.icon("phone", 0xff54879b, 24));
             TextView hint = ui.text(role == NetworkCoordinator.Role.CONTROLLER
                     ? "No cameras yet. Choose CAMERA on the other phones."
@@ -463,9 +465,20 @@ public final class MainActivity extends Activity
     private boolean active() {
         return phase == Phase.ARMING || phase == Phase.READY || phase == Phase.SCHEDULED || phase == Phase.RECORDING || phase == Phase.STOPPING;
     }
+    private boolean localViewEnabled() {
+        return role == NetworkCoordinator.Role.CAMERA || localEnabled;
+    }
+    private void renderNetwork() {
+        boolean cameraVisible = role == NetworkCoordinator.Role.CAMERA
+                && networkDetail.toLowerCase(Locale.US).contains("camera visible");
+        networkTile.show(networkError ? "Error" : cameraVisible ? "Visible" : peers().isEmpty() ? "Searching" : "Connected",
+                "Local Wi-Fi", networkError ? RED : CYAN, networkError);
+    }
     private void render() {
         if (destroyed || preview == null) return;
         boolean controller = role == NetworkCoordinator.Role.CONTROLLER;
+        boolean localView = localViewEnabled();
+        boolean hasLocalFrame = localView && cameraEngine != null;
         controllerActions.setVisibility(controller ? View.VISIBLE : View.GONE);
         cameraActions.setVisibility(controller ? View.GONE : View.VISIBLE);
         recordRow.setVisibility(controller ? View.VISIBLE : View.GONE);
@@ -475,23 +488,26 @@ public final class MainActivity extends Activity
             cameraTab.setBackground(ui.touch(controller ? PANEL : 0xff075265, controller ? PANEL : 0xff073047, controller ? PANEL : CYAN, 7));
         }
         roleTile.show(controller ? "Controller" : "Camera", "Tap to change", CYAN, false);
-        networkTile.show(networkError ? "Error" : peers().isEmpty() ? "Searching" : "Connected", "Local Wi-Fi", networkError ? RED : CYAN, networkError);
+        renderNetwork();
         String state = phase == Phase.READY ? "Ready" : phase == Phase.SCHEDULED ? "Countdown" : phase == Phase.RECORDING ? "Recording"
                 : phase == Phase.STOPPING ? "Saving" : phase == Phase.SAVED ? "Saved" : phase == Phase.ARMING ? "Arming" : phase == Phase.ERROR ? "Error" : "Idle";
         boolean fpsProblem = phase == Phase.SAVED && lastFps > 0 && lastFps < 110;
         int color = phase == Phase.ERROR || fpsProblem ? RED : phase == Phase.READY || phase == Phase.SAVED ? GREEN : CYAN;
-        cameraTile.show(state, phase == Phase.SAVED && lastFps > 0 ? String.format(Locale.US, "%.1f fps measured", lastFps) : "FHD120 · AF", color, phase == Phase.ERROR || fpsProblem);
+        cameraTile.show(localView ? state : "Remote only", !localView ? "Local camera off" : phase == Phase.SAVED && lastFps > 0
+                ? String.format(Locale.US, "%.1f fps measured", lastFps) : "FHD120 · AF", color, phase == Phase.ERROR || fpsProblem);
         sessionTile.show(state, sessionId == null ? "No session" : sessionId.substring(Math.max(0, sessionId.length()-6)), color, phase == Phase.ERROR);
-        previewPlaceholder.setVisibility(active() && phase != Phase.ARMING ? View.GONE : phase == Phase.SAVED ? View.GONE : View.VISIBLE);
-        previewState.setText(phase == Phase.RECORDING ? "● RECORDING" : phase == Phase.READY || phase == Phase.SCHEDULED ? "● LIVE · PRE-ROLL"
+        boolean showLocalFrame = hasLocalFrame && (phase == Phase.READY || phase == Phase.SCHEDULED
+                || phase == Phase.RECORDING || phase == Phase.STOPPING || phase == Phase.SAVED);
+        previewPlaceholder.setVisibility(showLocalFrame ? View.GONE : View.VISIBLE);
+        previewState.setText(!localView ? "CONTROLLER ONLY" : phase == Phase.RECORDING ? "● RECORDING"
+                : phase == Phase.READY || phase == Phase.SCHEDULED ? "● LIVE · PRE-ROLL"
                 : phase == Phase.ARMING ? "OPENING CAMERA" : phase == Phase.SAVED ? "LAST FRAME" : "PREVIEW OFF");
         previewState.setTextColor(phase == Phase.RECORDING ? RED : phase == Phase.READY ? GREEN : TEXT);
         fitButton.setText(preview.isFill() ? "FILL" : "FIT");
-        previewCaption.setText(preview.isFill() ? "Cropped preview · recording unchanged" : "Full frame · auto exposure");
+        previewCaption.setText(!localView ? "Local video disabled" : preview.isFill() ? "Cropped preview · recording unchanged" : "Full frame · auto exposure");
         armButton.setEnabled(!active());
         startButton.setEnabled(phase == Phase.READY);
-        stopButton.setEnabled(active());
-        // Keep the original visual palette while making unavailable actions distinguishable.
+        stopButton.setEnabled(active() && phase != Phase.STOPPING);
         armButton.setAlpha(active() ? 0.55f : 1f);
         startButton.setAlpha(phase == Phase.READY ? 1f : 0.65f);
         stopButton.setAlpha(active() ? 1f : 0.65f);
@@ -504,10 +520,10 @@ public final class MainActivity extends Activity
             if (destroyed) return;
             if (phase == Phase.SCHEDULED) {
                 double remaining = Math.max(0, (scheduledNs - SystemClock.elapsedRealtimeNanos()) / 1e9);
-                previewState.setText(String.format(Locale.US, "START IN %.1f s · PRE-ROLL", remaining));
+                previewState.setText(String.format(Locale.US, "START IN %.1f s%s", remaining, localViewEnabled() ? " · PRE-ROLL" : " · REMOTE"));
             } else if (phase == Phase.RECORDING) {
                 long seconds = Math.max(0, (SystemClock.elapsedRealtimeNanos() - startedNs) / 1_000_000_000L);
-                previewState.setText(String.format(Locale.US, "● REC  %02d:%02d", seconds/60, seconds%60));
+                previewState.setText(String.format(Locale.US, localViewEnabled() ? "● REC  %02d:%02d" : "REMOTE REC  %02d:%02d", seconds/60, seconds%60));
             }
             main.postDelayed(this, 250);
         }
@@ -543,7 +559,7 @@ public final class MainActivity extends Activity
         participants.clear(); for (NetworkCoordinator.Peer peer : peers) participants.add(peer.id);
         sessionId = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
         phase = localEnabled ? Phase.ARMING : Phase.READY;
-        lastFps = 0; videoUri = null; metadataPath = null; armedNs = SystemClock.elapsedRealtimeNanos();
+        lastFps = 0; videoUri = null; metadataPath = null;
         sessionDetail = "Preparing cameras. Pre-roll is saved from ARM.";
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
         String id = sessionId;
@@ -573,7 +589,7 @@ public final class MainActivity extends Activity
         render();
     }
     private void stopAll() {
-        if (!active()) return;
+        if (!active() || phase == Phase.STOPPING) return;
         phase = Phase.STOPPING;
         sessionDetail = "STOP sent. Waiting for local file finalization.";
         io(() -> { if (network != null && role == NetworkCoordinator.Role.CONTROLLER) network.stopAll(); });
@@ -584,7 +600,7 @@ public final class MainActivity extends Activity
     private void unlock() { setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED); }
 
     @Override public void onCameraStatus(String status) {
-        main.post(() -> { if (!destroyed) { cameraDetail = status; } });
+        main.post(() -> { if (!destroyed) cameraDetail = status; });
     }
     @Override public void onCameraReady(String detail) {
         main.post(() -> {
@@ -624,7 +640,9 @@ public final class MainActivity extends Activity
             unlock();
         });
     }
-    @Override public void onPeersChanged() { main.post(() -> { if (!destroyed) renderPeers(); }); }
+    @Override public void onPeersChanged() {
+        main.post(() -> { if (!destroyed) { renderNetwork(); renderPeers(); } });
+    }
     @Override public void onNetworkStatus(String status) {
         main.post(() -> {
             if (destroyed) return;
@@ -637,7 +655,7 @@ public final class MainActivity extends Activity
     @Override public void onArmCommand(String id) {
         main.post(() -> {
             if (destroyed || role != NetworkCoordinator.Role.CAMERA) return;
-            if (active()) return; // repeated UDP ARM must not restart the UI/session
+            if (active()) return;
             if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 onCameraError("Camera permission is missing. Grant it on this phone."); return;
             }

@@ -36,7 +36,6 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 @RunWith(AndroidJUnit4.class)
 public class DashboardUiTest {
     @Test public void nativeLayoutsDialogsAndRoundPreviewInAllFourOrientations() throws Exception {
-        // Establish the screenshot connection before opening any transient windows.
         InstrumentationRegistry.getInstrumentation().getUiAutomation();
         int[] orientations={ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
                 ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT};
@@ -55,6 +54,9 @@ public class DashboardUiTest {
                             && ((CameraPreview) a.getWindow().getDecorView().findViewWithTag("camera_preview")).isAvailable()));
                 }
                 assertTrue("orientation/surface ready: "+names[index],ready.get());
+                // A surface can become available before the rotation transition's
+                // first composed screen frame. Wait before collecting visual evidence.
+                SystemClock.sleep(500);
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync();
                 saveScreenshot(names[index]+"-layout.png").recycle();
                 scenario.onActivity(a -> {
@@ -65,12 +67,13 @@ public class DashboardUiTest {
                         assertNotNull(tag,v);
                         assertTrue(tag+" has width",v.getWidth()>0);
                         assertTrue(tag+" has height",v.getHeight()>0);
-                        assertTrue(tag+" participates in layout",v.isShown());
+                        Rect visible=new Rect();
+                        assertTrue(tag+" is visible",v.getGlobalVisibleRect(visible));
+                        assertEquals(tag+" is not clipped horizontally",v.getWidth(),visible.width(),2.0);
+                        assertEquals(tag+" is not clipped vertically",v.getHeight(),visible.height(),2.0);
                     }
                     root.findViewWithTag("status_network").performClick();
                 });
-                // Espresso synchronizes with the real dialog window; a first immediate
-                // UiAutomation accessibility-root read can be null while attaching.
                 onView(withId(android.R.id.button3)).inRoot(isDialog()).check(matches(isDisplayed()));
                 saveScreenshot(names[index]+"-dialog.png").recycle();
                 pressBack();
@@ -86,8 +89,8 @@ public class DashboardUiTest {
                         preview.setFill(fill);
                         SurfaceTexture st=preview.getSurfaceTexture();
                         assertNotNull(st);
-                        // Simulate the producer's naturally-oriented output. The camera HAL
-                        // already applies sensor mounting rotation; the UI must not add it twice.
+                        // Naturally-oriented producer output, as presented by the
+                        // camera framework before the display-only texture transform.
                         int nw=preview.getSensorDegrees()%180==0?1920:1080;
                         int nh=preview.getSensorDegrees()%180==0?1080:1920;
                         st.setDefaultBufferSize(nw,nh);
