@@ -7,11 +7,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'dev.murillo.tkd.multicam.v14'
+        applicationId 'dev.murillo.tkd.multicam.v15'
         minSdk 26
         targetSdk 35
-        versionCode 14
-        versionName '1.4'
+        versionCode 15
+        versionName '1.5'
     }
 
     buildTypes {
