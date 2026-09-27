@@ -2,6 +2,7 @@ package dev.murillo.tkd.multicam;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.SharedPreferences;
@@ -32,6 +33,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.text.TextUtils;
+import android.text.Editable;
+import android.text.TextWatcher;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -344,53 +347,37 @@ public final class MainActivity extends Activity
                 buildPreview(portraitPreviewHeight()),
                 matchWrap(0, dp(10)));
 
-        LinearLayout statusGrid =
+        LinearLayout statusRow =
                 new LinearLayout(this);
-        statusGrid.setOrientation(
-                LinearLayout.VERTICAL);
-
-        LinearLayout row1 =
-                new LinearLayout(this);
-        row1.setOrientation(
+        statusRow.setOrientation(
                 LinearLayout.HORIZONTAL);
 
         roleText =
                 statusCard(
-                        row1,
+                        statusRow,
                         "ROLE",
                         "Choose role");
 
         networkText =
                 statusCard(
-                        row1,
+                        statusRow,
                         "NETWORK",
                         "Not started");
 
-        statusGrid.addView(
-                row1,
-                matchWrap(0, dp(6)));
-
-        LinearLayout row2 =
-                new LinearLayout(this);
-        row2.setOrientation(
-                LinearLayout.HORIZONTAL);
-
         cameraText =
                 statusCard(
-                        row2,
+                        statusRow,
                         "CAMERA",
                         "Idle");
 
         sessionText =
                 statusCard(
-                        row2,
+                        statusRow,
                         "SESSION",
                         "No active session");
 
-        statusGrid.addView(row2);
-
         root.addView(
-                statusGrid,
+                statusRow,
                 matchWrap(0, dp(10)));
 
         buildControllerPanel();
@@ -435,53 +422,37 @@ public final class MainActivity extends Activity
                 0,
                 0);
 
-        LinearLayout statusGrid =
+        LinearLayout statusRow =
                 new LinearLayout(this);
-        statusGrid.setOrientation(
-                LinearLayout.VERTICAL);
-
-        LinearLayout statusRow1 =
-                new LinearLayout(this);
-        statusRow1.setOrientation(
+        statusRow.setOrientation(
                 LinearLayout.HORIZONTAL);
 
         roleText =
                 statusCard(
-                        statusRow1,
+                        statusRow,
                         "ROLE",
                         "Choose role");
 
         networkText =
                 statusCard(
-                        statusRow1,
+                        statusRow,
                         "NETWORK",
                         "Not started");
 
-        statusGrid.addView(
-                statusRow1,
-                matchWrap(0, dp(5)));
-
-        LinearLayout statusRow2 =
-                new LinearLayout(this);
-        statusRow2.setOrientation(
-                LinearLayout.HORIZONTAL);
-
         cameraText =
                 statusCard(
-                        statusRow2,
+                        statusRow,
                         "CAMERA",
                         "Idle");
 
         sessionText =
                 statusCard(
-                        statusRow2,
+                        statusRow,
                         "SESSION",
                         "No active session");
 
-        statusGrid.addView(statusRow2);
-
         commandColumn.addView(
-                statusGrid,
+                statusRow,
                 matchWrap(0, dp(6)));
 
         buildControllerPanel();
@@ -891,24 +862,77 @@ public final class MainActivity extends Activity
             String label,
             String initial) {
 
-        LinearLayout card =
-                new LinearLayout(this);
+        FrameLayout tile =
+                new FrameLayout(this);
 
-        card.setOrientation(
-                LinearLayout.VERTICAL);
+        tile.setPadding(
+                dp(landscapeUi ? 5 : 7),
+                dp(landscapeUi ? 5 : 7),
+                dp(landscapeUi ? 5 : 7),
+                dp(landscapeUi ? 5 : 7));
 
-        card.setPadding(
-                dp(landscapeUi ? 6 : 10),
-                dp(landscapeUi ? 4 : 9),
-                dp(landscapeUi ? 6 : 10),
-                dp(landscapeUi ? 4 : 9));
-
-        card.setBackground(
+        tile.setBackground(
                 gradientPanel(
                         PANEL_ALT,
                         Color.rgb(12, 43, 64),
                         dp(14),
                         BORDER));
+
+        LinearLayout content =
+                new LinearLayout(this);
+
+        content.setOrientation(
+                landscapeUi
+                        ? LinearLayout.HORIZONTAL
+                        : LinearLayout.VERTICAL);
+
+        content.setGravity(
+                Gravity.CENTER);
+
+        ImageView icon =
+                new ImageView(this);
+
+        icon.setImageResource(
+                statusIconFor(label));
+
+        icon.setColorFilter(CYAN);
+
+        int iconSize =
+                dp(landscapeUi ? 19 : 25);
+
+        LinearLayout.LayoutParams iconLp =
+                new LinearLayout.LayoutParams(
+                        iconSize,
+                        iconSize);
+
+        if (landscapeUi) {
+            iconLp.setMargins(
+                    0,
+                    0,
+                    dp(5),
+                    0);
+        } else {
+            iconLp.setMargins(
+                    0,
+                    0,
+                    0,
+                    dp(2));
+        }
+
+        content.addView(
+                icon,
+                iconLp);
+
+        LinearLayout textBox =
+                new LinearLayout(this);
+
+        textBox.setOrientation(
+                LinearLayout.VERTICAL);
+
+        textBox.setGravity(
+                landscapeUi
+                        ? Gravity.CENTER_VERTICAL
+                        : Gravity.CENTER_HORIZONTAL);
 
         TextView l =
                 new TextView(this);
@@ -916,12 +940,17 @@ public final class MainActivity extends Activity
         l.setText(label);
         l.setTextColor(CYAN);
         l.setTextSize(
-                landscapeUi ? 7 : 10);
+                landscapeUi ? 6 : 8);
 
         l.setTypeface(
                 Typeface.DEFAULT_BOLD);
 
-        card.addView(l);
+        l.setGravity(
+                landscapeUi
+                        ? Gravity.START
+                        : Gravity.CENTER);
+
+        textBox.addView(l);
 
         TextView value =
                 new TextView(this);
@@ -929,21 +958,148 @@ public final class MainActivity extends Activity
         value.setText(initial);
         value.setTextColor(TEXT);
         value.setTextSize(
-                landscapeUi ? 9 : 12);
+                landscapeUi ? 7 : 9);
 
-        value.setMinLines(2);
-        value.setMaxLines(2);
+        value.setSingleLine(true);
         value.setEllipsize(
                 TextUtils.TruncateAt.END);
-        value.setGravity(
-                Gravity.TOP | Gravity.START);
 
-        card.addView(value);
+        value.setGravity(
+                landscapeUi
+                        ? Gravity.START
+                        : Gravity.CENTER);
+
+        textBox.addView(value);
+
+        content.addView(
+                textBox,
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f));
+
+        FrameLayout.LayoutParams contentLp =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT);
+
+        tile.addView(
+                content,
+                contentLp);
+
+        TextView badge =
+                new TextView(this);
+
+        badge.setText("!");
+        badge.setTextColor(Color.WHITE);
+        badge.setTextSize(9);
+        badge.setTypeface(
+                Typeface.DEFAULT_BOLD);
+        badge.setGravity(Gravity.CENTER);
+        badge.setVisibility(View.GONE);
+
+        badge.setBackground(
+                rounded(
+                        RED,
+                        dp(10),
+                        RED,
+                        0));
+
+        FrameLayout.LayoutParams badgeLp =
+                new FrameLayout.LayoutParams(
+                        dp(18),
+                        dp(18));
+
+        badgeLp.gravity =
+                Gravity.TOP | Gravity.END;
+
+        badgeLp.setMargins(
+                0,
+                -dp(2),
+                -dp(2),
+                0);
+
+        tile.addView(
+                badge,
+                badgeLp);
+
+        Runnable refreshState = () -> {
+            String text =
+                    value.getText() == null
+                            ? ""
+                            : value.getText()
+                                    .toString()
+                                    .toLowerCase(Locale.US);
+
+            boolean error =
+                    text.contains("error")
+                            || text.contains("failed")
+                            || text.contains("warning")
+                            || text.contains("eperm");
+
+            boolean healthy =
+                    text.contains("ready")
+                            || text.contains("recording")
+                            || text.contains("saved")
+                            || text.contains("controller")
+                            || text.contains("camera visible")
+                            || text.contains("searching local");
+
+            badge.setVisibility(
+                    error
+                            ? View.VISIBLE
+                            : View.GONE);
+
+            icon.setColorFilter(
+                    error
+                            ? RED
+                            : healthy
+                                    ? GREEN
+                                    : CYAN);
+        };
+
+        value.addTextChangedListener(
+                new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                            CharSequence s,
+                            int start,
+                            int count,
+                            int after) {}
+
+                    @Override
+                    public void onTextChanged(
+                            CharSequence s,
+                            int start,
+                            int before,
+                            int count) {}
+
+                    @Override
+                    public void afterTextChanged(
+                            Editable s) {
+                        refreshState.run();
+                    }
+                });
+
+        refreshState.run();
+
+        tile.setOnClickListener(v ->
+                new AlertDialog.Builder(this)
+                        .setTitle(label)
+                        .setMessage(
+                                value.getText() == null
+                                        ? ""
+                                        : value.getText()
+                                                .toString())
+                        .setPositiveButton(
+                                "OK",
+                                null)
+                        .show());
 
         LinearLayout.LayoutParams lp =
                 new LinearLayout.LayoutParams(
                         0,
-                        dp(landscapeUi ? 56 : 74),
+                        dp(landscapeUi ? 54 : 78),
                         1f);
 
         if (parent.getChildCount() > 0) {
@@ -954,8 +1110,26 @@ public final class MainActivity extends Activity
                     0);
         }
 
-        parent.addView(card, lp);
+        parent.addView(
+                tile,
+                lp);
+
         return value;
+    }
+
+    private int statusIconFor(String label) {
+        switch (label) {
+            case "ROLE":
+                return R.drawable.ic_status_role;
+            case "NETWORK":
+                return R.drawable.ic_status_network;
+            case "CAMERA":
+                return R.drawable.ic_status_camera;
+            case "SESSION":
+                return R.drawable.ic_status_session;
+            default:
+                return R.drawable.ic_status_role;
+        }
     }
 
     private TextView pill(
@@ -1153,75 +1327,156 @@ public final class MainActivity extends Activity
         int viewHeight = preview.getHeight();
         if (viewWidth <= 0 || viewHeight <= 0) return;
 
-        int rotation =
+        int sensorOrientation = 90;
+
+        try {
+            CameraManager manager =
+                    (CameraManager)
+                            getSystemService(
+                                    CAMERA_SERVICE);
+
+            CameraCharacteristics cc =
+                    manager.getCameraCharacteristics(
+                            CameraEngine.CAMERA_ID);
+
+            Integer orientation =
+                    cc.get(
+                            CameraCharacteristics
+                                    .SENSOR_ORIENTATION);
+
+            if (orientation != null) {
+                sensorOrientation = orientation;
+            }
+        } catch (Exception ignored) {
+        }
+
+        int displayRotation =
                 getDisplay() == null
                         ? Surface.ROTATION_0
                         : getDisplay().getRotation();
 
-        Matrix matrix = new Matrix();
-        RectF viewRect =
-                new RectF(
-                        0f,
-                        0f,
-                        viewWidth,
-                        viewHeight);
-
-        float centerX =
-                viewRect.centerX();
-        float centerY =
-                viewRect.centerY();
-
-        // Camera2Basic-style display transform. Portrait is intentionally left
-        // unrotated: that is the orientation Samsung already presents correctly.
-        // Landscape gets a display rotation plus a UNIFORM scale, so geometry is
-        // never stretched and vertical lines stay vertical.
-        if (rotation == Surface.ROTATION_90
-                || rotation == Surface.ROTATION_270) {
-
-            RectF bufferRect =
-                    new RectF(
-                            0f,
-                            0f,
-                            CameraEngine.HEIGHT,
-                            CameraEngine.WIDTH);
-
-            bufferRect.offset(
-                    centerX - bufferRect.centerX(),
-                    centerY - bufferRect.centerY());
-
-            matrix.setRectToRect(
-                    viewRect,
-                    bufferRect,
-                    Matrix.ScaleToFit.FILL);
-
-            float scale =
-                    Math.max(
-                            (float) viewHeight
-                                    / CameraEngine.HEIGHT,
-                            (float) viewWidth
-                                    / CameraEngine.WIDTH);
-
-            matrix.postScale(
-                    scale,
-                    scale,
-                    centerX,
-                    centerY);
-
-            float degrees =
-                    rotation == Surface.ROTATION_90
-                            ? -90f
-                            : 90f;
-
-            matrix.postRotate(
-                    degrees,
-                    centerX,
-                    centerY);
-        } else if (rotation == Surface.ROTATION_180) {
-            matrix.postRotate(
-                    180f,
-                    centerX,
-                    centerY);
+        int displayDegrees;
+        switch (displayRotation) {
+            case Surface.ROTATION_90:
+                displayDegrees = 90;
+                break;
+            case Surface.ROTATION_180:
+                displayDegrees = 180;
+                break;
+            case Surface.ROTATION_270:
+                displayDegrees = 270;
+                break;
+            default:
+                displayDegrees = 0;
+                break;
         }
+
+        int relativeRotation =
+                (sensorOrientation
+                        - displayDegrees
+                        + 360) % 360;
+
+        float sourceWidth =
+                CameraEngine.WIDTH;
+
+        float sourceHeight =
+                CameraEngine.HEIGHT;
+
+        boolean swap =
+                relativeRotation == 90
+                        || relativeRotation == 270;
+
+        float rotatedWidth =
+                swap
+                        ? sourceHeight
+                        : sourceWidth;
+
+        float rotatedHeight =
+                swap
+                        ? sourceWidth
+                        : sourceHeight;
+
+        // FIT_CENTER: preserve the real camera geometry at all costs.
+        // Any mismatch becomes letterboxing instead of stretching the athlete.
+        float scale =
+                Math.min(
+                        viewWidth / rotatedWidth,
+                        viewHeight / rotatedHeight);
+
+        float destWidth =
+                rotatedWidth * scale;
+
+        float destHeight =
+                rotatedHeight * scale;
+
+        float left =
+                (viewWidth - destWidth) / 2f;
+
+        float top =
+                (viewHeight - destHeight) / 2f;
+
+        float right =
+                left + destWidth;
+
+        float bottom =
+                top + destHeight;
+
+        float[] src = new float[]{
+                0f, 0f,
+                sourceWidth, 0f,
+                sourceWidth, sourceHeight,
+                0f, sourceHeight
+        };
+
+        float[] dst;
+
+        switch (relativeRotation) {
+            case 90:
+                dst = new float[]{
+                        right, top,
+                        right, bottom,
+                        left, bottom,
+                        left, top
+                };
+                break;
+
+            case 180:
+                dst = new float[]{
+                        right, bottom,
+                        left, bottom,
+                        left, top,
+                        right, top
+                };
+                break;
+
+            case 270:
+                dst = new float[]{
+                        left, bottom,
+                        left, top,
+                        right, top,
+                        right, bottom
+                };
+                break;
+
+            default:
+                dst = new float[]{
+                        left, top,
+                        right, top,
+                        right, bottom,
+                        left, bottom
+                };
+                break;
+        }
+
+        Matrix matrix =
+                new Matrix();
+
+        matrix.setPolyToPoly(
+                src,
+                0,
+                dst,
+                0,
+                4);
 
         preview.setTransform(matrix);
     }
@@ -1244,7 +1499,7 @@ public final class MainActivity extends Activity
                         - dp(36);
 
         return Math.round(
-                width * 9f / 16f);
+                width * 0.72f);
     }
 
     private int systemDimen(String name) {
