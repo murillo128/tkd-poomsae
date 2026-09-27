@@ -25,6 +25,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Archive exact Android source
+        run: |
+          git archive --format=zip -o multicam-source.zip HEAD android/multicam-recorder .github/workflows/multicam-recorder.yml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TKD-MultiCam-source
+          path: multicam-source.zip
+          if-no-files-found: error
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
