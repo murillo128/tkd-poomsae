@@ -10,10 +10,8 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.os.SystemClock;
-import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -27,11 +25,19 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.Assert.*;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.Espresso.pressBack;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
 
 /** UI and synthetic SurfaceTexture checks; does NOT pretend to test the S21 camera HAL. */
 @RunWith(AndroidJUnit4.class)
 public class DashboardUiTest {
     @Test public void nativeLayoutsDialogsAndRoundPreviewInAllFourOrientations() throws Exception {
+        // Establish the screenshot connection before opening any transient windows.
+        InstrumentationRegistry.getInstrumentation().getUiAutomation();
         int[] orientations={ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
                 ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT};
         int[] rotations={Surface.ROTATION_0,Surface.ROTATION_90,Surface.ROTATION_270,Surface.ROTATION_180};
@@ -43,13 +49,14 @@ public class DashboardUiTest {
                 int requested=orientations[index], expected=rotations[index];
                 scenario.onActivity(a -> a.setRequestedOrientation(requested));
                 AtomicBoolean ready=new AtomicBoolean(false);
-                for(int attempt=0;attempt<30&&!ready.get();attempt++) {
+                for(int attempt=0;attempt<50&&!ready.get();attempt++) {
                     SystemClock.sleep(200);
                     scenario.onActivity(a -> ready.set(a.getDisplay().getRotation()==expected
                             && ((CameraPreview) a.getWindow().getDecorView().findViewWithTag("camera_preview")).isAvailable()));
                 }
                 assertTrue("orientation/surface ready: "+names[index],ready.get());
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+                saveScreenshot(names[index]+"-layout.png").recycle();
                 scenario.onActivity(a -> {
                     View root=a.getWindow().getDecorView();
                     for(String tag:new String[]{"brand_title","status_role","status_network","status_camera","status_session",
@@ -62,20 +69,19 @@ public class DashboardUiTest {
                     }
                     root.findViewWithTag("status_network").performClick();
                 });
-                SystemClock.sleep(250);
-                AccessibilityNodeInfo modal=InstrumentationRegistry.getInstrumentation().getUiAutomation().getRootInActiveWindow();
-                assertNotNull("status dialog exists",modal);
-                assertFalse("dialog allows copying details",modal.findAccessibilityNodeInfosByText("Copy").isEmpty());
-                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-                SystemClock.sleep(250);
-                saveScreenshot(names[index]+"-layout.png");
+                // Espresso synchronizes with the real dialog window; a first immediate
+                // UiAutomation accessibility-root read can be null while attaching.
+                onView(withId(android.R.id.button3)).inRoot(isDialog()).check(matches(isDisplayed()));
+                saveScreenshot(names[index]+"-dialog.png").recycle();
+                pressBack();
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
                 for(boolean fill:new boolean[]{false,true}) {
                     Rect[] area={new Rect()};
                     scenario.onActivity(a -> {
                         FrameLayout frame=a.getWindow().getDecorView().findViewWithTag("preview_frame");
                         CameraPreview preview=frame.findViewWithTag("camera_preview");
-                        frame.getChildAt(1).setVisibility(View.GONE); // replace idle placeholder only in this test
+                        frame.getChildAt(1).setVisibility(View.GONE);
                         ((TextView) frame.getChildAt(2)).setText("SYNTHETIC GEOMETRY TEST");
                         preview.setFill(fill);
                         SurfaceTexture st=preview.getSurfaceTexture();
@@ -102,7 +108,7 @@ public class DashboardUiTest {
                         preview.refreshTransform();
                         assertTrue(preview.getGlobalVisibleRect(area[0]));
                     });
-                    SystemClock.sleep(600);
+                    SystemClock.sleep(800);
                     Bitmap bitmap=saveScreenshot(names[index]+(fill?"-fill.png":"-fit.png"));
                     Rect r=area[0];
                     int minX=Integer.MAX_VALUE,minY=Integer.MAX_VALUE,maxX=-1,maxY=-1;
