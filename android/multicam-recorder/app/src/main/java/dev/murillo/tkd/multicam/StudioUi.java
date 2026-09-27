@@ -30,7 +30,14 @@ final class StudioUi {
     int dp(float v) { return Math.round(v * context.getResources().getDisplayMetrics().density); }
 
     TextView text(String value, float size, int color, boolean bold) {
-        TextView t = new TextView(context);
+        TextView t = new TextView(context) {
+            @Override public void setMaxWidth(int pixels) {
+                // The light overlay bounds itself from a parent layout callback.
+                // TextView requests another layout even for an unchanged limit;
+                // make that operation idempotent so diagnostics cannot cause a loop.
+                if (getMaxWidth() != pixels) super.setMaxWidth(pixels);
+            }
+        };
         t.setText(value);
         t.setTextSize(size);
         t.setTextColor(color);
