@@ -46,11 +46,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Preserve the known-working capture and transport
-        shell: bash
-        run: |
-          test "$(git hash-object android/multicam-recorder/app/src/main/java/dev/murillo/tkd/multicam/CameraEngine.java)" = cfab1b12fa73841404441fb59952ed06b4befa23
-          test "$(git hash-object android/multicam-recorder/app/src/main/java/dev/murillo/tkd/multicam/NetworkCoordinator.java)" = dca3d6940092cb908f48d1c6a0d6f222697942ab
+      - name: Preserve capture controls and preview geometry
+        run: python3 android/multicam-recorder/scripts/check_capture_invariants.py
       - name: Geometry tests and APKs
         run: gradle -p android/multicam-recorder :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
       - uses: actions/upload-artifact@v4

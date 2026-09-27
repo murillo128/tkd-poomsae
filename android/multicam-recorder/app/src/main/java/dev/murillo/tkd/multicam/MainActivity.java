@@ -85,6 +85,9 @@ public final class MainActivity extends Activity
     private View previewPlaceholder;
     private Tile roleTile, networkTile, cameraTile, sessionTile;
     private TextView controllerTab, cameraTab;
+    private TextView lightIndicator;
+    private LightMonitor.Snapshot lightSnapshot = LightMonitor.Snapshot.unknown("", "No capture yet");
+    private long lastLightRefreshNs = -1;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -142,7 +145,7 @@ public final class MainActivity extends Activity
             TextView tagline = ui.line("Record better. Train smarter.", 10, MUTED, false);
             tagline.setLetterSpacing(0.08f);
             footer.addView(tagline, new LinearLayout.LayoutParams(0, -2, 1));
-            footer.addView(ui.line("TKD MultiCam  1.7", 11, CYAN, true));
+            footer.addView(ui.line("TKD MultiCam  1.8", 11, CYAN, true));
             content.addView(footer);
             ScrollView scroll = new ScrollView(this);
             scroll.setVerticalScrollBarEnabled(false);
@@ -255,6 +258,15 @@ public final class MainActivity extends Activity
         frame.addView(previewState, overlayAt(Gravity.TOP | Gravity.START, 10, 10));
         TextView format = overlay("FHD 120  ·  1.0×", TEXT, 10);
         frame.addView(format, overlayAt(Gravity.TOP | Gravity.END, 10, 10));
+        lightIndicator = overlay("LIGHT UNKNOWN", MUTED, 10);
+        lightIndicator.setTag("light_indicator");
+        lightIndicator.setSingleLine(false);
+        lightIndicator.setMaxLines(2);
+        lightIndicator.setVisibility(View.GONE);
+        lightIndicator.setOnClickListener(v -> details("Light / exposure", lightSnapshot.detail(), lightSnapshot.warning()));
+        frame.addView(lightIndicator, overlayAt(Gravity.TOP | Gravity.START, 10, 46));
+        frame.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) ->
+                lightIndicator.setMaxWidth(Math.max(1, r-l-ui.dp(20))));
         previewCaption = overlay("Camera 0  ·  Auto exposure", MUTED, 10);
         frame.addView(previewCaption, overlayAt(Gravity.BOTTOM | Gravity.START, 10, 10));
         fitButton = overlay("FIT", CYAN, 10);
@@ -287,7 +299,7 @@ public final class MainActivity extends Activity
         LinearLayout strip = ui.row();
         roleTile = new Tile("Role", "role", this::roleDialog);
         networkTile = new Tile("Network", "wifi", () -> details("Network", networkDetail + "\n\n" + wifiInfo(), networkError));
-        cameraTile = new Tile("Camera", "camera", () -> details("Camera 0", cameraDetail
+        cameraTile = new Tile("Camera", "camera", () -> details("Camera 0", cameraDetail + "\n\n" + lightSnapshot.detail()
                 + "\n\nRequested capture: 1920×1080 at 120 fps.\nContinuous autofocus; automatic exposure. No fixed 1/500 shutter is currently requested.\nPreview FIT/FILL changes only the display, not the saved video.", phase == Phase.ERROR || (lastFps > 0 && lastFps < 110)));
         sessionTile = new Tile("Session", "session", () -> details("Session", sessionDetail
                 + "\n\nSession: " + (sessionId == null ? "None" : sessionId)
@@ -445,16 +457,24 @@ public final class MainActivity extends Activity
             boolean rec = "recording".equalsIgnoreCase(peer.status);
             boolean err = peer.status != null && peer.status.toLowerCase(Locale.US).contains("error");
             int color = err ? RED : rec ? RED : peer.ready ? GREEN : CYAN;
+            LightJson.Report report = peer.lightReport;
+            LightMonitor.Snapshot light = report == null
+                    ? LightMonitor.Snapshot.unknown("", "Camera has not supplied light metadata (older app or no active capture)")
+                    : report.at(SystemClock.elapsedRealtimeNanos());
+            int lightColor = lightColor(light);
             LinearLayout card = ui.row();
             card.setPadding(ui.dp(11), ui.dp(9), ui.dp(11), ui.dp(9));
-            card.setBackground(ui.touch(PANEL, 0xff091c29, LINE, 10));
+            card.setBackground(ui.touch(PANEL, 0xff091c29, light.warning() ? lightColor : LINE, 10));
             card.addView(ui.icon("phone", MUTED, wide ? 22 : 29));
             LinearLayout info = ui.column(); info.setPadding(ui.dp(10), 0, ui.dp(8), 0);
             info.addView(ui.line(name, wide ? 10 : 12, TEXT, true));
-            info.addView(ui.line(ip + "  ·  " + rtt, wide ? 9 : 10, MUTED, false), margin(-1, -2, 4, 0));
+            String lightLine = light.values() + " · " + light.label();
+            info.addView(ui.line(report == null ? ip + " · Light —" : lightLine,
+                    wide ? 9 : 10, report == null ? MUTED : lightColor, false), margin(-1, -2, 4, 0));
             card.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
             card.addView(ui.line(err ? "! ERROR" : rec ? "● REC" : peer.ready ? "● READY" : "CAMERA", wide ? 9 : 11, color, true));
             card.setOnClickListener(v -> details(name, "Address: " + ip + "\n" + rtt + "\nStatus: " + peer.status
+                    + "\n\n" + light.detail()
                     + "\n\nRemote live thumbnails and battery telemetry are not transmitted by this prototype.", err));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(wide ? ui.dp(260) : -1, ui.dp(wide ? 48 : 68));
             if (peerContainer.getChildCount() > 0) { if (wide) lp.leftMargin = ui.dp(7); else lp.topMargin = ui.dp(6); }
@@ -513,6 +533,7 @@ public final class MainActivity extends Activity
         stopButton.setAlpha(active() ? 1f : 0.65f);
         preview.refreshTransform();
         renderPeers();
+        updateLightIndicator();
     }
 
     private final Runnable ticker = new Runnable() {
@@ -525,9 +546,47 @@ public final class MainActivity extends Activity
                 long seconds = Math.max(0, (SystemClock.elapsedRealtimeNanos() - startedNs) / 1_000_000_000L);
                 previewState.setText(String.format(Locale.US, localViewEnabled() ? "● REC  %02d:%02d" : "REMOTE REC  %02d:%02d", seconds/60, seconds%60));
             }
+            updateLightTelemetry();
             main.postDelayed(this, 250);
         }
     };
+
+    private static int lightColor(LightMonitor.Snapshot sample) {
+        return !sample.known ? MUTED : sample.blurBand >= 2 ? RED : sample.warning() ? AMBER : GREEN;
+    }
+
+    private void updateLightTelemetry() {
+        if (testMode) return;
+        long now = SystemClock.elapsedRealtimeNanos();
+        if (lastLightRefreshNs >= 0 && now-lastLightRefreshNs < LightMonitor.WINDOW_NS) return;
+        lastLightRefreshNs = now;
+        boolean live = localViewEnabled() && cameraEngine != null
+                && (phase == Phase.ARMING || phase == Phase.READY || phase == Phase.SCHEDULED || phase == Phase.RECORDING);
+        if (live) lightSnapshot = cameraEngine.getLightSnapshot(now);
+        if (network != null) network.setLocalLight(live ? lightSnapshot : null);
+        updateLightIndicator();
+        if (role == NetworkCoordinator.Role.CONTROLLER) renderPeers(); // also expire remote telemetry
+    }
+
+    private void updateLightIndicator() {
+        if (lightIndicator == null) return;
+        boolean visible = localViewEnabled() && (active() || phase == Phase.SAVED);
+        lightIndicator.setVisibility(visible ? View.VISIBLE : View.GONE);
+        int color = lightColor(lightSnapshot);
+        String label = lightSnapshot.label();
+        if (!lightSnapshot.known && lightSnapshot.reason.toLowerCase(Locale.US).contains("stale"))
+            label = "LIGHT DATA STALE";
+        lightIndicator.setText((phase == Phase.SAVED ? "LAST · " : "") + label + "\n" + lightSnapshot.values());
+        lightIndicator.setTextColor(color);
+        lightIndicator.setBackground(ui.touch(0xee06131d, 0xee06131d, color, 7));
+        lightIndicator.setContentDescription(label + ". " + lightSnapshot.values() + ". Tap for light details.");
+        boolean captureError = phase == Phase.ERROR || (phase == Phase.SAVED && lastFps > 0 && lastFps < 110);
+        boolean warning = visible && lightSnapshot.warning();
+        cameraTile.badge.setVisibility(captureError || warning ? View.VISIBLE : View.GONE);
+        int badgeColor = captureError ? RED : color;
+        cameraTile.badge.setBackground(ui.panel(badgeColor, badgeColor, badgeColor, 9));
+        if (visible && lightSnapshot.known) cameraTile.small.setText(lightSnapshot.values());
+    }
 
     private void startNetwork() {
         if (testMode) return;
@@ -560,6 +619,8 @@ public final class MainActivity extends Activity
         sessionId = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
         phase = localEnabled ? Phase.ARMING : Phase.READY;
         lastFps = 0; videoUri = null; metadataPath = null;
+        lightSnapshot = LightMonitor.Snapshot.unknown(sessionId, "Waiting for high-speed metadata");
+        if (network != null) network.setLocalLight(null);
         sessionDetail = "Preparing cameras. Pre-roll is saved from ARM.";
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
         String id = sessionId;
@@ -621,6 +682,8 @@ public final class MainActivity extends Activity
     @Override public void onCameraStopped(String path, String metadata) {
         main.post(() -> {
             if (destroyed) return;
+            if (cameraEngine != null) lightSnapshot = cameraEngine.getLightSnapshot(SystemClock.elapsedRealtimeNanos());
+            if (network != null) network.setLocalLight(null);
             videoUri = path; metadataPath = metadata; lastFps = cameraEngine == null ? 0 : cameraEngine.getLastEncodedFps();
             phase = path == null ? Phase.ERROR : Phase.SAVED;
             sessionDetail = path == null ? "No video file was returned." : path.startsWith("content:") ? "Video published to Gallery / Movies / TKDPoomsae." : "Video saved in app storage; Gallery publication was not confirmed.";
@@ -660,6 +723,8 @@ public final class MainActivity extends Activity
                 onCameraError("Camera permission is missing. Grant it on this phone."); return;
             }
             sessionId = id; phase = Phase.ARMING; lastFps = 0; videoUri = null; metadataPath = null;
+            lightSnapshot = LightMonitor.Snapshot.unknown(id, "Waiting for high-speed metadata");
+            if (network != null) network.setLocalLight(null);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
             if (cameraEngine == null) cameraEngine = new CameraEngine(this, preview, this);
             cameraEngine.arm(id); render();
@@ -684,7 +749,7 @@ public final class MainActivity extends Activity
                         }).setNegativeButton("Close", null).show();
     }
     private void menu() {
-        new AlertDialog.Builder(this).setTitle("TKD MultiCam 1.7")
+        new AlertDialog.Builder(this).setTitle("TKD MultiCam 1.8")
                 .setItems(new String[]{"Change device role", "Preview: fit / cropped fill", "Open last saved video", "Diagnostics", "About capture"}, (d, n) -> {
                     if (n == 0) roleDialog();
                     if (n == 1) { preview.setFill(!preview.isFill()); render(); }

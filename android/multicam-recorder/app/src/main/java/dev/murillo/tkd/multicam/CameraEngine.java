@@ -70,6 +70,13 @@ public final class CameraEngine {
     private final Handler cameraHandler;
 
     private volatile State state = State.IDLE;
+    // LIGHT_OBSERVER_BEGIN
+    private final LightMonitor lightMonitor = new LightMonitor();
+
+    public LightMonitor.Snapshot getLightSnapshot(long elapsedNs) {
+        return lightMonitor.snapshot(elapsedNs);
+    }
+    // LIGHT_OBSERVER_END
 
     private CameraCharacteristics characteristics;
     private CameraDevice cameraDevice;
@@ -193,6 +200,9 @@ public final class CameraEngine {
 
         sessionId =
                 sanitizeSessionId(newSessionId);
+    // LIGHT_OBSERVER_BEGIN
+        lightMonitor.reset(sessionId);
+    // LIGHT_OBSERVER_END
 
         recorderStartElapsedNs = -1L;
         scheduledStartNs = -1L;
@@ -838,6 +848,16 @@ public final class CameraEngine {
                                     CaptureResult
                                             .SENSOR_TIMESTAMP);
 
+    // LIGHT_OBSERVER_BEGIN
+                    // This callback is attached only to the high-speed burst.
+                    if (recorderStarted) {
+                        Long exposure = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+                        Integer iso = result.get(CaptureResult.SENSOR_SENSITIVITY);
+                        lightMonitor.observe(ts == null ? -1L : ts,
+                                SystemClock.elapsedRealtimeNanos(),
+                                exposure == null ? -1L : exposure, iso == null ? -1 : iso);
+                    }
+    // LIGHT_OBSERVER_END
                     if (ts == null) return;
 
                     if (ts
@@ -1045,6 +1065,9 @@ public final class CameraEngine {
                     new JSONObject();
 
             j.put("session_id", sessionId);
+    // LIGHT_OBSERVER_BEGIN
+            j.put("light_monitor", LightJson.summary(lightMonitor.summary()));
+    // LIGHT_OBSERVER_END
             j.put("manufacturer", Build.MANUFACTURER);
             j.put("model", Build.MODEL);
             j.put("camera_id", CAMERA_ID);

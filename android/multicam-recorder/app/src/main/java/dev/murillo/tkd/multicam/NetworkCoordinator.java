@@ -42,6 +42,10 @@ public final class NetworkCoordinator {
         public volatile boolean hasSync;
         public volatile long clockOffsetNs;
         public volatile long bestRttNs = Long.MAX_VALUE;
+    // LIGHT_OBSERVER_BEGIN
+        public volatile LightJson.Report lightReport;
+        public volatile String lightExpectedSession;
+    // LIGHT_OBSERVER_END
 
         Peer(String id) {
             this.id = id;
@@ -70,6 +74,11 @@ public final class NetworkCoordinator {
 
     private final NsdManager nsdManager;
 
+    // LIGHT_OBSERVER_BEGIN
+    private volatile LightMonitor.Snapshot localLight;
+
+    public void setLocalLight(LightMonitor.Snapshot sample) { localLight = sample; }
+    // LIGHT_OBSERVER_END
     private volatile Role role;
     private volatile boolean running;
     private volatile InetAddress controllerAddress;
@@ -173,6 +182,9 @@ public final class NetworkCoordinator {
 
     public synchronized void stop() {
         running = false;
+    // LIGHT_OBSERVER_BEGIN
+        localLight = null;
+    // LIGHT_OBSERVER_END
 
         stopDiscovery();
         unregisterCameraService();
@@ -230,6 +242,10 @@ public final class NetworkCoordinator {
         for (Peer peer : getPeers()) {
             peer.ready = false;
             peer.status = "arming";
+    // LIGHT_OBSERVER_BEGIN
+            peer.lightExpectedSession = sessionId;
+            peer.lightReport = null;
+    // LIGHT_OBSERVER_END
 
             try {
                 JSONObject j = base("arm");
@@ -719,6 +735,10 @@ public final class NetworkCoordinator {
                 reply.put("t0", t0);
                 reply.put("t1", t1);
                 reply.put("t2", t2);
+    // LIGHT_OBSERVER_BEGIN
+                JSONObject light = LightJson.encode(localLight, SystemClock.elapsedRealtimeNanos());
+                if (light != null) reply.put("light", light);
+    // LIGHT_OBSERVER_END
 
                 sendTo(senderAddress, reply);
                 break;
@@ -798,6 +818,10 @@ public final class NetworkCoordinator {
                 long t1 = j.getLong("t1");
                 long t2 = j.getLong("t2");
                 long t3 = receivedNs;
+    // LIGHT_OBSERVER_BEGIN
+                peer.lightReport = LightJson.decode(j.optJSONObject("light"),
+                        peer.lightExpectedSession, peer.lightReport, receivedNs);
+    // LIGHT_OBSERVER_END
 
                 long rtt =
                         (t3 - t0)
