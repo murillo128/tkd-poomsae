@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: multicam-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -16,34 +20,81 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Install Android SDK 35
         shell: bash
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Build debug APK
-        run: gradle -p android/multicam-recorder :app:assembleDebug --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Preserve the known-working capture and transport
+        shell: bash
+        run: |
+          test "$(git hash-object android/multicam-recorder/app/src/main/java/dev/murillo/tkd/multicam/CameraEngine.java)" = cfab1b12fa73841404441fb59952ed06b4befa23
+          test "$(git hash-object android/multicam-recorder/app/src/main/java/dev/murillo/tkd/multicam/NetworkCoordinator.java)" = dca3d6940092cb908f48d1c6a0d6f222697942ab
+      - name: Geometry tests and APKs
+        run: gradle -p android/multicam-recorder :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
+      - uses: actions/upload-artifact@v4
         with:
           name: TKD-MultiCam-debug
           path: android/multicam-recorder/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TKD-MultiCam-ui-test
+          path: android/multicam-recorder/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: TKD-MultiCam-unit-results
+          path: android/multicam-recorder/app/build/test-results/
+
+  ui-preview-check:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: TKD-MultiCam-debug
+          path: artifacts/app
+      - uses: actions/download-artifact@v4
+        with:
+          name: TKD-MultiCam-ui-test
+          path: artifacts/test
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm
+      - name: Android 15 rendering and UI checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash android/multicam-recorder/scripts/ui-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: TKD-MultiCam-ui-proof
+          path: ui-proof/
