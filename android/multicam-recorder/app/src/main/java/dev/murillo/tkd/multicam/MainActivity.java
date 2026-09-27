@@ -9,6 +9,8 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -26,6 +28,7 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.text.TextUtils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -403,41 +406,6 @@ public final class MainActivity extends Activity
     }
 
     private void buildLandscape(LinearLayout root) {
-        LinearLayout statusRow =
-                new LinearLayout(this);
-        statusRow.setOrientation(
-                LinearLayout.HORIZONTAL);
-
-        roleText =
-                statusCard(
-                        statusRow,
-                        "ROLE",
-                        "Choose role");
-
-        networkText =
-                statusCard(
-                        statusRow,
-                        "NETWORK",
-                        "Not started");
-
-        cameraText =
-                statusCard(
-                        statusRow,
-                        "CAMERA",
-                        "Idle");
-
-        sessionText =
-                statusCard(
-                        statusRow,
-                        "SESSION",
-                        "No active session");
-
-        root.addView(
-                statusRow,
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        dp(44)));
-
         LinearLayout body =
                 new LinearLayout(this);
         body.setOrientation(
@@ -452,27 +420,76 @@ public final class MainActivity extends Activity
                 new LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.MATCH_PARENT,
-                        1.62f));
+                        1.55f));
 
         LinearLayout commandColumn =
                 new LinearLayout(this);
         commandColumn.setOrientation(
                 LinearLayout.VERTICAL);
         commandColumn.setPadding(
-                dp(8),
+                dp(10),
                 0,
                 0,
                 0);
 
+        LinearLayout statusGrid =
+                new LinearLayout(this);
+        statusGrid.setOrientation(
+                LinearLayout.VERTICAL);
+
+        LinearLayout statusRow1 =
+                new LinearLayout(this);
+        statusRow1.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        roleText =
+                statusCard(
+                        statusRow1,
+                        "ROLE",
+                        "Choose role");
+
+        networkText =
+                statusCard(
+                        statusRow1,
+                        "NETWORK",
+                        "Not started");
+
+        statusGrid.addView(
+                statusRow1,
+                matchWrap(0, dp(5)));
+
+        LinearLayout statusRow2 =
+                new LinearLayout(this);
+        statusRow2.setOrientation(
+                LinearLayout.HORIZONTAL);
+
+        cameraText =
+                statusCard(
+                        statusRow2,
+                        "CAMERA",
+                        "Idle");
+
+        sessionText =
+                statusCard(
+                        statusRow2,
+                        "SESSION",
+                        "No active session");
+
+        statusGrid.addView(statusRow2);
+
+        commandColumn.addView(
+                statusGrid,
+                matchWrap(0, dp(6)));
+
         buildControllerPanel();
         commandColumn.addView(
                 controllerPanel,
-                matchWrap(0, dp(5)));
+                matchWrap(0, dp(6)));
 
         buildCameraPanel();
         commandColumn.addView(
                 cameraPanel,
-                matchWrap(0, dp(5)));
+                matchWrap(0, dp(6)));
 
         commandColumn.addView(
                 buildPeersPanel(),
@@ -496,7 +513,7 @@ public final class MainActivity extends Activity
 
         bodyLp.setMargins(
                 0,
-                dp(6),
+                dp(3),
                 0,
                 0);
 
@@ -516,6 +533,13 @@ public final class MainActivity extends Activity
 
         textureView =
                 new TextureView(this);
+
+        textureView.addOnLayoutChangeListener(
+                (v, left, top, right, bottom,
+                 oldLeft, oldTop, oldRight, oldBottom) ->
+                        updatePreviewTransform());
+
+        textureView.post(this::updatePreviewTransform);
 
         int previewHeight =
                 height > 0
@@ -904,15 +928,19 @@ public final class MainActivity extends Activity
         value.setTextSize(
                 landscapeUi ? 9 : 12);
 
-        value.setMaxLines(
-                landscapeUi ? 2 : 3);
+        value.setMinLines(2);
+        value.setMaxLines(2);
+        value.setEllipsize(
+                TextUtils.TruncateAt.END);
+        value.setGravity(
+                Gravity.TOP | Gravity.START);
 
         card.addView(value);
 
         LinearLayout.LayoutParams lp =
                 new LinearLayout.LayoutParams(
                         0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        dp(landscapeUi ? 56 : 74),
                         1f);
 
         if (parent.getChildCount() > 0) {
@@ -1098,6 +1126,69 @@ public final class MainActivity extends Activity
                 bottom);
 
         return lp;
+    }
+
+    private void updatePreviewTransform() {
+        TextureView preview = textureView;
+        if (preview == null) return;
+
+        int width = preview.getWidth();
+        int height = preview.getHeight();
+        if (width <= 0 || height <= 0) return;
+
+        int sensorOrientation = 90;
+        try {
+            CameraManager manager =
+                    (CameraManager)
+                            getSystemService(
+                                    CAMERA_SERVICE);
+
+            CameraCharacteristics cc =
+                    manager.getCameraCharacteristics(
+                            CameraEngine.CAMERA_ID);
+
+            Integer value =
+                    cc.get(
+                            CameraCharacteristics
+                                    .SENSOR_ORIENTATION);
+
+            if (value != null) {
+                sensorOrientation = value;
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Samsung's high-speed SurfaceTexture arrives in sensor coordinates.
+        // Apply the inverse sensor rotation to the display-only TextureView.
+        float correction =
+                -sensorOrientation;
+
+        preview.setPivotX(width / 2f);
+        preview.setPivotY(height / 2f);
+        preview.setRotation(correction);
+
+        if ((sensorOrientation % 180) != 0) {
+            float scale =
+                    Math.max(
+                            (float) width / height,
+                            (float) height / width);
+
+            preview.setScaleX(scale);
+            preview.setScaleY(scale);
+        } else {
+            preview.setScaleX(1f);
+            preview.setScaleY(1f);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        if (hasFocus && textureView != null) {
+            textureView.post(
+                    this::updatePreviewTransform);
+        }
     }
 
     private int portraitPreviewHeight() {
@@ -1573,7 +1664,7 @@ public final class MainActivity extends Activity
                 LinearLayout.LayoutParams lp =
                         new LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT);
+                                dp(landscapeUi ? 48 : 66));
 
                 if (peersContainer.getChildCount() > 0) {
                     lp.setMargins(
@@ -1616,6 +1707,8 @@ public final class MainActivity extends Activity
         localReady = true;
 
         runOnUiThread(() -> {
+            updatePreviewTransform();
+
             cameraText.setText(
                     "READY · " + details);
 
