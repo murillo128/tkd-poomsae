@@ -68,6 +68,8 @@ public final class MainActivity extends Activity
     private NetworkCoordinator.Role role = NetworkCoordinator.Role.CONTROLLER;
     private Phase phase = Phase.IDLE;
     private CameraEngine cameraEngine;
+    private DeviceOrientation deviceOrientation;
+    private boolean saveOrientationWarning;
     private NetworkCoordinator network;
     private final ExecutorService networkIo = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -93,6 +95,7 @@ public final class MainActivity extends Activity
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         ui = new StudioUi(this);
+        deviceOrientation = new DeviceOrientation(this);
         wide = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         testMode = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
                 && getIntent().getBooleanExtra("ui_test", false);
@@ -145,7 +148,7 @@ public final class MainActivity extends Activity
             TextView tagline = ui.line("Record better. Train smarter.", 10, MUTED, false);
             tagline.setLetterSpacing(0.08f);
             footer.addView(tagline, new LinearLayout.LayoutParams(0, -2, 1));
-            footer.addView(ui.line("TKD MultiCam  1.8", 11, CYAN, true));
+            footer.addView(ui.line("TKD MultiCam  1.9", 11, CYAN, true));
             content.addView(footer);
             ScrollView scroll = new ScrollView(this);
             scroll.setVerticalScrollBarEnabled(false);
@@ -384,7 +387,7 @@ public final class MainActivity extends Activity
         View discover = ui.command("action_discover", "search", "DISCOVER", "Find cameras on Wi-Fi", CYAN, compact,
                 () -> io(() -> { if (network != null) network.discoverNow(); }));
         armButton = ui.command("action_arm", "arm", "ARM ALL", "Prepare + start pre-roll", CYAN, compact, this::armAll);
-        startButton = ui.command("action_start", "play", "START +3S", "Synchronized start", GREEN, compact, this::startAll);
+        startButton = ui.command("action_start", "play", "START", "Start immediately", GREEN, compact, this::startAll);
         stopButton = ui.command("action_stop", "stop", "STOP ALL", "Finish and save videos", RED, compact, this::stopAll);
         first.addView(discover, new LinearLayout.LayoutParams(0, ui.dp(compact ? 50 : 64), 1));
         LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(0, ui.dp(compact ? 50 : 64), 1); a.leftMargin = ui.dp(7);
@@ -511,7 +514,7 @@ public final class MainActivity extends Activity
         renderNetwork();
         String state = phase == Phase.READY ? "Ready" : phase == Phase.SCHEDULED ? "Countdown" : phase == Phase.RECORDING ? "Recording"
                 : phase == Phase.STOPPING ? "Saving" : phase == Phase.SAVED ? "Saved" : phase == Phase.ARMING ? "Arming" : phase == Phase.ERROR ? "Error" : "Idle";
-        boolean fpsProblem = phase == Phase.SAVED && lastFps > 0 && lastFps < 110;
+        boolean fpsProblem = phase == Phase.SAVED && ((lastFps > 0 && lastFps < 110) || saveOrientationWarning);
         int color = phase == Phase.ERROR || fpsProblem ? RED : phase == Phase.READY || phase == Phase.SAVED ? GREEN : CYAN;
         cameraTile.show(localView ? state : "Remote only", !localView ? "Local camera off" : phase == Phase.SAVED && lastFps > 0
                 ? String.format(Locale.US, "%.1f fps measured", lastFps) : "FHD120 · AF", color, phase == Phase.ERROR || fpsProblem);
@@ -580,7 +583,7 @@ public final class MainActivity extends Activity
         lightIndicator.setTextColor(color);
         lightIndicator.setBackground(ui.touch(0xee06131d, 0xee06131d, color, 7));
         lightIndicator.setContentDescription(label + ". " + lightSnapshot.values() + ". Tap for light details.");
-        boolean captureError = phase == Phase.ERROR || (phase == Phase.SAVED && lastFps > 0 && lastFps < 110);
+        boolean captureError = phase == Phase.ERROR || (phase == Phase.SAVED && ((lastFps > 0 && lastFps < 110) || saveOrientationWarning));
         boolean warning = visible && lightSnapshot.warning();
         cameraTile.badge.setVisibility(captureError || warning ? View.VISIBLE : View.GONE);
         int badgeColor = captureError ? RED : color;
@@ -618,7 +621,7 @@ public final class MainActivity extends Activity
         participants.clear(); for (NetworkCoordinator.Peer peer : peers) participants.add(peer.id);
         sessionId = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
         phase = localEnabled ? Phase.ARMING : Phase.READY;
-        lastFps = 0; videoUri = null; metadataPath = null;
+        lastFps = 0; videoUri = null; metadataPath = null; saveOrientationWarning = false;
         lightSnapshot = LightMonitor.Snapshot.unknown(sessionId, "Waiting for high-speed metadata");
         if (network != null) network.setLocalLight(null);
         sessionDetail = "Preparing cameras. Pre-roll is saved from ARM.";
@@ -627,7 +630,7 @@ public final class MainActivity extends Activity
         io(() -> { if (network != null) network.armAll(id); });
         if (localEnabled) {
             if (cameraEngine == null) cameraEngine = new CameraEngine(this, preview, this);
-            cameraEngine.arm(id);
+            cameraEngine.arm(id, deviceOrientation.read(preview.getSensorDegrees()));
         }
         render();
     }
@@ -640,13 +643,13 @@ public final class MainActivity extends Activity
             if (!peer.ready) { toast("Wait until all cameras are READY."); return; }
         }
         if (!ids.equals(participants)) { toast("The camera group changed. Stop and ARM again."); return; }
-        scheduledNs = SystemClock.elapsedRealtimeNanos() + 3_000_000_000L;
+        scheduledNs = SystemClock.elapsedRealtimeNanos(); // common logical instant: no deliberate lead/countdown
         phase = Phase.SCHEDULED;
         long target = scheduledNs;
-        io(() -> { if (network != null) network.startAll(target, 3000); });
-        if (localEnabled && cameraEngine != null) cameraEngine.startAt(target);
-        else main.postDelayed(() -> { if (phase == Phase.SCHEDULED) onCameraStarted(target); }, 3000);
-        sessionDetail = "Synchronized start scheduled. This is not hardware genlock.";
+        io(() -> { if (network != null) network.startAll(target, 0); });
+        if (localEnabled && cameraEngine != null) cameraEngine.startAt(target, deviceOrientation.read(preview.getSensorDegrees()));
+        else onCameraStarted(target);
+        sessionDetail = "START sent immediately. Requested common time and actual device execution times remain separate; Wi-Fi is not genlock.";
         render();
     }
     private void stopAll() {
@@ -685,10 +688,15 @@ public final class MainActivity extends Activity
             if (cameraEngine != null) lightSnapshot = cameraEngine.getLightSnapshot(SystemClock.elapsedRealtimeNanos());
             if (network != null) network.setLocalLight(null);
             videoUri = path; metadataPath = metadata; lastFps = cameraEngine == null ? 0 : cameraEngine.getLastEncodedFps();
+            saveOrientationWarning = cameraEngine != null && cameraEngine.hasOrientationWarning();
             phase = path == null ? Phase.ERROR : Phase.SAVED;
             sessionDetail = path == null ? "No video file was returned." : path.startsWith("content:") ? "Video published to Gallery / Movies / TKDPoomsae." : "Video saved in app storage; Gallery publication was not confirmed.";
             cameraDetail = String.format(Locale.US, "MP4: %.2f fps measured from timestamps.\nFrames: %d\n%s", lastFps,
                     cameraEngine == null ? 0 : cameraEngine.getLastEncodedFrameCount(), lastFps > 0 && lastFps < 110 ? "Warning: below the requested 120 fps." : "Capture completed.");
+            if (cameraEngine != null) {
+                cameraDetail += "\n\n" + cameraEngine.getOrientationSummary();
+                sessionDetail += "\n\n" + cameraEngine.getOrientationSummary();
+            }
             render();
             if (role == NetworkCoordinator.Role.CAMERA) io(() -> network.sendStopped(path));
             unlock();
@@ -722,19 +730,19 @@ public final class MainActivity extends Activity
             if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 onCameraError("Camera permission is missing. Grant it on this phone."); return;
             }
-            sessionId = id; phase = Phase.ARMING; lastFps = 0; videoUri = null; metadataPath = null;
+            sessionId = id; phase = Phase.ARMING; lastFps = 0; videoUri = null; metadataPath = null; saveOrientationWarning = false;
             lightSnapshot = LightMonitor.Snapshot.unknown(id, "Waiting for high-speed metadata");
             if (network != null) network.setLocalLight(null);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
             if (cameraEngine == null) cameraEngine = new CameraEngine(this, preview, this);
-            cameraEngine.arm(id); render();
+            cameraEngine.arm(id, deviceOrientation.read(preview.getSensorDegrees())); render();
         });
     }
     @Override public void onStartCommand(long target, long fallbackMs) {
         main.post(() -> {
             if (destroyed || role != NetworkCoordinator.Role.CAMERA || phase != Phase.READY) return;
             scheduledNs = target > 0 ? target : SystemClock.elapsedRealtimeNanos() + fallbackMs * 1_000_000L;
-            phase = Phase.SCHEDULED; cameraEngine.startAt(scheduledNs); render();
+            phase = Phase.SCHEDULED; cameraEngine.startAt(scheduledNs, deviceOrientation.read(preview.getSensorDegrees())); render();
         });
     }
     @Override public void onStopCommand() { main.post(() -> { if (!destroyed && role == NetworkCoordinator.Role.CAMERA) stopAll(); }); }
@@ -749,14 +757,14 @@ public final class MainActivity extends Activity
                         }).setNegativeButton("Close", null).show();
     }
     private void menu() {
-        new AlertDialog.Builder(this).setTitle("TKD MultiCam 1.8")
+        new AlertDialog.Builder(this).setTitle("TKD MultiCam 1.9")
                 .setItems(new String[]{"Change device role", "Preview: fit / cropped fill", "Open last saved video", "Diagnostics", "About capture"}, (d, n) -> {
                     if (n == 0) roleDialog();
                     if (n == 1) { preview.setFill(!preview.isFill()); render(); }
                     if (n == 2) openVideo();
                     if (n == 3) details("Diagnostics", networkDetail + "\n\n" + cameraDetail + "\n\n" + sessionDetail
                             + "\n\n" + getSharedPreferences("crash", MODE_PRIVATE).getString("last_crash", "No captured process crash."), networkError || phase == Phase.ERROR);
-                    if (n == 4) details("Capture", "Camera 0 · 1080p120 target\nAutofocus · automatic exposure\n\nARM writes pre-roll. START records a synchronized time marker. STOP finalizes the MP4 and publishes it to Gallery.\n\nThis version keeps the verified v1.3 capture backend unchanged.\n\nPreview FIT shows the whole frame. FILL crops only the screen image. Neither stretches or changes the saved video.", false);
+                    if (n == 4) details("Capture", "Camera 0 · 1080p120 target\nAutofocus · automatic exposure\n\nARM writes pre-roll. START immediately records a shared requested time marker (no countdown). Actual device execution may be later due to Wi-Fi/dispatch latency. STOP finalizes the MP4 and publishes it to Gallery.\n\nAE/AF, high-speed capture and the encoder remain unchanged. Saved rotation uses the physical device orientation at START, with a metadata-only MP4 header update after STOP. Keep the phone fixed after START.\n\nPreview FIT shows the whole frame. FILL crops only the screen image. Neither stretches or changes the saved video.", false);
                 }).setNegativeButton("Close", null).show();
     }
     private void details(String title, String message, boolean error) {
@@ -817,6 +825,7 @@ public final class MainActivity extends Activity
     }
     @Override protected void onDestroy() {
         destroyed = true; main.removeCallbacksAndMessages(null);
+        if (deviceOrientation != null) deviceOrientation.close();
         if (network != null && !networkIo.isShutdown()) networkIo.execute(network::stop);
         networkIo.shutdown();
         if (cameraEngine != null) cameraEngine.shutdown();

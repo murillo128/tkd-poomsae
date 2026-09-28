@@ -9,7 +9,7 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <application android:name=".CrashCatcherApp" android:allowBackup="false"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
-        android:label="TKD MultiCam 1.8" android:supportsRtl="true" android:theme="@style/StudioTheme">
+        android:label="TKD MultiCam 1.9" android:supportsRtl="true" android:theme="@style/StudioTheme">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Allow passive light-observer additions only; preserve all existing capture/control source."""
+"""Allow passive light observation and approved rotation storage hooks; preserve capture/control source."""
 import hashlib
 import re
 from pathlib import Path
@@ -12,6 +12,13 @@ expected = {
 }
 for name, (sha, count) in expected.items():
     source = (base / name).read_text()
+    if name == 'CameraEngine.java':
+        orientation = re.compile(r'^    // ORIENTATION_STORAGE_BEGIN\n.*?^    // ORIENTATION_STORAGE_END\n', re.M | re.S)
+        hooks = orientation.findall(source)
+        assert len(hooks) == 5, 'Unexpected orientation storage hook count'
+        assert not re.search(r'CaptureRequest|setRepeating|createCapture|setVideo|setCaptureRate|mediaRecorder\.', ''.join(hooks))
+        source = orientation.sub('', source)
+        print('PASS storage orientation: five metadata-only hooks; no capture/encoder settings')
     pattern = re.compile(r'^    // LIGHT_OBSERVER_BEGIN\n.*?^    // LIGHT_OBSERVER_END\n', re.M | re.S)
     additions = pattern.findall(source)
     assert len(additions) == count, f'{name}: unexpected observer block count'

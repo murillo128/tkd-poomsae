@@ -78,6 +78,63 @@ public final class CameraEngine {
     }
     // LIGHT_OBSERVER_END
 
+    // ORIENTATION_STORAGE_BEGIN
+    private RecordingOrientation.Choice pendingOrientation, orientationAtArm, orientationAtStart;
+    private volatile int savedRotationDegrees = -1;
+    private volatile boolean orientationVerified;
+    private volatile String orientationProblem;
+
+    public void arm(String id, RecordingOrientation.Choice orientation) {
+        cameraHandler.post(() -> {
+            if (state != State.IDLE && state != State.ERROR) return;
+            pendingOrientation = orientation;
+            armInternal(id);
+        });
+    }
+
+    public void startAt(long targetNs, RecordingOrientation.Choice orientation) {
+        cameraHandler.post(() -> {
+            if (state != State.READY) return;
+            orientationAtStart = orientation;
+            scheduleOfficialStart(targetNs);
+        });
+    }
+
+    public boolean hasOrientationWarning() { return orientationProblem != null; }
+
+    public String getOrientationSummary() {
+        return "Playback orientation: " + savedRotationDegrees + " degrees clockwise. "
+                + (orientationVerified ? "MP4 matrix verified." : "MP4 matrix NOT verified.")
+                + (orientationProblem == null ? "" : " Warning: " + orientationProblem);
+    }
+
+    private void finalizeStorageOrientation() {
+        RecordingOrientation.Choice choice = officialRecordingStarted && orientationAtStart != null
+                ? orientationAtStart : orientationAtArm;
+        if (choice == null) choice = new RecordingOrientation.Choice(computeOrientationHint(),
+                "legacy_display_fallback", -1, true);
+        savedRotationDegrees = choice.clockwiseDegrees;
+        orientationProblem = choice.uncertain ? "Physical orientation unavailable/ambiguous; used " + choice.source : null;
+        try {
+            if (videoFile == null || !videoFile.isFile()) throw new java.io.IOException("No finalized MP4");
+            Mp4Orientation.set(videoFile, savedRotationDegrees);
+            orientationVerified = true;
+        } catch (java.io.IOException failure) {
+            orientationVerified = false;
+            orientationProblem = "Cannot update rotation metadata: " + failure.getMessage();
+            status("Orientation warning: " + orientationProblem);
+        }
+    }
+
+    private JSONObject orientationJson(RecordingOrientation.Choice choice) throws Exception {
+        JSONObject j = new JSONObject();
+        if (choice != null) j.put("clockwise_degrees", choice.clockwiseDegrees)
+                .put("source", choice.source).put("measurement_age_ns", choice.measurementAgeNs)
+                .put("uncertain", choice.uncertain);
+        return j;
+    }
+
+    // ORIENTATION_STORAGE_END
     private CameraCharacteristics characteristics;
     private CameraDevice cameraDevice;
     private CameraCaptureSession previewSession;
@@ -204,6 +261,14 @@ public final class CameraEngine {
         lightMonitor.reset(sessionId);
     // LIGHT_OBSERVER_END
 
+    // ORIENTATION_STORAGE_BEGIN
+        orientationAtArm = pendingOrientation;
+        pendingOrientation = null;
+        orientationAtStart = null;
+        savedRotationDegrees = -1;
+        orientationVerified = false;
+        orientationProblem = null;
+    // ORIENTATION_STORAGE_END
         recorderStartElapsedNs = -1L;
         scheduledStartNs = -1L;
         officialStartElapsedNs = -1L;
@@ -591,6 +656,9 @@ public final class CameraEngine {
     }
 
     private int computeOrientationHint() {
+    // ORIENTATION_STORAGE_BEGIN
+        if (orientationAtArm != null) return orientationAtArm.clockwiseDegrees;
+    // ORIENTATION_STORAGE_END
         Integer sensorOrientation =
                 characteristics.get(
                         CameraCharacteristics
@@ -922,6 +990,11 @@ public final class CameraEngine {
             recorderStarted = false;
         }
 
+    // ORIENTATION_STORAGE_BEGIN
+        // Recorder has finalized the private MP4. Only its display matrix is edited;
+        // compressed samples, timestamps, sample tables and recording surfaces stay untouched.
+        finalizeStorageOrientation();
+    // ORIENTATION_STORAGE_END
         verifyRecordedVideo();
         writeMetadata();
 
@@ -1068,6 +1141,14 @@ public final class CameraEngine {
     // LIGHT_OBSERVER_BEGIN
             j.put("light_monitor", LightJson.summary(lightMonitor.summary()));
     // LIGHT_OBSERVER_END
+    // ORIENTATION_STORAGE_BEGIN
+            j.put("output_rotation_cw", savedRotationDegrees);
+            j.put("output_rotation_verified", orientationVerified);
+            j.put("output_rotation_warning", orientationProblem == null ? JSONObject.NULL : orientationProblem);
+            j.put("orientation_at_arm", orientationJson(orientationAtArm));
+            j.put("orientation_at_start", orientationJson(orientationAtStart));
+            j.put("rotation_basis", officialRecordingStarted ? "START" : "ARM");
+    // ORIENTATION_STORAGE_END
             j.put("manufacturer", Build.MANUFACTURER);
             j.put("model", Build.MODEL);
             j.put("camera_id", CAMERA_ID);
