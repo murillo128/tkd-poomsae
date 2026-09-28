@@ -66,13 +66,12 @@ public final class RecordingTrim {
             long cut=ex.getSampleTime();
             if(ex.getSampleTrackIndex()<0||cut<first||cut>target||flags(ex)!=MediaCodec.BUFFER_FLAG_KEY_FRAME)
                 throw new IOException("Cannot find a safe sync frame before START");
-            // B pictures can follow an IDR in decoder order but have earlier PTS.
-            // Find a safe presentation origin without dropping or sorting pictures.
             long min=cut,max=cut,count=0;
             while(ex.getSampleTrackIndex()>=0) {
                 min=Math.min(min,ex.getSampleTime());max=Math.max(max,ex.getSampleTime());count++;
                 if(!ex.advance())break;
             }
+            if(count>500_000)throw new IOException("Recording exceeds bounded sample limit");
             if(max<target||count<2)throw new IOException("Recording ended before any START frames were captured");
             seek(ex,cut);
             mux=new MediaMuxer(partial.getPath(),MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -80,14 +79,20 @@ public final class RecordingTrim {
             int track=mux.addTrack(format);mux.start();
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();ByteBuffer b=ByteBuffer.allocateDirect(256*1024);
             MessageDigest written=MessageDigest.getInstance("SHA-256");
+            long[] presentation=new long[(int)count];int sampleIndex=0;
             while(ex.getSampleTrackIndex()>=0) {
                 b=capacity(ex,b);b.clear();int n=ex.readSampleData(b,0),flag=flags(ex);
                 if(n<=0||n>b.capacity())throw new IOException("Invalid sample while trimming");
-                b.position(0);b.limit(n);info.set(0,n,ex.getSampleTime()-min,flag);
+                b.position(0);b.limit(n);presentation[sampleIndex]=ex.getSampleTime()-min;
+                // Stage only in monotonic decode order. Native MPEG4Writer subtracts
+                // its first PTS and otherwise rejects later pictures with earlier PTS.
+                // The unpublished staging timeline is replaced before verification.
+                info.set(0,n,Math.round(sampleIndex*1_000_000.0/120),flag);sampleIndex++;
                 digest(written,b,flag);mux.writeSampleData(track,b,info);
                 if(!ex.advance())break;
             }
             mux.stop();mux.release();mux=null;
+            CompositionTimes.restore(partial,presentation);
             byte[] expected=written.digest();long[] verified=verify(input,partial,cut,count,expected);
             if(!partial.renameTo(output))throw new IOException("Cannot commit trimmed MP4");
             complete=true;
