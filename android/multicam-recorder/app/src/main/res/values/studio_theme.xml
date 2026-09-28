@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="launcher_background">#06131E</color>
+    <style name="StudioTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#19D5E8</item>
+        <item name="android:windowBackground">#06131E</item>
+        <item name="android:statusBarColor">#06131E</item>
+        <item name="android:navigationBarColor">#06131E</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
